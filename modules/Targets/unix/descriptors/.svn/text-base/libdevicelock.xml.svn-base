@@ -1,0 +1,4 @@
+<skip_headers>
+    devicelockif.h
+    devicelockuiplugininterface.h
+</skip_headers>

@@ -1,0 +1,18 @@
+<include_preamble>
+    gcce/gcce.h
+    e32base.h
+</include_preamble>
+
+<skip_libs>
+    ekern{000a0000}.dso
+    iic{000a0000}.dso
+    drtaeabi{000a0000}.dso
+    resman{000a0000}.dso
+    rm_debug_ext{000a0000}.dso
+    javascriptcore{000a0000}.dso
+    obcmanager{000a0000}.dso
+</skip_libs>
+
+<skip_headers>
+    kernel/
+</skip_headers>

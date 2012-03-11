@@ -1,0 +1,3 @@
+<skip_headers>
+    libxml2
+</skip_headers>

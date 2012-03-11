@@ -1,0 +1,4 @@
+<skip_headers>
+    /private/
+    qsql_*.h
+</skip_headers>

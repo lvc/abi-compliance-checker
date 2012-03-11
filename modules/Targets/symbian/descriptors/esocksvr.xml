@@ -1,0 +1,7 @@
+<skip_headers>
+    /comms-infras/
+</skip_headers>
+
+<gcc_options>
+    -D__GCCXML__
+</gcc_options>

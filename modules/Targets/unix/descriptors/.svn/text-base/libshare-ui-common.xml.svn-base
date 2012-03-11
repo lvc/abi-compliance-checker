@@ -1,0 +1,3 @@
+<defines>
+    #define DBUS_SERVICE "org.freedesktop.DBus"
+</defines>

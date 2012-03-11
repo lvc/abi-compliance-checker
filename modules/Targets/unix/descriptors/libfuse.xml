@@ -1,0 +1,8 @@
+<gcc_options>
+    -D_FILE_OFFSET_BITS=64
+</gcc_options>
+
+<skip_headers>
+    *_lowlevel
+    *_compat
+</skip_headers>

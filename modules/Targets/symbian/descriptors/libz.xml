@@ -1,0 +1,4 @@
+<skip_headers>
+    ezlib.h
+    /stdapis/
+</skip_headers>

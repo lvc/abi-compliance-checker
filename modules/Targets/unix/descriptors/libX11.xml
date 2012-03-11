@@ -1,0 +1,10 @@
+<skip_headers>
+    /wx/
+</skip_headers>
+
+<non_self_compiled>
+    /extensions/
+    CoreP.h
+    ResourceI.h
+    /xorg/
+</non_self_compiled>

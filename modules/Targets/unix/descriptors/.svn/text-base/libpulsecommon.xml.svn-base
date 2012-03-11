@@ -1,0 +1,10 @@
+<non_self_compiled>
+    poll.h
+    /pulsecore/modules/
+</non_self_compiled>
+
+<include_preamble>
+    stdbool.h
+    pulseaudio.h
+    pulsecore-config.h
+</include_preamble>

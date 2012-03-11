@@ -1,0 +1,12 @@
+<non_self_compiled>
+    telepathy/_gen
+    *-gen.h
+</non_self_compiled>
+
+<gcc_options>
+    -DDBUS_GLIB_CLIENT_WRAPPERS_org_freedesktop_Telepathy_Channel
+    -DDBUS_GLIB_CLIENT_WRAPPERS_org_freedesktop_Telepathy_Connection
+    -DDBUS_GLIB_CLIENT_WRAPPERS_org_freedesktop_Telepathy_Connection_Interface_Forwarding
+    -DDBUS_GLIB_CLIENT_WRAPPERS_org_freedesktop_Telepathy_ConnectionManager
+    -DDBUS_GLIB_CLIENT_WRAPPERS_org_freedesktop_Telepathy_Properties
+</gcc_options>

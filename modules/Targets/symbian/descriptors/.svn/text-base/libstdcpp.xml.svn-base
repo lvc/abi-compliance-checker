@@ -1,0 +1,26 @@
+<skip_headers>
+    /stlportv5/
+    c_locale.h
+    _prolog.h
+    _epilog.h
+    /config/
+    _relops_cont.h
+    _function_adaptors.h
+    _null_stream.h
+    _ptrs_specialize.h
+    _relops_hash_cont.h
+    /debug/
+    /tools/
+    /wrappers/
+    e32base.h
+    _ostreambuf_iterator.h
+    _streambuf_iterator.h
+</skip_headers>
+
+<include_preamble>
+    stdapis/stlport/cstdlib
+</include_preamble>
+
+<gcc_options>
+    -D__SYMBIAN_STDCPP_SUPPORT__
+</gcc_options>

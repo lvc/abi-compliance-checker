@@ -1,0 +1,281 @@
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors
+END
+p2pgraph.xml
+K 25
+svn:wc:ra_dav:version-url
+V 94
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/p2pgraph.xml
+END
+mswsock.xml
+K 25
+svn:wc:ra_dav:version-url
+V 93
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/mswsock.xml
+END
+secur32.xml
+K 25
+svn:wc:ra_dav:version-url
+V 93
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/secur32.xml
+END
+uiautomationcore.xml
+K 25
+svn:wc:ra_dav:version-url
+V 102
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/uiautomationcore.xml
+END
+mprapi.xml
+K 25
+svn:wc:ra_dav:version-url
+V 92
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/mprapi.xml
+END
+wsock32.xml
+K 25
+svn:wc:ra_dav:version-url
+V 93
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/wsock32.xml
+END
+drtprov.xml
+K 25
+svn:wc:ra_dav:version-url
+V 93
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/drtprov.xml
+END
+activeds.xml
+K 25
+svn:wc:ra_dav:version-url
+V 94
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/activeds.xml
+END
+vssapi.xml
+K 25
+svn:wc:ra_dav:version-url
+V 92
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/vssapi.xml
+END
+drttransport.xml
+K 25
+svn:wc:ra_dav:version-url
+V 98
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/drttransport.xml
+END
+dsprop.xml
+K 25
+svn:wc:ra_dav:version-url
+V 92
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/dsprop.xml
+END
+gdi32.xml
+K 25
+svn:wc:ra_dav:version-url
+V 91
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/gdi32.xml
+END
+mfreadwrite.xml
+K 25
+svn:wc:ra_dav:version-url
+V 97
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/mfreadwrite.xml
+END
+httpapi.xml
+K 25
+svn:wc:ra_dav:version-url
+V 93
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/httpapi.xml
+END
+psapi.xml
+K 25
+svn:wc:ra_dav:version-url
+V 91
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/psapi.xml
+END
+wldap32.xml
+K 25
+svn:wc:ra_dav:version-url
+V 93
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/wldap32.xml
+END
+esent.xml
+K 25
+svn:wc:ra_dav:version-url
+V 91
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/esent.xml
+END
+rpcrt4.xml
+K 25
+svn:wc:ra_dav:version-url
+V 92
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/rpcrt4.xml
+END
+traffic.xml
+K 25
+svn:wc:ra_dav:version-url
+V 93
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/traffic.xml
+END
+tdh.xml
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/tdh.xml
+END
+dhcpcsvc6.xml
+K 25
+svn:wc:ra_dav:version-url
+V 95
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/dhcpcsvc6.xml
+END
+qwave.xml
+K 25
+svn:wc:ra_dav:version-url
+V 91
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/qwave.xml
+END
+user32.xml
+K 25
+svn:wc:ra_dav:version-url
+V 92
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/user32.xml
+END
+ole32.xml
+K 25
+svn:wc:ra_dav:version-url
+V 91
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/ole32.xml
+END
+dxva2.xml
+K 25
+svn:wc:ra_dav:version-url
+V 91
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/dxva2.xml
+END
+netapi32.xml
+K 25
+svn:wc:ra_dav:version-url
+V 94
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/netapi32.xml
+END
+kernel32.xml
+K 25
+svn:wc:ra_dav:version-url
+V 94
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/kernel32.xml
+END
+dsuiext.xml
+K 25
+svn:wc:ra_dav:version-url
+V 93
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/dsuiext.xml
+END
+comctl32.xml
+K 25
+svn:wc:ra_dav:version-url
+V 94
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/comctl32.xml
+END
+drt.xml
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/drt.xml
+END
+mapi32.xml
+K 25
+svn:wc:ra_dav:version-url
+V 92
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/mapi32.xml
+END
+odbcbcp.xml
+K 25
+svn:wc:ra_dav:version-url
+V 93
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/odbcbcp.xml
+END
+dhcpcsvc.xml
+K 25
+svn:wc:ra_dav:version-url
+V 94
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/dhcpcsvc.xml
+END
+riched20.xml
+K 25
+svn:wc:ra_dav:version-url
+V 94
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/riched20.xml
+END
+p2p.xml
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/p2p.xml
+END
+certpoleng.xml
+K 25
+svn:wc:ra_dav:version-url
+V 96
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/certpoleng.xml
+END
+fwpuclnt.xml
+K 25
+svn:wc:ra_dav:version-url
+V 94
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/fwpuclnt.xml
+END
+rtm.xml
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/rtm.xml
+END
+url.xml
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/url.xml
+END
+iscsidsc.xml
+K 25
+svn:wc:ra_dav:version-url
+V 94
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/iscsidsc.xml
+END
+msacm32.xml
+K 25
+svn:wc:ra_dav:version-url
+V 93
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/msacm32.xml
+END
+eappprxy.xml
+K 25
+svn:wc:ra_dav:version-url
+V 94
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/eappprxy.xml
+END
+advapi32.xml
+K 25
+svn:wc:ra_dav:version-url
+V 94
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/advapi32.xml
+END
+d3d10.xml
+K 25
+svn:wc:ra_dav:version-url
+V 91
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/d3d10.xml
+END
+msdmo.xml
+K 25
+svn:wc:ra_dav:version-url
+V 91
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/msdmo.xml
+END
+ws2_32.xml
+K 25
+svn:wc:ra_dav:version-url
+V 92
+/svn/abi-compliance-checker/!svn/ver/30/trunk/modules/Targets/windows/descriptors/ws2_32.xml
+END

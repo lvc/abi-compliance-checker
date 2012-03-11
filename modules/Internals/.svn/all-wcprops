@@ -1,0 +1,17 @@
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/abi-compliance-checker/!svn/ver/65/trunk/modules/Internals
+END
+SysCheck.pm
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svn/abi-compliance-checker/!svn/ver/68/trunk/modules/Internals/SysCheck.pm
+END
+RegTests.pm
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svn/abi-compliance-checker/!svn/ver/65/trunk/modules/Internals/RegTests.pm
+END

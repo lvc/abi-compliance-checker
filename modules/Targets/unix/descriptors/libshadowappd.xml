@@ -1,0 +1,6 @@
+<include_preamble>
+    glib.h
+    gconf-client.h
+    libosso.h
+    unistd.h
+</include_preamble>

@@ -1,0 +1,3 @@
+<skip_headers>
+    polkitprivate.h
+</skip_headers>

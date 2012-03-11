@@ -1,0 +1,39 @@
+<include_preamble>
+    windows.h
+</include_preamble>
+
+<defines>
+    struct IUnknown;
+</defines>
+
+<skip_symbols>
+    DllRegisterServer
+    DllUnregisterServer
+    DllCanUnloadNow
+    DllGetClassObject
+</skip_symbols>
+
+<skip_headers>
+    /mfc/
+    /atl/
+</skip_headers>
+
+<ignore_symbols>
+    quote
+    execute
+    DllRegisterServer
+    DllUnregisterServer
+    GetModuleInfo
+    GetToken
+    DllCanUnloadNow
+    DllGetClassObject
+    DebugBreak
+    GetVersion
+    OpenFile
+    LoadModule
+    RegisterModule
+    SetEvent
+    LoadResource
+    FreeLibrary
+    GetFileSize
+</ignore_symbols>

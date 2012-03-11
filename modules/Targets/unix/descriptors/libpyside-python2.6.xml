@@ -1,0 +1,10 @@
+<skip_headers>
+    pyside_phonon_python.h
+    pyside_global.h
+    pyside_qtsql_python.h
+    pyside_qtsql_python.h
+    pyside_qttest_python.h
+    /PySide/Qt
+    /python2.5/
+    /python3.1/
+</skip_headers>

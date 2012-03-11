@@ -1,0 +1,3 @@
+<skip_headers>
+    *Command.h
+</skip_headers>

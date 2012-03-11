@@ -1,0 +1,3 @@
+<gcc_options>
+    -DEGG_DBUS_I_KNOW_API_IS_SUBJECT_TO_CHANGE
+</gcc_options>

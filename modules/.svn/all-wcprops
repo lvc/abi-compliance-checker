@@ -1,0 +1,17 @@
+K 25
+svn:wc:ra_dav:version-url
+V 53
+/svn/abi-compliance-checker/!svn/ver/65/trunk/modules
+END
+RulesSrc.xml
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svn/abi-compliance-checker/!svn/ver/59/trunk/modules/RulesSrc.xml
+END
+RulesBin.xml
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svn/abi-compliance-checker/!svn/ver/65/trunk/modules/RulesBin.xml
+END

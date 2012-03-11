@@ -1,0 +1,23 @@
+<skip_headers>
+    kde_file.h
+    gpsd.h
+    math.h
+    onigposix.h
+    /pulsecore/
+    pcreposix.h
+    /gssrpc/
+    /bind/
+    /file/
+</skip_headers>
+
+<non_self_compiled>
+    regexp.h
+    /bits/
+    /scsi/
+    /arpa/
+    /rpcsvc/
+    net/if_packet.h
+    net/if.h
+    asoundlib.h
+    elf.h
+</non_self_compiled>

@@ -1,0 +1,4 @@
+<skip_headers>
+    /python2.6/
+    /python3.1/
+</skip_headers>

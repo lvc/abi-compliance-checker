@@ -1,0 +1,3 @@
+<skip_headers>
+    pkcs11f.h
+</skip_headers>

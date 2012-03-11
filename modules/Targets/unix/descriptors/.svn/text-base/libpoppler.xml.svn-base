@@ -1,0 +1,21 @@
+<skip_headers>
+    JPEG2000Stream.h
+    DCTStream.h
+    UnicodeCClassTables.h
+    UnicodeCompTables.h
+    FlateStream.h
+    gfile.h
+    Annot.h
+    Array.h
+    BaseFile.h
+    /glib/
+    Dict.h
+</skip_headers>
+
+<include_preamble>
+    time.h
+    stdio.h
+    Object.h
+    PDFDoc.h
+    GfxFont.h
+</include_preamble>

@@ -1,0 +1,10 @@
+<skip_headers>
+    /xorg/
+    XKBsrv.h
+</skip_headers>
+
+<include_preamble>
+    Xlib.h
+    XKBstr.h
+    stdio.h
+</include_preamble>

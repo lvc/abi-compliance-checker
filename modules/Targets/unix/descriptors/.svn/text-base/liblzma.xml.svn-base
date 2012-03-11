@@ -1,0 +1,3 @@
+<skip_headers>
+    lzma/lzma.h
+</skip_headers>

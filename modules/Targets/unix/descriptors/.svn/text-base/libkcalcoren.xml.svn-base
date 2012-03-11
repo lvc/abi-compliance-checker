@@ -1,0 +1,12 @@
+<headers>
+    kcalendarsystem.h
+    /mkcal/
+</headers>
+
+<skip_headers>
+    /unicode/
+</skip_headers>
+
+<gcc_options>
+    -DMKCAL_EXPORT=""
+</gcc_options>

@@ -1,0 +1,7 @@
+<skip_headers>
+    mspenum.h
+    /atl/
+    ole.h
+    /mfc/
+    rpcproxy.h
+</skip_headers>

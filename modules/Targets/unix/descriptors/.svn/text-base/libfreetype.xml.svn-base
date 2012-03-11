@@ -1,0 +1,9 @@
+<non_self_compiled>
+    ftmac.h
+    ftmodule.h
+    fterrdef.h
+</non_self_compiled>
+
+<include_preamble>
+    ft2build.h
+</include_preamble>

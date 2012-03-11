@@ -1,0 +1,7 @@
+<skip_headers>
+    /mfc/
+</skip_headers>
+
+<include_preamble>
+    iads.h
+</include_preamble>

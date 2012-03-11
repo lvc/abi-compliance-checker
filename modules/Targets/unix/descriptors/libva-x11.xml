@@ -1,0 +1,8 @@
+<skip_headers>
+    va_backend.h
+    va_dummy.h
+</skip_headers>
+
+<include_preamble>
+    va_dricommon.h
+</include_preamble>

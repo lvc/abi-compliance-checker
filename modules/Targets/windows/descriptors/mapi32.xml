@@ -1,0 +1,3 @@
+<gcc_options>
+    -D_NATIVE_WCHAR_T_DEFINED
+</gcc_options>

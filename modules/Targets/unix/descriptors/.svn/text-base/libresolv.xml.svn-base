@@ -1,0 +1,4 @@
+<skip_headers>
+    /isc/
+    /bind/
+</skip_headers>

@@ -1,0 +1,8 @@
+<skip_headers>
+    ieeefp.h
+    nameser.h
+</skip_headers>
+
+<include_preamble>
+    sys/types.h
+</include_preamble>

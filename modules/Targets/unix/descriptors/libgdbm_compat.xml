@@ -1,0 +1,4 @@
+<skip_headers>
+    db.h
+    dbm.h
+</skip_headers>

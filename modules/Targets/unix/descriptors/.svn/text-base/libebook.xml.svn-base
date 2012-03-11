@@ -1,0 +1,9 @@
+<non_self_compiled>
+    e-data-book-bindings.h
+    e-data-book-factory-bindings.h
+    e-data-book-view-bindings.h
+</non_self_compiled>
+
+<include_preamble>
+    glib/gtypes.h
+</include_preamble>

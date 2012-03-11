@@ -1,0 +1,4 @@
+<skip_headers>
+    QTracker
+    /ontologies/
+</skip_headers>

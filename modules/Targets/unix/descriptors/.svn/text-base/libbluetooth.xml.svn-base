@@ -1,0 +1,9 @@
+<skip_headers>
+    eds_abi_wrapper.h
+</skip_headers>
+
+<include_preamble>
+    bluetooth.h
+    hci.h
+    sdp.h
+</include_preamble>

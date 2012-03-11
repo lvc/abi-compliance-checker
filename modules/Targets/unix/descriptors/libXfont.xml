@@ -1,0 +1,11 @@
+<skip_headers>
+    /xorg/
+</skip_headers>
+
+<include_preamble>
+    ft2build.h
+    freetype.h
+    fntfilst.h
+    fontenc.h
+    bitmap.h
+</include_preamble>

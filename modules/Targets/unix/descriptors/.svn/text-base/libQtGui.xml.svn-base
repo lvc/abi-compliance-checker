@@ -1,0 +1,3 @@
+<skip_headers>
+    qwindowdefs_win.h
+</skip_headers>

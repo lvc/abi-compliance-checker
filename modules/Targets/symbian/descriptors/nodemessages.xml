@@ -1,0 +1,7 @@
+<skip_headers>
+    mm_*.h
+</skip_headers>
+
+<gcc_options>
+    -D__GCCXML__
+</gcc_options>

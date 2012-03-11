@@ -1,0 +1,6 @@
+<skip_headers>
+    dbitem.h
+    syncexception.h
+    lineartime.h
+    sysync_utils.h
+</skip_headers>

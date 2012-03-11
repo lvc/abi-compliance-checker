@@ -1,0 +1,5 @@
+<skip_headers>
+    exception
+    event
+    interface
+</skip_headers>

@@ -1,0 +1,4 @@
+<gcc_options>
+    -DSUPPORT_SGX_HWPERF
+    -DLINUX
+</gcc_options>

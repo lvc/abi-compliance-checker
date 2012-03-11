@@ -1,0 +1,5 @@
+<skip_headers>
+    qsql_*.h
+    *Driver
+    *Result
+</skip_headers>

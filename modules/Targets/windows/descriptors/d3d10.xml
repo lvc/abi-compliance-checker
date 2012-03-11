@@ -1,0 +1,3 @@
+<gcc_options>
+    -DD3D10_IGNORE_SDK_LAYERS
+</gcc_options>

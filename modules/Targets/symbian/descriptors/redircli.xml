@@ -1,0 +1,3 @@
+<gcc_options>
+    -D__HIDE_IPC_V1__
+</gcc_options>

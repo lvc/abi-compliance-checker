@@ -1,0 +1,3 @@
+<skip_headers>
+    libunwind-dynamic.h
+</skip_headers>

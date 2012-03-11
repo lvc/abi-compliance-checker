@@ -1,0 +1,14 @@
+<skip_headers>
+    event.h
+    /stdapis/
+    arp.h
+    ip_icmp.h
+    ip.h
+    estlib.h
+    nameser.h
+    ieeefp.h
+</skip_headers>
+
+<include_preamble>
+    sys/types.h
+</include_preamble>

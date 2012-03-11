@@ -1,0 +1,3 @@
+<gcc_options>
+    -DPSAPI_VERSION=1
+</gcc_options>

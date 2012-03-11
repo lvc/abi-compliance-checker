@@ -1,0 +1,4 @@
+<skip_headers>
+    /tcl-private/
+    /tcl8.5/
+</skip_headers>

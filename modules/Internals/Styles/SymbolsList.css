@@ -1,0 +1,73 @@
+body {
+    font-family:Arial;
+    color:Black;
+    font-size:14px;
+}
+hr {
+    color:Black;
+    background-color:Black;
+    height:1px;
+    border:0;
+}
+h1 {
+    font-size:26px;
+}
+span.iname {
+    font-weight:bold;
+    font-size:16px;
+    color:#003E69;
+    margin-left:7px;
+}
+span.section {
+    font-weight:bold;
+    cursor:pointer;
+    margin-left:7px;
+    font-size:16px;
+    color:#003E69;
+    white-space:nowrap;
+}
+span:hover.section {
+    color:#336699;
+}
+span.h_name {
+    color:#cc3300;
+    font-size:14px;
+    font-weight:bold;
+}
+span.ns_title {
+    margin-left:2px;
+    color:#408080;
+    font-size:13px;
+}
+span.ns {
+    color:#408080;
+    font-size:13px;
+    font-weight:bold;
+}
+span.lib_name {
+    color:Green;
+    font-size:14px;
+    font-weight:bold;
+}
+span.int_p {
+    font-weight:normal;
+    white-space:normal;
+}
+span.mangled {
+    padding-left:15px;
+    font-size:13px;
+    cursor:text;
+    color:#444444;
+}
+span.symver {
+    color:#333333;
+    font-size:14px;
+    white-space:nowrap;
+}
+span.color_p {
+    font-style:italic;
+    color:Brown;
+}
+span.nowrap {
+    white-space:nowrap;
+}

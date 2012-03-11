@@ -1,0 +1,4 @@
+<skip_headers>
+    bits/mqueue.h
+    bits/mqueue2.h
+</skip_headers>

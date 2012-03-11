@@ -1,0 +1,3 @@
+<include_preamble>
+    gtk/gtktreemodel.h
+</include_preamble>

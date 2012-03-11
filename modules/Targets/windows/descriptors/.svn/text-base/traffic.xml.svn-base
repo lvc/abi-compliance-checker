@@ -1,0 +1,4 @@
+<include_preamble>
+    ntddndis.h
+    qos.h
+</include_preamble>

@@ -1,0 +1,7 @@
+<skip_headers>
+    ast.h
+    pyexpat.h
+    pymactoolbox.h
+    /python2.5/
+    /python3.1/
+</skip_headers>

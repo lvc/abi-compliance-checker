@@ -1,0 +1,3 @@
+<skip_headers>
+    va_backend_egl.h
+</skip_headers>
