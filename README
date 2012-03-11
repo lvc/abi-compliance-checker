@@ -1,0 +1,22 @@
+NAME:
+  ABI Compliance Checker (ACC) - a tool for checking backward binary compatibility of a shared C/C++ library API.
+
+USAGE:
+  abi-compliance-checker -lib NAME -d1 OLD.xml -d2 NEW.xml
+
+  OLD.xml and NEW.xml are XML-descriptors:
+
+    <version>
+        1.0
+    </version>
+
+    <headers>
+        /path/to/headers/
+    </headers>
+
+    <libs>
+        /path/to/libraries/
+    </libs>
+
+ADV. USAGE:
+  For advanced usage, see output of --help option
