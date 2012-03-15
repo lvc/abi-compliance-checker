@@ -1,8 +1,0 @@
-<include_preamble>
-    string
-    string
-</include_preamble>
-
-<gcc_options>
-    -DPOSIX
-</gcc_options>

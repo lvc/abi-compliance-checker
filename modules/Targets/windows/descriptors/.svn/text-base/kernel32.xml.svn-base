@@ -1,9 +1,0 @@
-<headers>
-    winbase.h
-    winnls.h
-    wincon.h
-    tlhelp32.h
-    winver.h
-    winnt.h
-    winternl.h
-</headers>

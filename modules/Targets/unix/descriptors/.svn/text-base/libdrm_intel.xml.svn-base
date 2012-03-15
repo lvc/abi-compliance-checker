@@ -1,3 +1,0 @@
-<include_preamble>
-    libdrm/drm.h
-</include_preamble>

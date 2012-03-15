@@ -1,4 +1,0 @@
-<skip_headers>
-    gi18n.h
-    gi18n-lib.h
-</skip_headers>

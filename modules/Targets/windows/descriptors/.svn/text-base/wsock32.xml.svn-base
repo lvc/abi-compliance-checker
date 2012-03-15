@@ -1,9 +1,0 @@
-<skip_headers>
-    windows.h
-    mswsock.h
-</skip_headers>
-
-<include_preamble>
-    windef.h
-    winsock.h
-</include_preamble>

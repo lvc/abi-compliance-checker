@@ -1,9 +1,0 @@
-<skip_headers>
-    gdkalias.h
-    gdkalias.h
-</skip_headers>
-
-<non_self_compiled>
-    gdkalias.h
-    gdkprivate.h
-</non_self_compiled>

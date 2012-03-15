@@ -1,7 +1,0 @@
-<non_self_compiled>
-    dbus-glib-bindings.h
-</non_self_compiled>
-
-<gcc_options>
-    -DDBUS_API_SUBJECT_TO_CHANGE
-</gcc_options>

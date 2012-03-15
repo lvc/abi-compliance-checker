@@ -1,8 +1,0 @@
-<non_self_compiled>
-    jmorecfg.h
-    jpegint.h
-</non_self_compiled>
-
-<include_preamble>
-    stdio.h
-</include_preamble>

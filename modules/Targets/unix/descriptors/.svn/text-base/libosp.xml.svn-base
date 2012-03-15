@@ -1,7 +1,0 @@
-<skip_headers>
-    /sp/
-</skip_headers>
-
-<include_preamble>
-    OpenSP/config.h
-</include_preamble>

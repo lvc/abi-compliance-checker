@@ -1,6 +1,0 @@
-<skip_headers>
-    QMailNewEmailHandler
-    QMailNewMessageHandler
-    qprivateimplementationdef.h
-    qcopchannel_qws.h
-</skip_headers>

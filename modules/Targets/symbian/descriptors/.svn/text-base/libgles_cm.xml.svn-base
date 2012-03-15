@@ -1,7 +1,0 @@
-<skip_headers>
-    /egl/
-</skip_headers>
-
-<include_preamble>
-    gl.h
-</include_preamble>

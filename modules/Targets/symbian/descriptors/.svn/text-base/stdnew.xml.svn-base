@@ -1,4 +1,0 @@
-<gcc_options>
-    -D__SYMBIAN_STDCPP_SUPPORT__
-    -D__SYMBIAN_STDCPP_SUPPORT__
-</gcc_options>

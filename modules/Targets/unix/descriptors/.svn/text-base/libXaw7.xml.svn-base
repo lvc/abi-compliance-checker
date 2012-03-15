@@ -1,9 +1,0 @@
-<non_self_compiled>
-    [a-z]P
-    VendorEP.h
-    SmeBSBP.h
-</non_self_compiled>
-
-<include_preamble>
-    X11/Intrinsic.h
-</include_preamble>

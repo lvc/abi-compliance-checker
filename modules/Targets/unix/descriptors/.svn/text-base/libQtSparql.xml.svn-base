@@ -1,4 +1,0 @@
-<skip_headers>
-    qsparql_tracker_direct.h
-    QTrackerDirectDriver
-</skip_headers>

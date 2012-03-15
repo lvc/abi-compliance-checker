@@ -1,3 +1,0 @@
-<skip_headers>
-    xcb_bitops.h
-</skip_headers>

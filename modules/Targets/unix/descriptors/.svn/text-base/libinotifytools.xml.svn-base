@@ -1,3 +1,0 @@
-<skip_headers>
-    inotify-nosys.h
-</skip_headers>

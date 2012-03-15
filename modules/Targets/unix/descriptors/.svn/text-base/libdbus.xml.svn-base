@@ -1,9 +1,0 @@
-<non_self_compiled>
-    dbus-glib-error-enum.h
-    dbus-glib-bindings.h
-    dbus-glib-error-enum.h
-</non_self_compiled>
-
-<gcc_options>
-    -DDBUS_API_SUBJECT_TO_CHANGE
-</gcc_options>

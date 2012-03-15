@@ -1,5 +1,0 @@
-<gcc_options>
-    -DDESKTOP_DIR=\"\"
-    -DDESKTOP_DIR2=\"\"
-    -DAPPLET_LIBS=\"\"
-</gcc_options>

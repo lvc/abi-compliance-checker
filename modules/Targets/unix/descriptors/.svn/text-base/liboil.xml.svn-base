@@ -1,3 +1,0 @@
-<gcc_options>
-    -DOIL_ENABLE_UNSTABLE_API
-</gcc_options>

@@ -1,5 +1,0 @@
-<skip_headers>
-    /private/
-    qwindowdefs_win.h
-    qx11embed_x11.h
-</skip_headers>
