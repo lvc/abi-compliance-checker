@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker", "wgTitle": "ABI Compliance Checker", "wgCurRevisionId": 7677, "wgArticleId": 2292, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker", "wgTitle": "ABI Compliance Checker", "wgCurRevisionId": 7711, "wgArticleId": 2292, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -39,7 +39,7 @@
 		<div id="contentSub"></div>
 		
 		<!-- start content -->
-<div lang="en" dir="ltr" class="mw-content-ltr"><p><i>ABI Compliance Checker (ACC)</i> is a tool for checking backward binary compatibility of a shared C/C++ library API. The tool checks header files and shared libraries of old and new versions and analyzes changes in Application Binary Interface (ABI=API+compiler ABI) that may break binary compatibility: changes in calling stack, v-table changes, removed symbols, etc. Binary incompatibility may result in crashing or incorrect behavior of applications built with an old version of the library if they run on a new one. The tool is intended for library developers and operating system maintainers who are interested in ensuring binary compatibility, i.e. allow old applications to run with newer library versions without the need to recompile.
+<div lang="en" dir="ltr" class="mw-content-ltr"><p><i>ABI Compliance Checker (ACC)</i> is a tool for checking backward binary and source-level compatibility of a shared C/C++ library. The tool checks header files and shared libraries of old and new versions and analyzes changes in API and ABI (ABI=API+compiler ABI) that may break binary and/or source-level compatibility: changes in calling stack, v-table changes, removed symbols, renamed fields, etc. Binary incompatibility may result in crashing or incorrect behavior of applications built with an old version of a library if they run on a new one. Source incompatibility may result in recompilation errors with a new library version. The tool is intended for library developers and OS maintainers who are interested in ensuring backward compatibility, i.e. allow old applications to run or to be recompiled with newer library versions.
 </p><p>See also:
 </p>
 <ul><li> <a rel="nofollow" class="external text" href="http://upstream-tracker.org/">Upstream Tracker</a>
@@ -52,43 +52,48 @@
 <li class="toclevel-1 tocsection-1"><a href="#Downloads"><span class="tocnumber">1</span> <span class="toctext">Downloads</span></a>
 <ul>
 <li class="toclevel-2 tocsection-2"><a href="#Releases"><span class="tocnumber">1.1</span> <span class="toctext">Releases</span></a></li>
-<li class="toclevel-2 tocsection-3"><a href="#SVN"><span class="tocnumber">1.2</span> <span class="toctext">SVN</span></a></li>
+<li class="toclevel-2 tocsection-3"><a href="#Git"><span class="tocnumber">1.2</span> <span class="toctext">Git</span></a></li>
+<li class="toclevel-2 tocsection-4"><a href="#SVN_.28obsolete.29"><span class="tocnumber">1.3</span> <span class="toctext">SVN (obsolete)</span></a></li>
 </ul>
 </li>
-<li class="toclevel-1 tocsection-4"><a href="#License"><span class="tocnumber">2</span> <span class="toctext">License</span></a></li>
-<li class="toclevel-1 tocsection-5"><a href="#Supported_Platforms"><span class="tocnumber">3</span> <span class="toctext">Supported Platforms</span></a></li>
-<li class="toclevel-1 tocsection-6"><a href="#System_Requirements"><span class="tocnumber">4</span> <span class="toctext">System Requirements</span></a></li>
-<li class="toclevel-1 tocsection-7"><a href="#Detectable_Compatibility_Problems"><span class="tocnumber">5</span> <span class="toctext">Detectable Compatibility Problems</span></a></li>
-<li class="toclevel-1 tocsection-8"><a href="#Installation"><span class="tocnumber">6</span> <span class="toctext">Installation</span></a></li>
-<li class="toclevel-1 tocsection-9"><a href="#Usage"><span class="tocnumber">7</span> <span class="toctext">Usage</span></a>
+<li class="toclevel-1 tocsection-5"><a href="#License"><span class="tocnumber">2</span> <span class="toctext">License</span></a></li>
+<li class="toclevel-1 tocsection-6"><a href="#Supported_Platforms"><span class="tocnumber">3</span> <span class="toctext">Supported Platforms</span></a></li>
+<li class="toclevel-1 tocsection-7"><a href="#System_Requirements"><span class="tocnumber">4</span> <span class="toctext">System Requirements</span></a></li>
+<li class="toclevel-1 tocsection-8"><a href="#Detectable_Compatibility_Problems"><span class="tocnumber">5</span> <span class="toctext">Detectable Compatibility Problems</span></a></li>
+<li class="toclevel-1 tocsection-9"><a href="#Installation"><span class="tocnumber">6</span> <span class="toctext">Installation</span></a></li>
+<li class="toclevel-1 tocsection-10"><a href="#Usage"><span class="tocnumber">7</span> <span class="toctext">Usage</span></a>
 <ul>
-<li class="toclevel-2 tocsection-10"><a href="#Compare_Libraries"><span class="tocnumber">7.1</span> <span class="toctext">Compare Libraries</span></a></li>
-<li class="toclevel-2 tocsection-11"><a href="#Compare_Operating_Systems"><span class="tocnumber">7.2</span> <span class="toctext">Compare Operating Systems</span></a></li>
-<li class="toclevel-2 tocsection-12"><a href="#Check_Applications_Portability"><span class="tocnumber">7.3</span> <span class="toctext">Check Applications Portability</span></a></li>
-<li class="toclevel-2 tocsection-13"><a href="#Dump_Library_ABI_to_TXT_file"><span class="tocnumber">7.4</span> <span class="toctext">Dump Library ABI to TXT file</span></a></li>
-<li class="toclevel-2 tocsection-14"><a href="#Command-Line_Options"><span class="tocnumber">7.5</span> <span class="toctext">Command-Line Options</span></a></li>
-<li class="toclevel-2 tocsection-15"><a href="#Examples"><span class="tocnumber">7.6</span> <span class="toctext">Examples</span></a></li>
+<li class="toclevel-2 tocsection-11"><a href="#Compare_Libraries"><span class="tocnumber">7.1</span> <span class="toctext">Compare Libraries</span></a></li>
+<li class="toclevel-2 tocsection-12"><a href="#Compare_Operating_Systems"><span class="tocnumber">7.2</span> <span class="toctext">Compare Operating Systems</span></a></li>
+<li class="toclevel-2 tocsection-13"><a href="#Check_Applications_Portability"><span class="tocnumber">7.3</span> <span class="toctext">Check Applications Portability</span></a></li>
+<li class="toclevel-2 tocsection-14"><a href="#Dump_Library_ABI_to_TXT_file"><span class="tocnumber">7.4</span> <span class="toctext">Dump Library ABI to TXT file</span></a></li>
+<li class="toclevel-2 tocsection-15"><a href="#Command-Line_Options"><span class="tocnumber">7.5</span> <span class="toctext">Command-Line Options</span></a></li>
+<li class="toclevel-2 tocsection-16"><a href="#Examples"><span class="tocnumber">7.6</span> <span class="toctext">Examples</span></a></li>
 </ul>
 </li>
-<li class="toclevel-1 tocsection-16"><a href="#Tutorial"><span class="tocnumber">8</span> <span class="toctext">Tutorial</span></a></li>
-<li class="toclevel-1 tocsection-17"><a href="#Report_Format"><span class="tocnumber">9</span> <span class="toctext">Report Format</span></a></li>
-<li class="toclevel-1 tocsection-18"><a href="#Verdict_on_Compatibility"><span class="tocnumber">10</span> <span class="toctext">Verdict on Compatibility</span></a></li>
-<li class="toclevel-1 tocsection-19"><a href="#Error_Codes"><span class="tocnumber">11</span> <span class="toctext">Error Codes</span></a></li>
-<li class="toclevel-1 tocsection-20"><a href="#FAQ"><span class="tocnumber">12</span> <span class="toctext">FAQ</span></a></li>
-<li class="toclevel-1 tocsection-21"><a href="#Similar_Tools"><span class="tocnumber">13</span> <span class="toctext">Similar Tools</span></a></li>
-<li class="toclevel-1 tocsection-22"><a href="#Bugs"><span class="tocnumber">14</span> <span class="toctext">Bugs</span></a></li>
-<li class="toclevel-1 tocsection-23"><a href="#Maintainers"><span class="tocnumber">15</span> <span class="toctext">Maintainers</span></a></li>
-<li class="toclevel-1 tocsection-24"><a href="#Sponsors"><span class="tocnumber">16</span> <span class="toctext">Sponsors</span></a></li>
-<li class="toclevel-1 tocsection-25"><a href="#Credits"><span class="tocnumber">17</span> <span class="toctext">Credits</span></a></li>
-<li class="toclevel-1 tocsection-26"><a href="#Articles"><span class="tocnumber">18</span> <span class="toctext">Articles</span></a></li>
+<li class="toclevel-1 tocsection-17"><a href="#Tutorial"><span class="tocnumber">8</span> <span class="toctext">Tutorial</span></a></li>
+<li class="toclevel-1 tocsection-18"><a href="#Report_Format"><span class="tocnumber">9</span> <span class="toctext">Report Format</span></a></li>
+<li class="toclevel-1 tocsection-19"><a href="#Verdict_on_Compatibility"><span class="tocnumber">10</span> <span class="toctext">Verdict on Compatibility</span></a></li>
+<li class="toclevel-1 tocsection-20"><a href="#Error_Codes"><span class="tocnumber">11</span> <span class="toctext">Error Codes</span></a></li>
+<li class="toclevel-1 tocsection-21"><a href="#FAQ"><span class="tocnumber">12</span> <span class="toctext">FAQ</span></a></li>
+<li class="toclevel-1 tocsection-22"><a href="#Similar_Tools"><span class="tocnumber">13</span> <span class="toctext">Similar Tools</span></a></li>
+<li class="toclevel-1 tocsection-23"><a href="#Bugs"><span class="tocnumber">14</span> <span class="toctext">Bugs</span></a></li>
+<li class="toclevel-1 tocsection-24"><a href="#Maintainers"><span class="tocnumber">15</span> <span class="toctext">Maintainers</span></a></li>
+<li class="toclevel-1 tocsection-25"><a href="#Sponsors"><span class="tocnumber">16</span> <span class="toctext">Sponsors</span></a></li>
+<li class="toclevel-1 tocsection-26"><a href="#Credits"><span class="tocnumber">17</span> <span class="toctext">Credits</span></a></li>
+<li class="toclevel-1 tocsection-27"><a href="#Articles"><span class="tocnumber">18</span> <span class="toctext">Articles</span></a></li>
 </ul>
 </td></tr></table>
 <h2> <span class="mw-headline" id="Downloads"> Downloads </span></h2>
 <h3> <span class="mw-headline" id="Releases"> Releases </span></h3>
-<p>All releases can be downloaded from <b><a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Downloads" title="ABI Compliance Checker Downloads">this page</a></b> or <b><a rel="nofollow" class="external text" href="http://forge.ispras.ru/projects/abi-compliance-checker/files">forge.ispras.ru</a></b>.
-</p><p>Latest release: <a rel="nofollow" class="external text" href="http://forge.ispras.ru/attachments/download/1433/abi-compliance-checker-1.96.7.tar.gz">1.96.7</a>
+<p>All releases can be downloaded from <b><a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Downloads" title="ABI Compliance Checker Downloads">this page</a></b> or <b><a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/downloads/">github.com</a></b>.
+</p><p>Latest release: <a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/downloads/abi-compliance-checker-1.97.tar.gz">1.97</a>
 </p>
-<h3> <span class="mw-headline" id="SVN"> SVN </span></h3>
+<h3> <span class="mw-headline" id="Git"> Git </span></h3>
+<p>Read-only access to the latest development version:<br />
+&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;git clone <a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker">git://github.com/lvc/abi-compliance-checker.git</a> &#160;</code><br />
+</p>
+<h3> <span class="mw-headline" id="SVN_.28obsolete.29"> SVN (obsolete) </span></h3>
 <p>Read-only access to the latest development version:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;svn co <a rel="nofollow" class="external free" href="http://forge.ispras.ru/svn/abi-compliance-checker">http://forge.ispras.ru/svn/abi-compliance-checker</a>&#160;</code><br />
 </p>
@@ -194,11 +199,11 @@
 <p>Command to compare two versions of a library:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -l <i>&lt;library_name&gt;</i> -d1 <i>&lt;<a href="http://ispras.linuxfoundation.org/index.php/Library_Descriptor" title="Library Descriptor">v1.xml</a>&gt;</i> -d2 <i>&lt;<a href="http://ispras.linuxfoundation.org/index.php/Library_Descriptor" title="Library Descriptor">v2.xml</a>&gt;</i>&#160;</code><br /><br />
 The compatibility report will be generated to:<br />
-&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;compat_reports/<i>&lt;library_name&gt;</i>/<i>&lt;v1&gt;</i>_to_<i>&lt;v2&gt;</i>/abi_compat_report.html&#160;</code>
+&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;compat_reports/<i>&lt;library_name&gt;</i>/<i>&lt;v1&gt;</i>_to_<i>&lt;v2&gt;</i>/compat_report.html&#160;</code>
 </p>
 <h3> <span class="mw-headline" id="Compare_Operating_Systems"> Compare Operating Systems </span></h3>
 <p>The detailed explanation on how to check compatibility between operating systems you can read on <b><a href="http://ispras.linuxfoundation.org/index.php/Operating_Systems_Compatibility" title="Operating Systems Compatibility">this page</a></b>.
-</p><p>See current test results for <b>Symbian</b>, <b>Windows</b>, <b>MeeGo</b> and <b>Maemo</b> on <b><a rel="nofollow" class="external text" href="http://linuxtesting.org/compatibility/">this page</a></b>.
+</p><p>See current test results for <b>Symbian</b>, <b>Windows</b>, <b>MeeGo</b> and <b>Maemo</b> on <b><a rel="nofollow" class="external text" href="http://linuxtesting.org/compatibility/index.html">this page</a></b>.
 </p>
 <h3> <span class="mw-headline" id="Check_Applications_Portability"> Check Applications Portability </span></h3>
 <p>The ACC tool can be used by ISVs for checking applications portability to new library versions by specifying of its binary using <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">-app</a> option:<br />
@@ -222,13 +227,13 @@ Then transfer and pass it instead of the library descriptor:<br />
 <p>Check the libssh library versions for ABI compatibility:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -l libssh -d1 <a href="http://ispras.linuxfoundation.org/index.php/Library_Descriptor" title="Library Descriptor">0.3.4.xml</a> -d2 <a href="http://ispras.linuxfoundation.org/index.php/Library_Descriptor" title="Library Descriptor">0.4.0.xml</a>&#160;</code><br /><br />
 The compatibility report will be generated to:<br />
-&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;compat_reports/libssh/0.3.4_to_0.4.0/abi_compat_report.html&#160;</code><br /><br />
+&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;compat_reports/libssh/0.3.4_to_0.4.0/compat_report.html&#160;</code><br /><br />
 Dump library ABI:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -l libssh -dump <a href="http://ispras.linuxfoundation.org/index.php/Library_Descriptor" title="Library Descriptor">0.3.4.xml</a>&#160;</code><br /><br />
 The ABI will be dumped to:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi_dumps/libssh/libssh_0.3.4.abi.tar.gz&#160;</code><br /><br />
 Use previously dumped ABI:<br />
-&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -l libssh -d1 libssh_0.3.4.abi.tar.gz -d2 <a href="http://ispras.linuxfoundation.org/index.php/Library_Descriptor" title="Library Descriptor">0.4.0.xml</a>&#160;</code><br /><br />
+&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -l libssh -d1 libssh_0.3.4.abi.tar.gz -d2 libssh_0.4.0.abi.tar.gz&#160;</code><br /><br />
 Check application (csync) portability between libssh versions:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -l libssh -d1 <a href="http://ispras.linuxfoundation.org/index.php/Library_Descriptor" title="Library Descriptor">0.3.4.xml</a> -d2 <a href="http://ispras.linuxfoundation.org/index.php/Library_Descriptor" title="Library Descriptor">0.4.0.xml</a> -app /usr/bin/csync&#160;</code><br /><br />
 </p>
@@ -342,7 +347,7 @@ Check application (csync) portability between libssh versions:<br />
 </li><li> <b>chkshlib</b>, <b>cmpdylib</b>, <b>cmpshlib</b> - compare symbols presence.
 </li></ol>
 <h2> <span class="mw-headline" id="Bugs"> Bugs </span></h2>
-<p>Please post your bug reports, feature requests and questions to the <a rel="nofollow" class="external text" href="http://forge.ispras.ru/projects/abi-compliance-checker">issue tracker</a> or send to <a rel="nofollow" class="external text" href="mailto:aponomarenko@mandriva.org">this address</a>.
+<p>Please post your bug reports, feature requests and questions to the <a rel="nofollow" class="external text" href="http://forge.ispras.ru/projects/abi-compliance-checker">issue tracker</a> or send to <a rel="nofollow" class="external text" href="mailto:aponomarenko@rosalab.ru">this address</a>.
 </p>
 <h2> <span class="mw-headline" id="Maintainers"> Maintainers </span></h2>
 <p>The tool was initially developed by the <a rel="nofollow" class="external text" href="http://linuxtesting.org">Russian Linux Verification Center</a> at <a href="http://ispras.linuxfoundation.org/index.php/ISP_RAS_Company_Profile" title="ISP RAS Company Profile">ISPRAS</a> and is now developed by <a rel="nofollow" class="external text" href="http://www.rosalab.com/">ROSA Laboratory</a> in Russia. <a rel="nofollow" class="external text" href="http://andrey-ponomarenko.myopenid.com/">Andrey Ponomarenko</a> is the leader of this project.
@@ -350,7 +355,7 @@ Check application (csync) portability between libssh versions:<br />
 <h2> <span class="mw-headline" id="Sponsors"> Sponsors </span></h2>
 <p>The development of this tool is currently sponsored by <a rel="nofollow" class="external text" href="http://www.nokia.com/">Nokia</a>.<br /><br />
 <a href="/index.php/File:Logo_nokia.gif" class="image"><img alt="Logo nokia.gif" src="http://ispras.linuxfoundation.org/images/e/e2/Logo_nokia.gif" width="115" height="40" /></a>
-</p><p>If you want to be a sponsor and move the development of the tool in the way you need then please contact us at <a rel="nofollow" class="external text" href="mailto:aponomarenko@mandriva.org">this</a> address.
+</p><p>If you want to be a sponsor and move the development of the tool in the way you need then please contact us at <a rel="nofollow" class="external text" href="mailto:aponomarenko@rosalab.ru">this</a> address.
 </p>
 <h2> <span class="mw-headline" id="Credits"> Credits </span></h2>
 <p>We would like to thank <a href="http://ispras.linuxfoundation.org/index.php/Thanks" title="Thanks">everyone</a> who has contributed to the success of this project!
@@ -391,14 +396,15 @@ Check application (csync) portability between libssh versions:<br />
 </li><li> FreeStandards.org, <a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/gabi41.pdf"><b>Generic ABI (gABI) Standard</b></a>, <a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/"><b>"ELF and ABI Standards"</b></a>
 </li><li> Processor Supplement ABI (psABI) documents: <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/abi386-4.pdf">Intel386</a></b>, <b><a rel="nofollow" class="external text" href="http://www.x86-64.org/documentation/abi.pdf">AMD64</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/elfspec_ppc.pdf">PowerPC</a></b>, <b><a rel="nofollow" class="external text" href="http://download.boulder.ibm.com/ibmdl/pub/software/dw/linux390/docu/l390abi0.pdf">S/390</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/IA64-SysV-psABI.pdf">Itanium</a></b>, <b><a rel="nofollow" class="external text" href="http://infocenter.arm.com/help/topic/com.arm.doc.ihi0036b/IHI0036B_bsabi.pdf">ARM</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/mipsabi.pdf">MIPS</a></b>, <b><a rel="nofollow" class="external text" href="http://www.sparc.org/standards/psABI3rd.pdf">SPARC</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/elf-pa.pdf">PA-RISK</a></b>, <b><a rel="nofollow" class="external text" href="http://www.linux-m32r.org/cmn/m32r/M32R-elf-abi.pdf">M32R</a></b>
 </li></ol>
-
+<p>/code&gt;
+</p>
 <!-- 
 NewPP limit report
-Preprocessor node count: 128/1000000
+Preprocessor node count: 133/1000000
 Post-expand include size: 0/2097152 bytes
 Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2292-0!*!0!!en!2!* and timestamp 20120216211139 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2292-0!*!0!!en!2!* and timestamp 20120319134247 -->
 </div></div></div></div></div></body></html>
