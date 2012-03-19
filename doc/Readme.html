@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker", "wgTitle": "ABI Compliance Checker", "wgCurRevisionId": 7711, "wgArticleId": 2292, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker", "wgTitle": "ABI Compliance Checker", "wgCurRevisionId": 7720, "wgArticleId": 2292, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -241,11 +241,6 @@ Check application (csync) portability between libssh versions:<br />
 <p>An excellent tutorial <a rel="nofollow" class="external text" href="http://blog.famillecollet.com/post/2010/06/20/ABI-%3A-stability-check">"ABI: stability check"</a> is available at <a rel="nofollow" class="external text" href="http://blog.famillecollet.com/en">Les RPM de Remi Blog</a>.
 </p>
 <h2> <span class="mw-headline" id="Report_Format"> Report Format </span></h2>
-<p>See <b>examples</b> of compatibility report:
-</p>
-<ul><li> For the mysql++ library <a rel="nofollow" class="external text" href="http://upstream-tracker.org/compat_reports/mysql++/3.0.9_to_3.1.0/abi_compat_report.html">between 3.0.9 and 3.1.0</a> versions
-</li><li> For the libssh library <a rel="nofollow" class="external text" href="http://upstream-tracker.org/compat_reports/libssh/0.3.4_to_0.4.0/abi_compat_report.html">between 0.3.4 and 0.4.0</a> versions
-</li></ul>
 <p>The report consists of:
 </p>
 <ul><li> <b>Test Info</b> - The library name and compared version numbers. Environment info: GCC version and CPU architecture.
@@ -257,6 +252,12 @@ Check application (csync) portability between libssh versions:<br />
 </li><li> <b>Problems with Symbols</b> - List of binary compatibility problems caused by changes in symbol parameters or attributes (divided by the severity level).
 </li><li> <b>Problems with Constants</b> - List of changed constants (#defines).
 </li><li> <b>Problems with Implementation</b> - List of changes in disassembled binary code. Use <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options#Extra_Options" title="ABI Compliance Checker Options">-check-implementation</a> option to enable this section.
+</li></ul>
+<p>Examples:
+</p>
+<ul><li> NetCDF: 4.0.1 to 4.1.1 API compatibility <a rel="nofollow" class="external text" href="http://upstream-tracker.org/compat_reports/netcdf/4.0.1_to_4.1.1/compat_report.html">report</a>
+</li><li> MySQL++: 3.0.9 to 3.1.0 binary compatibility <a rel="nofollow" class="external text" href="http://upstream-tracker.org/compat_reports/mysql++/3.0.9_to_3.1.0/abi_compat_report.html">report</a>
+</li><li> libssh: 0.3.4 to 0.4.0 binary compatibility <a rel="nofollow" class="external text" href="http://upstream-tracker.org/compat_reports/libssh/0.3.4_to_0.4.0/abi_compat_report.html">report</a>
 </li></ul>
 <h2> <span class="mw-headline" id="Verdict_on_Compatibility"> Verdict on Compatibility </span></h2>
 <p>If the tool detected problems with high or medium level of severity or at least one removed symbol then the compatibility verdict is <b>incompatible</b> (otherwise <b>compatible</b>). Low-severity problems can be considered as <b>warnings</b> and don't affect the compatibility verdict unless the <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">-strict</a> option is specified.
@@ -406,5 +407,5 @@ Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2292-0!*!0!!en!2!* and timestamp 20120319134247 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2292-0!*!0!!en!2!* and timestamp 20120319143651 -->
 </div></div></div></div></div></body></html>
