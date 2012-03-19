@@ -1531,7 +1531,7 @@
 
 <rule>
     <id>
-        Added_Interface
+        Added_Symbol
     </id>
     <severity>
         Safe
@@ -1543,7 +1543,7 @@
 
 <rule>
     <id>
-        Removed_Interface
+        Removed_Symbol
     </id>
     <severity>
         High
@@ -1753,6 +1753,24 @@
 
 <rule>
     <id>
+        Parameter_Became_NonRestrict
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Parameters
+    </kind>
+    <change>
+        Parameter @target became non-restrict.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
         Parameter_Became_Register
     </id>
     <severity>
@@ -1947,6 +1965,24 @@
     </change>
     <effect>
         Replacement of data type may indicate a change in semantic meaning.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Global_Data_Type_Format
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Type of this global data has been changed from @old_value to @new_value of different format.
+    </change>
+    <effect>
+        This global data may be incorrectly accessed by applications.
     </effect>
 </rule>
 
@@ -2333,7 +2369,7 @@
 
 <rule>
     <id>
-        Symbol_Changed_Static
+        Symbol_Became_Static
     </id>
     <severity>
         High
@@ -2351,7 +2387,7 @@
 
 <rule>
     <id>
-        Symbol_Changed_NonStatic
+        Symbol_Became_NonStatic
     </id>
     <severity>
         High
@@ -2369,7 +2405,7 @@
 
 <rule>
     <id>
-        Symbol_Changed_Virtual
+        Symbol_Became_Virtual
     </id>
     <severity>
         High
@@ -2387,7 +2423,7 @@
 
 <rule>
     <id>
-        Symbol_Changed_NonVirtual
+        Symbol_Became_NonVirtual
     </id>
     <severity>
         High
@@ -2459,7 +2495,7 @@
 
 <rule>
     <id>
-        Symbol_Changed_Became_NonConst
+        Symbol_Became_NonConst
     </id>
     <severity>
         High
@@ -2477,7 +2513,7 @@
 
 <rule>
     <id>
-        Symbol_Changed_Became_Const
+        Symbol_Became_Const
     </id>
     <severity>
         High
@@ -2495,7 +2531,7 @@
 
 <rule>
     <id>
-        Symbol_Changed_Became_Volatile
+        Symbol_Became_Volatile
     </id>
     <severity>
         High
@@ -2513,7 +2549,7 @@
 
 <rule>
     <id>
-        Symbol_Changed_Became_NonVolatile
+        Symbol_Became_NonVolatile
     </id>
     <severity>
         High
@@ -2562,6 +2598,24 @@
     </change>
     <effect>
         The value of this field can begin to change in ways outside the control of old client applications.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Field_Became_NonVolatile
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Fields
+    </kind>
+    <change>
+        Field @target became non-volatile.
+    </change>
+    <effect>
+        No effect.
     </effect>
 </rule>
 

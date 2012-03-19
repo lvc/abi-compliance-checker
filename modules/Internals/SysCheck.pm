@@ -298,7 +298,7 @@ sub cmpSystems($$$)
             next;
         }
         my ($FV1, $FV2) = ($LV1."-".$SystemName1, $LV2."-".$SystemName2);
-        my $ACC_compare = "perl $0 -l $LName -d1 \"$DPath1\" -d2 \"$DPath2\"";
+        my $ACC_compare = "perl $0 -binary -l $LName -d1 \"$DPath1\" -d2 \"$DPath2\"";
         my $LReportPath = "compat_reports/$LName/abi_compat_report.html";
         my $LReportPath_Full = $SYS_REPORT_PATH."/".$LReportPath;
         $ACC_compare .= " -report-path \"$LReportPath_Full\"";
@@ -1641,7 +1641,7 @@ sub dumpSystem($)
             next;
         }
         $DPath = cut_path_prefix($DPath, $ORIG_DIR);
-        my $ACC_dump = "perl $0";
+        my $ACC_dump = "perl $0 -binary";
         if($GroupByHeaders)
         { # header name is going here
             $ACC_dump .= " -l $LName";

@@ -23,14 +23,14 @@
 ###########################################################################
 use strict;
 
-my ($TestDump, $Debug, $Quiet, $ExtendedCheck,
-$LogMode, $ReportFormat, $LIB_EXT, $GCC_PATH);
+my ($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode,
+$ReportFormat, $LIB_EXT, $GCC_PATH, $Browse);
 my $OSgroup = get_OSgroup();
 
-sub testTool($$$$$$$$)
+sub testTool($$$$$$$$$)
 {
     ($TestDump, $Debug, $Quiet, $ExtendedCheck,
-    $LogMode, $ReportFormat, $LIB_EXT, $GCC_PATH) = @_;
+    $LogMode, $ReportFormat, $LIB_EXT, $GCC_PATH, $Browse) = @_;
     testC();
     testCpp();
 }
@@ -48,39 +48,77 @@ sub testCpp()
     $SOURCE1 .= "namespace TestNS {\n";
     $SOURCE2 .= "namespace TestNS {\n";
     
-    # Global_Data_Became_Const
+    # Inline method
     $HEADER1 .= "
-        class $DECL_SPEC DataBecameConst {
+        class $DECL_SPEC InlineMethod {
         public:
-            static int data;
+            inline int foo() { return 0; }
         };";
-    $SOURCE1 .= "
-        int DataBecameConst::data = 10;";
     
     $HEADER2 .= "
-        class $DECL_SPEC DataBecameConst {
+        class $DECL_SPEC InlineMethod {
         public:
-            static const int data;
+            inline long foo() { return 0; }
         };";
-    $SOURCE2 .= "
-        const int DataBecameConst::data = 10;";
-
+    
     # Global_Data_Became_Non_Const
     $HEADER1 .= "
-        class $DECL_SPEC DataBecameNonConst {
+        $EXTERN $DECL_SPEC const int globalDataBecameNonConst = 10;";
+    
+    $HEADER2 .= "
+        extern $DECL_SPEC int globalDataBecameNonConst;";
+    $SOURCE2 .= "
+        int globalDataBecameNonConst = 15;";
+
+    # Global_Data_Became_Non_Const
+    # Class Member
+    $HEADER1 .= "
+        class $DECL_SPEC GlobalDataBecameNonConst {
         public:
             static const int data;
         };";
     $SOURCE1 .= "
-        const int DataBecameNonConst::data = 10;";
+        const int GlobalDataBecameNonConst::data = 10;";
     
     $HEADER2 .= "
-        class $DECL_SPEC DataBecameNonConst {
+        class $DECL_SPEC GlobalDataBecameNonConst {
         public:
             static int data;
         };";
     $SOURCE2 .= "
-        int DataBecameNonConst::data = 10;";
+        int GlobalDataBecameNonConst::data = 10;";
+
+    # Global_Data_Became_Const
+    $HEADER1 .= "
+        extern $DECL_SPEC int globalDataBecameConst;";
+    $SOURCE1 .= "
+        int globalDataBecameConst = 10;";
+    
+    $HEADER2 .= "
+        $EXTERN $DECL_SPEC const int globalDataBecameConst = 15;";
+
+    # Global_Data_Became_Const
+    # Class Member
+    $HEADER1 .= "
+        class $DECL_SPEC GlobalDataBecameConst {
+        public:
+            static int Data;
+        };";
+    $SOURCE1 .= "
+        int GlobalDataBecameConst::Data = 10;";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC GlobalDataBecameConst {
+        public:
+            static const int Data = 15;
+        };";
+
+    # Global_Data_Value (int)
+    $HEADER1 .= "
+        $EXTERN $DECL_SPEC const int globalDataValue = 10;";
+    
+    $HEADER2 .= "
+        $EXTERN $DECL_SPEC const int globalDataValue = 15;";
     
     # Parameter_Became_Restrict
     $HEADER1 .= "
@@ -98,6 +136,23 @@ sub testCpp()
         };";
     $SOURCE2 .= "
         int ParameterBecameRestrict::method(int* __restrict param) { return 0; }";
+
+    # Parameter_Became_NonRestrict
+    $HEADER1 .= "
+        class $DECL_SPEC ParameterBecameNonRestrict {
+        public:
+            int method(int* __restrict param);
+        };";
+    $SOURCE1 .= "
+        int ParameterBecameNonRestrict::method(int* __restrict param) { return 0; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC ParameterBecameNonRestrict {
+        public:
+            int method(int* param);
+        };";
+    $SOURCE2 .= "
+        int ParameterBecameNonRestrict::method(int* param) { return 0; }";
     
     # Field_Became_Volatile
     $HEADER1 .= "
@@ -117,8 +172,28 @@ sub testCpp()
         };";
     $SOURCE2 .= "
         int FieldBecameVolatile::method(int param) { return param; }";
+
+    # Field_Became_NonVolatile
+    $HEADER1 .= "
+        class $DECL_SPEC FieldBecameNonVolatile {
+        public:
+            int method(int param);
+            volatile int f;
+        };";
+    $SOURCE1 .= "
+        int FieldBecameNonVolatile::method(int param) { return param; }";
     
-    # Method_Became_Const_Volatile
+    $HEADER2 .= "
+        class $DECL_SPEC FieldBecameNonVolatile {
+        public:
+            int method(int param);
+            int f;
+        };";
+    $SOURCE2 .= "
+        int FieldBecameNonVolatile::method(int param) { return param; }";
+    
+    # Symbol_Became_Const
+    # Symbol_Became_Volatile
     $HEADER1 .= "
         class $DECL_SPEC MethodBecameConstVolatile {
         public:
@@ -135,7 +210,7 @@ sub testCpp()
     $SOURCE2 .= "
         int MethodBecameConstVolatile::method(int param) volatile const { return param; }";
     
-    # Method_Became_Const
+    # Symbol_Became_Const
     $HEADER1 .= "
         class $DECL_SPEC MethodBecameConst {
         public:
@@ -151,8 +226,25 @@ sub testCpp()
         };";
     $SOURCE2 .= "
         int MethodBecameConst::method(int param) const { return param; }";
+
+    # Symbol_Became_NonConst
+    $HEADER1 .= "
+        class $DECL_SPEC MethodBecameNonConst {
+        public:
+            int method(int param) const;
+        };";
+    $SOURCE1 .= "
+        int MethodBecameNonConst::method(int param) const { return param; }";
     
-    # Method_Became_Volatile
+    $HEADER2 .= "
+        class $DECL_SPEC MethodBecameNonConst {
+        public:
+            int method(int param);
+        };";
+    $SOURCE2 .= "
+        int MethodBecameNonConst::method(int param) { return param; }";
+    
+    # Symbol_Became_Volatile
     $HEADER1 .= "
         class $DECL_SPEC MethodBecameVolatile {
         public:
@@ -429,31 +521,6 @@ sub testCpp()
         template <> int removedTemplateSpec<char>(char);";
     $SOURCE1 .= "
         template <> int removedTemplateSpec<char>(char){return 0;}";
-    
-    # Global_Data_Value (int)
-    $HEADER1 .= "
-        $EXTERN $DECL_SPEC const int globalDataValue = 10;";
-    
-    $HEADER2 .= "
-        $EXTERN $DECL_SPEC const int globalDataValue = 15;";
-    
-    # Global_Data_Became_Non_Const (int)
-    $HEADER1 .= "
-        $EXTERN $DECL_SPEC const int globalDataBecameNonConst = 10;";
-    
-    $HEADER2 .= "
-        extern $DECL_SPEC int globalDataBecameNonConst;";
-    $SOURCE2 .= "
-        int globalDataBecameNonConst = 15;";
-
-    # Global_Data_Became_Const (safe)
-    $HEADER1 .= "
-        extern $DECL_SPEC int globalDataBecameConst;";
-    $SOURCE1 .= "
-        int globalDataBecameConst = 10;";
-    
-    $HEADER2 .= "
-        $EXTERN $DECL_SPEC const int globalDataBecameConst=15;";
     
     # Removed_Field (Ref)
     $HEADER1 .= "
@@ -2593,7 +2660,7 @@ sub testC()
     $HEADER2 .= "
         $EXTERN $DECL_SPEC const int globalDataValue = 15;";
     
-    # Global_Data_Became_Non_Const (int)
+    # Global_Data_Became_Non_Const
     $HEADER1 .= "
         $EXTERN $DECL_SPEC const int globalDataBecameNonConst = 10;";
     
@@ -2602,7 +2669,7 @@ sub testC()
     $SOURCE2 .= "
         int globalDataBecameNonConst = 15;";
 
-    # Global_Data_Became_Const (safe)
+    # Global_Data_Became_Const
     $HEADER1 .= "
         extern $DECL_SPEC int globalDataBecameConst;";
     $SOURCE1 .= "
@@ -2611,7 +2678,7 @@ sub testC()
     $HEADER2 .= "
         $EXTERN $DECL_SPEC const int globalDataBecameConst=15;";
     
-    # Global_Data_Became_Non_Const (struct)
+    # Global_Data_Became_Non_Const
     $HEADER1 .= "
         struct GlobalDataType{int a;int b;struct GlobalDataType* p;};
         $EXTERN $DECL_SPEC const struct GlobalDataType globalStructDataBecameConst = {1, 2, (struct GlobalDataType*)0};";
@@ -3913,8 +3980,12 @@ sub runTests($$$$$$$$)
     elsif($Quiet) {
         @Cmd = (@Cmd, "-logging-mode", "a");
     }
-    if($ReportFormat) {
+    if($ReportFormat and $ReportFormat ne "html")
+    { # HTML is default format
         @Cmd = (@Cmd, "-report-format", $ReportFormat);
+    }
+    if($Browse) {
+        @Cmd = (@Cmd, "-browse", $Browse);
     }
     if($Debug)
     { # debug mode
@@ -3922,7 +3993,7 @@ sub runTests($$$$$$$$)
         printMsg("INFO", "@Cmd");
     }
     system(@Cmd);
-    my $RPath = "compat_reports/$LibName/1.0_to_2.0/abi_compat_report.$ReportFormat";
+    my $RPath = "compat_reports/$LibName/1.0_to_2.0/compat_report.$ReportFormat";
     my $NProblems = 0;
     if($ReportFormat eq "xml")
     {
