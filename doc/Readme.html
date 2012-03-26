@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker", "wgTitle": "ABI Compliance Checker", "wgCurRevisionId": 7720, "wgArticleId": 2292, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker", "wgTitle": "ABI Compliance Checker", "wgCurRevisionId": 7730, "wgArticleId": 2292, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -39,7 +39,7 @@
 		<div id="contentSub"></div>
 		
 		<!-- start content -->
-<div lang="en" dir="ltr" class="mw-content-ltr"><p><i>ABI Compliance Checker (ACC)</i> is a tool for checking backward binary and source-level compatibility of a shared C/C++ library. The tool checks header files and shared libraries of old and new versions and analyzes changes in API and ABI (ABI=API+compiler ABI) that may break binary and/or source-level compatibility: changes in calling stack, v-table changes, removed symbols, renamed fields, etc. Binary incompatibility may result in crashing or incorrect behavior of applications built with an old version of a library if they run on a new one. Source incompatibility may result in recompilation errors with a new library version. The tool is intended for library developers and OS maintainers who are interested in ensuring backward compatibility, i.e. allow old applications to run or to be recompiled with newer library versions.
+<div lang="en" dir="ltr" class="mw-content-ltr"><p><i>ABI Compliance Checker (ACC)</i> is a tool for checking backward binary and source-level compatibility of a C/C++ library. The tool checks header files and shared libraries of old and new versions and analyzes changes in API and ABI (ABI=API+compiler ABI) that may break binary and/or source compatibility: changes in calling stack, v-table changes, removed symbols, renamed fields, etc. Binary incompatibility may result in crashing or incorrect behavior of applications built with an old version of a library if they run on a new one. Source incompatibility may result in recompilation errors with a new library version. The tool is intended for developers of software libraries and maintainers of operating systems who are interested in ensuring backward compatibility, i.e. allow old applications to run or to be recompiled with newer library versions.
 </p><p>See also:
 </p>
 <ul><li> <a rel="nofollow" class="external text" href="http://upstream-tracker.org/">Upstream Tracker</a>
@@ -87,7 +87,7 @@
 <h2> <span class="mw-headline" id="Downloads"> Downloads </span></h2>
 <h3> <span class="mw-headline" id="Releases"> Releases </span></h3>
 <p>All releases can be downloaded from <b><a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Downloads" title="ABI Compliance Checker Downloads">this page</a></b> or <b><a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/downloads/">github.com</a></b>.
-</p><p>Latest release: <a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/downloads/abi-compliance-checker-1.97.tar.gz">1.97</a>
+</p><p>Latest release: <a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/downloads/abi-compliance-checker-1.97.1.tar.gz">1.97.1</a>
 </p>
 <h3> <span class="mw-headline" id="Git"> Git </span></h3>
 <p>Read-only access to the latest development version:<br />
@@ -397,8 +397,7 @@ Check application (csync) portability between libssh versions:<br />
 </li><li> FreeStandards.org, <a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/gabi41.pdf"><b>Generic ABI (gABI) Standard</b></a>, <a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/"><b>"ELF and ABI Standards"</b></a>
 </li><li> Processor Supplement ABI (psABI) documents: <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/abi386-4.pdf">Intel386</a></b>, <b><a rel="nofollow" class="external text" href="http://www.x86-64.org/documentation/abi.pdf">AMD64</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/elfspec_ppc.pdf">PowerPC</a></b>, <b><a rel="nofollow" class="external text" href="http://download.boulder.ibm.com/ibmdl/pub/software/dw/linux390/docu/l390abi0.pdf">S/390</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/IA64-SysV-psABI.pdf">Itanium</a></b>, <b><a rel="nofollow" class="external text" href="http://infocenter.arm.com/help/topic/com.arm.doc.ihi0036b/IHI0036B_bsabi.pdf">ARM</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/mipsabi.pdf">MIPS</a></b>, <b><a rel="nofollow" class="external text" href="http://www.sparc.org/standards/psABI3rd.pdf">SPARC</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/elf-pa.pdf">PA-RISK</a></b>, <b><a rel="nofollow" class="external text" href="http://www.linux-m32r.org/cmn/m32r/M32R-elf-abi.pdf">M32R</a></b>
 </li></ol>
-<p>/code&gt;
-</p>
+
 <!-- 
 NewPP limit report
 Preprocessor node count: 133/1000000
@@ -407,5 +406,5 @@ Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2292-0!*!0!!en!2!* and timestamp 20120319143651 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2292-0!*!0!!en!2!* and timestamp 20120326150727 -->
 </div></div></div></div></div></body></html>
