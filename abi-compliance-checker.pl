@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.97
+# ABI Compliance Checker (ACC) 1.97.1
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation.
@@ -55,7 +55,7 @@ use Cwd qw(abs_path cwd);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.97";
+my $TOOL_VERSION = "1.97.1";
 my $ABI_DUMP_VERSION = "2.11";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.0";
@@ -134,8 +134,8 @@ my %ERROR_CODE = (
 
 my %HomePage = (
     "Wiki"=>"http://ispras.linuxbase.org/index.php/ABI_compliance_checker",
-    "Dev1"=>"http://forge.ispras.ru/projects/abi-compliance-checker",
-    "Dev2"=>"https://github.com/lvc/abi-compliance-checker"
+    "Dev1"=>"https://github.com/lvc/abi-compliance-checker",
+    "Dev2"=>"http://forge.ispras.ru/projects/abi-compliance-checker"
 );
 
 my $ShortUsage = "ABI Compliance Checker (ACC) $TOOL_VERSION
@@ -144,7 +144,7 @@ Copyright (C) 2012 ROSA Laboratory
 License: GNU LGPL or GNU GPL
 
 Usage: $CmdName [options]
-Example: $CmdName -lib NAME -d1 OLD.xml -d2 NEW.xml
+Example: $CmdName -lib NAME -old OLD.xml -new NEW.xml
 
 OLD.xml and NEW.xml are XML-descriptors:
 
@@ -281,12 +281,14 @@ DESCRIPTION:
   a library if they run on a new one. Source incompatibility may result in
   recompilation errors with a new library version.
 
-  The tool is intended for library developers and OS maintainers who are
-  interested in ensuring backward compatibility, i.e. allow old applications
-  to run or to be recompiled with newer library versions. Also it can be used
-  by ISVs for checking applications portability to new library versions.
-  Found issues can be taken into account when adapting the application to a
-  new library version.
+  The tool is intended for developers of software libraries and maintainers
+  of operating systems who are interested in ensuring backward compatibility,
+  i.e. allow old applications to run or to be recompiled with newer library
+  versions.
+
+  Also the tool can be used by ISVs for checking applications portability to
+  new library versions. Found issues can be taken into account when adapting
+  the application to a new library version.
 
   This tool is free software: you can redistribute it and/or modify it
   under the terms of the GNU LGPL or GNU GPL.
@@ -1182,8 +1184,13 @@ my $GLIBC_TESTING = 0;
 
 my $CheckHeadersOnly = $CheckHeadersOnly_Opt;
 my $CheckObjectsOnly = $CheckObjectsOnly_Opt;
-my $TargetComponent = lc($TargetComponent_Opt);
-if(not $TargetComponent)
+my $TargetComponent;
+
+# Set Target Component Name
+if($TargetComponent_Opt) {
+    $TargetComponent = lc($TargetComponent_Opt);
+}
+else
 { # default: library
   # other components: header, system, ...
     $TargetComponent = "library";
@@ -1354,7 +1361,7 @@ my $OStarget = $OSgroup;
 my %TargetTools;
 
 # Compliance Report
-my %Type_MaxPriority;
+my %Type_MaxSeverity;
 
 # Recursion locks
 my @RecurLib;
@@ -1431,9 +1438,15 @@ sub loadModule($)
     require $Path;
 }
 
-sub numToStr($)
+sub showNum($)
 {
-    my $Number = int($_[0]);
+    my $Number = $_[0];
+    if(not $Number) {
+        $Number = 1;
+    }
+    else {
+        $Number = int($Number)+1;
+    }
     if($Number>3) {
         return $Number."th";
     }
@@ -1851,37 +1864,37 @@ sub parseTag($$)
     }
 }
 
-my %check_node= map {$_=>1} (
-  "array_type",
-  "binfo",
-  "boolean_type",
-  "complex_type",
-  "const_decl",
-  "enumeral_type",
-  "field_decl",
-  "function_decl",
-  "function_type",
-  "identifier_node",
-  "integer_cst",
-  "integer_type",
-  "method_type",
-  "namespace_decl",
-  "parm_decl",
-  "pointer_type",
-  "real_cst",
-  "real_type",
-  "record_type",
-  "reference_type",
-  "string_cst",
-  "template_decl",
-  "template_type_parm",
-  "tree_list",
-  "tree_vec",
-  "type_decl",
-  "union_type",
-  "var_decl",
-  "void_type",
-  "offset_type" );
+my %NodeType= (
+  "array_type" => "Array",
+  "binfo" => "Other",
+  "boolean_type" => "Intrinsic",
+  "complex_type" => "Intrinsic",
+  "const_decl" => "Other",
+  "enumeral_type" => "Enum",
+  "field_decl" => "Other",
+  "function_decl" => "Other",
+  "function_type" => "FunctionType",
+  "identifier_node" => "Other",
+  "integer_cst" => "Other",
+  "integer_type" => "Intrinsic",
+  "method_type" => "MethodType",
+  "namespace_decl" => "Other",
+  "parm_decl" => "Other",
+  "pointer_type" => "Pointer",
+  "real_cst" => "Other",
+  "real_type" => "Intrinsic",
+  "record_type" => "Struct",
+  "reference_type" => "Ref",
+  "string_cst" => "Other",
+  "template_decl" => "Other",
+  "template_type_parm" => "Other",
+  "tree_list" => "Other",
+  "tree_vec" => "Other",
+  "type_decl" => "Other",
+  "union_type" => "Union",
+  "var_decl" => "Other",
+  "void_type" => "Intrinsic",
+  "offset_type" => "Other" );
 
 sub getInfo($)
 {
@@ -1896,7 +1909,7 @@ sub getInfo($)
     {
         if(/\A\@(\d+)\s+([a-z_]+)\s+(.+)\Z/oi)
         { # get a number and attributes of a node
-            next if(not $check_node{$2});
+            next if(not $NodeType{$2});
             $LibInfo{$Version}{"info_type"}{$1}=$2;
             $LibInfo{$Version}{"info"}{$1}=$3;
         }
@@ -2019,25 +2032,32 @@ sub setTemplateInstParams($)
 
 sub getTypeDeclId($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/name[ ]*:[ ]*@(\d+)/) {
-        return $1;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/name[ ]*:[ ]*@(\d+)/) {
+            return $1;
+        }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub isFuncPtr($)
 {
     my $Ptd = pointTo($_[0]);
     return 0 if(not $Ptd);
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/unql[ ]*:/
-    and $LibInfo{$Version}{"info"}{$_[0]}!~/qual[ ]*:/) {
-        return 0;
+    if(my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/unql[ ]*:/ and $Info!~/qual[ ]*:/) {
+            return 0;
+        }
     }
-    elsif($LibInfo{$Version}{"info_type"}{$_[0]} eq "pointer_type"
-    and $LibInfo{$Version}{"info_type"}{$Ptd} eq "function_type") {
-        return 1;
+    if(my $InfoT1 = $LibInfo{$Version}{"info_type"}{$_[0]}
+    and my $InfoT2 = $LibInfo{$Version}{"info_type"}{$Ptd})
+    {
+        if($InfoT1 eq "pointer_type"
+        and $InfoT2 eq "function_type") {
+            return 1;
+        }
     }
     return 0;
 }
@@ -2046,31 +2066,38 @@ sub isMethodPtr($)
 {
     my $Ptd = pointTo($_[0]);
     return 0 if(not $Ptd);
-    if($LibInfo{$Version}{"info_type"}{$_[0]} eq "record_type"
-    and $LibInfo{$Version}{"info_type"}{$Ptd} eq "method_type"
-    and $LibInfo{$Version}{"info"}{$_[0]}=~/ ptrmem /) {
-        return 1;
+    if(my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($LibInfo{$Version}{"info_type"}{$_[0]} eq "record_type"
+        and $LibInfo{$Version}{"info_type"}{$Ptd} eq "method_type"
+        and $Info=~/ ptrmem /) {
+            return 1;
+        }
     }
     return 0;
 }
 
 sub isFieldPtr($)
 {
-    if($LibInfo{$Version}{"info_type"}{$_[0]} eq "offset_type"
-    and $LibInfo{$Version}{"info"}{$_[0]}=~/ ptrmem /) {
-        return 1;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($LibInfo{$Version}{"info_type"}{$_[0]} eq "offset_type"
+        and $Info=~/ ptrmem /) {
+            return 1;
+        }
     }
     return 0;
 }
 
 sub pointTo($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/ptd[ ]*:[ ]*@(\d+)/) {
-        return $1;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/ptd[ ]*:[ ]*@(\d+)/) {
+            return $1;
+        }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub getTypeInfo_All()
@@ -2513,7 +2540,8 @@ sub getNodeIntCst($)
     }
     elsif((my $Value = getTreeValue($CstId)) ne "")
     {
-        if($Value eq "0") {
+        if($Value eq "0")
+        {
             if(getNodeType($CstTypeId) eq "boolean_type") {
                 return "false";
             }
@@ -2521,7 +2549,8 @@ sub getNodeIntCst($)
                 return "0";
             }
         }
-        elsif($Value eq "1") {
+        elsif($Value eq "1")
+        {
             if(getNodeType($CstTypeId) eq "boolean_type") {
                 return "true";
             }
@@ -2533,20 +2562,19 @@ sub getNodeIntCst($)
             return $Value;
         }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub getNodeStrCst($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/strg[ ]*: (.+) lngt:[ ]*(\d+)/)
-    { # string length is N-1 because of the null terminator
-        return substr($1, 0, $2-1);
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/strg[ ]*: (.+) lngt:[ ]*(\d+)/)
+        { # string length is N-1 because of the null terminator
+            return substr($1, 0, $2-1);
+        }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub getMemPtrAttr($$$$)
@@ -2629,25 +2657,22 @@ sub getMemPtrAttr($$$$)
 
 sub getTreeTypeName($)
 {
-    my $Info = $LibInfo{$Version}{"info"}{$_[0]};
-    if($Info=~/name[ ]*:[ ]*@(\d+) /) {
-        return getNameByInfo($1);
-    }
-    else
+    if(my $Info = $LibInfo{$Version}{"info"}{$_[0]})
     {
-        if($LibInfo{$Version}{"info_type"}{$_[0]} eq "integer_type")
+        if($Info=~/name[ ]*:[ ]*@(\d+) /) {
+            return getNameByInfo($1);
+        }
+        elsif($LibInfo{$Version}{"info_type"}{$_[0]} eq "integer_type")
         {
-            if($LibInfo{$Version}{"info"}{$_[0]}=~/unsigned/) {
+            if($Info=~/unsigned/) {
                 return "unsigned int";
             }
             else {
                 return "int";
             }
         }
-        else {
-            return "";
-        }
     }
+    return "";
 }
 
 sub getTypeType($$)
@@ -2659,7 +2684,7 @@ sub getTypeType($$)
         return "Typedef";
     }
     my $Info = $LibInfo{$Version}{"info"}{$TypeId};
-    if($Info=~/unql[ ]*:/ and $Info!~/qual[ ]*:/
+    if($Info and $Info=~/unql[ ]*:/ and $Info!~/qual[ ]*:/
     and getNameByInfo($TypeDeclId)) {
         return "Typedef";
     }
@@ -2691,22 +2716,24 @@ sub getTypeType($$)
 sub getQual($)
 {
     my $TypeId = $_[0];
-    my $Info = $LibInfo{$Version}{"info"}{$TypeId};
-    my ($Qual, $To) = ();
     my %UnQual = (
         "r"=>"restrict",
         "v"=>"volatile",
         "c"=>"const",
         "cv"=>"const volatile"
     );
-    if($Info=~/qual[ ]*:[ ]*(r|c|v|cv) /) {
-        $Qual = $UnQual{$1};
-    }
-    if($Info=~/unql[ ]*:[ ]*\@(\d+)/) {
-        $To = $1;
-    }
-    if($Qual and $To) {
-        return ($Qual, $To);
+    if(my $Info = $LibInfo{$Version}{"info"}{$TypeId})
+    {
+        my ($Qual, $To) = ();
+        if($Info=~/qual[ ]*:[ ]*(r|c|v|cv) /) {
+            $Qual = $UnQual{$1};
+        }
+        if($Info=~/unql[ ]*:[ ]*\@(\d+)/) {
+            $To = $1;
+        }
+        if($Qual and $To) {
+            return ($Qual, $To);
+        }
     }
     return ();
 }
@@ -2719,8 +2746,8 @@ sub selectBaseType($$)
         return ($TypeId, getTypeDeclId($TypeId), "");
     }
     my $TInfo = $LibInfo{$Version}{"info"}{$TypeId};
-    if(my ($Qual, $To) = getQual($TypeId)
-    and $TInfo=~/name[ ]*:[ ]*\@(\d+) /
+    my ($Qual, $To) = getQual($TypeId);
+    if(($Qual or $To) and $TInfo=~/name[ ]*:[ ]*\@(\d+) /
     and (getTypeId($1) ne $TypeId)) {
         return (getTypeId($1), $1, $Qual);
     }
@@ -2730,7 +2757,7 @@ sub selectBaseType($$)
     { # typedefs
         return ($1, getTypeDeclId($1), "");
     }
-    elsif(my ($Qual, $To) = getQual($TypeId)) {
+    elsif($Qual or $To) {
         return ($To, getTypeDeclId($To), $Qual);
     }
     elsif($LibInfo{$Version}{"info_type"}{$TypeId} eq "reference_type")
@@ -2786,14 +2813,18 @@ sub getVarInfo_All()
 }
 
 sub isBuiltIn($) {
-    return ($_[0]=~/\<built\-in\>|\<internal\>|\A\./);
+    return ($_[0] and $_[0]=~/\<built\-in\>|\<internal\>|\A\./);
 }
 
 sub getVarInfo($)
 {
     my $InfoId = $_[0];
-    if($LibInfo{$Version}{"info_type"}{getNameSpaceId($InfoId)} eq "function_decl") {
-        return;
+    if(my $NSid = getNameSpaceId($InfoId))
+    {
+        my $NSInfoType = $LibInfo{$Version}{"info_type"}{$NSid};
+        if($NSInfoType and $NSInfoType eq "function_decl") {
+            return;
+        }
     }
     ($SymbolInfo{$Version}{$InfoId}{"Header"}, $SymbolInfo{$Version}{$InfoId}{"Line"}) = getLocation($InfoId);
     if(not $SymbolInfo{$Version}{$InfoId}{"Header"}
@@ -2822,7 +2853,7 @@ sub getVarInfo($)
     if($LibInfo{$Version}{"info"}{$InfoId}=~/ lang:[ ]*C /i) {
         $SymbolInfo{$Version}{$InfoId}{"Lang"} = "C";
     }
-    if($UserLang eq "C")
+    if($UserLang and $UserLang eq "C")
     { # --lang=C option
         $SymbolInfo{$Version}{$InfoId}{"MnglName"} = $SymbolInfo{$Version}{$InfoId}{"ShortName"};
     }
@@ -2888,6 +2919,8 @@ sub getTrivialName($$)
     if(not $TypeAttr{"Name"}) {
         $TypeAttr{"Name"} = getTreeTypeName($TypeId);
     }
+    ($TypeAttr{"Header"}, $TypeAttr{"Line"}) = getLocation($TypeInfoId);
+    $TypeAttr{"Type"} = getTypeType($TypeInfoId, $TypeId);
     $TypeAttr{"Name"}=~s/<(.+)\Z//g; # GCC 3.4.4 add template params to the name
     if(isAnon($TypeAttr{"Name"}))
     {
@@ -2923,8 +2956,11 @@ sub getTrivialName($$)
     $TypeAttr{"Name"} = formatName($TypeAttr{"Name"});
     if(isAnon($TypeAttr{"Name"}))
     { # anon-struct-header.h-line
-        $TypeAttr{"Name"} = "anon-".lc(getTypeType($TypeInfoId, $TypeId))."-";
+        $TypeAttr{"Name"} = "anon-".lc($TypeAttr{"Type"})."-";
         $TypeAttr{"Name"} .= $TypeAttr{"Header"}."-".$TypeAttr{"Line"};
+        if($TypeAttr{"NameSpace"}) {
+            $TypeAttr{"Name"} = $TypeAttr{"NameSpace"}."::".$TypeAttr{"Name"};
+        }
     }
     if(defined $TemplateInstance{$Version}{$TypeInfoId}{$TypeId})
     {
@@ -2960,14 +2996,6 @@ sub getTrivialTypeAttr($$)
     }
     if(not $TypeAttr{"NameSpace"}) {
         delete($TypeAttr{"NameSpace"});
-    }
-    if(isAnon($TypeAttr{"Name"}))
-    {
-        $TypeAttr{"Name"} = "anon-".lc($TypeAttr{"Type"})."-";
-        $TypeAttr{"Name"} .= $TypeAttr{"Header"}."-".$TypeAttr{"Line"};
-        if($TypeAttr{"NameSpace"}) {
-            $TypeAttr{"Name"} = $TypeAttr{"NameSpace"}."::".$TypeAttr{"Name"};
-        }
     }
     if(my $Size = getSize($TypeId)) {
         $TypeAttr{"Size"} = $Size/$BYTE_SIZE;
@@ -3239,7 +3267,7 @@ sub mangle_symbol_gcc($$)
     {
         if($SymbolInfo{$LibVersion}{$InfoId}{"Data"})
         {
-            if(get_TypeType($Return, $LibVersion) eq "Const")
+            if(get_TypeAttr($Return, $LibVersion, "Type") eq "Const")
             { # "const" global data is mangled as _ZL...
                 $Mangled .= "L";
             }
@@ -3563,7 +3591,7 @@ sub add_substitution($$$)
     }
     # register duplicates
     # upward
-    my $Base = $Value;
+    $Base = $Value;
     foreach my $Type (sort {$Repl->{$a}<=>$Repl->{$b}} sort keys(%{$Repl}))
     {
         next if($Base eq $Type);
@@ -3735,12 +3763,15 @@ sub set_Class_And_Namespace($)
     my $InfoId = $_[0];
     if($LibInfo{$Version}{"info"}{$InfoId}=~/scpe[ ]*:[ ]*@(\d+) /)
     {
-        my $NameSpaceInfoId = $1;
-        if($LibInfo{$Version}{"info_type"}{$NameSpaceInfoId} eq "namespace_decl") {
-            $SymbolInfo{$Version}{$InfoId}{"NameSpace"} = getNameSpace($InfoId);
-        }
-        elsif($LibInfo{$Version}{"info_type"}{$NameSpaceInfoId} eq "record_type") {
-            $SymbolInfo{$Version}{$InfoId}{"Class"} = $NameSpaceInfoId;
+        my $NSInfoId = $1;
+        if(my $InfoType = $LibInfo{$Version}{"info_type"}{$NSInfoId})
+        {
+            if($InfoType eq "namespace_decl") {
+                $SymbolInfo{$Version}{$InfoId}{"NameSpace"} = getNameSpace($InfoId);
+            }
+            elsif($InfoType eq "record_type") {
+                $SymbolInfo{$Version}{$InfoId}{"Class"} = $NSInfoId;
+            }
         }
     }
     if($SymbolInfo{$Version}{$InfoId}{"Class"}
@@ -3785,9 +3816,12 @@ sub linkSymbol($)
 { # link symbols from shared libraries
   # with the symbols from header files
     my $InfoId = $_[0];
-    if($SymbolInfo{$Version}{$InfoId}{"Lang"} eq "C")
-    { # extern "C"
-        return $SymbolInfo{$Version}{$InfoId}{"ShortName"};
+    if(my $Lang = $SymbolInfo{$Version}{$InfoId}{"Lang"})
+    {
+        if($Lang eq "C")
+        { # extern "C"
+            return $SymbolInfo{$Version}{$InfoId}{"ShortName"};
+        }
     }
     # try to mangle symbol
     if((not check_gcc_version($GCC_PATH, "4") and $SymbolInfo{$Version}{$InfoId}{"Class"})
@@ -3899,7 +3933,7 @@ sub getSymbolInfo($)
     if($LibInfo{$Version}{"info"}{$InfoId}=~/ lang:[ ]*C /i) {
         $SymbolInfo{$Version}{$InfoId}{"Lang"} = "C";
     }
-    if($UserLang eq "C")
+    if($UserLang and $UserLang eq "C")
     { # --lang=C option
         $SymbolInfo{$Version}{$InfoId}{"MnglName"} = $SymbolInfo{$Version}{$InfoId}{"ShortName"};
     }
@@ -3919,13 +3953,13 @@ sub getSymbolInfo($)
         }
         if($OStarget eq "windows")
         { # link MS C++ symbols from library with GCC symbols from headers
-            if(my $Mangled = $mangled_name{$Version}{modelUnmangled($InfoId, "MSVC")})
+            if(my $Mangled1 = $mangled_name{$Version}{modelUnmangled($InfoId, "MSVC")})
             { # exported symbols
-                $SymbolInfo{$Version}{$InfoId}{"MnglName"} = $Mangled;
+                $SymbolInfo{$Version}{$InfoId}{"MnglName"} = $Mangled1;
             }
-            elsif(my $Mangled = mangle_symbol($InfoId, $Version, "MSVC"))
+            elsif(my $Mangled2 = mangle_symbol($InfoId, $Version, "MSVC"))
             { # pure virtual symbols
-                $SymbolInfo{$Version}{$InfoId}{"MnglName"} = $Mangled;
+                $SymbolInfo{$Version}{$InfoId}{"MnglName"} = $Mangled2;
             }
         }
     }
@@ -4001,10 +4035,15 @@ sub getSymbolInfo($)
     if(getFuncLink($InfoId) eq "Static") {
         $SymbolInfo{$Version}{$InfoId}{"Static"} = 1;
     }
-    if($SymbolInfo{$Version}{$InfoId}{"MnglName"}=~/\A(_Z|\?)/
-    and $tr_name{$SymbolInfo{$Version}{$InfoId}{"MnglName"}}=~/\.\_\d/) {
-        delete($SymbolInfo{$Version}{$InfoId});
-        return;
+    if($SymbolInfo{$Version}{$InfoId}{"MnglName"}=~/\A(_Z|\?)/)
+    {
+        if(my $Unmangled = $tr_name{$SymbolInfo{$Version}{$InfoId}{"MnglName"}})
+        {
+            if($Unmangled=~/\.\_\d/) {
+                delete($SymbolInfo{$Version}{$InfoId});
+                return;
+            }
+        }
     }
     delete($SymbolInfo{$Version}{$InfoId}{"Type"});
     if($SymbolInfo{$Version}{$InfoId}{"MnglName"}=~/\A_ZN(V|)K/) {
@@ -4018,21 +4057,24 @@ sub getSymbolInfo($)
 sub isInline($)
 { # "body: undefined" in the tree
   # -fkeep-inline-functions GCC option should be specified
-    my $FuncInfo = $LibInfo{$Version}{"info"}{$_[0]};
-    if($FuncInfo=~/ undefined /i) {
-        return 0;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/ undefined /i) {
+            return 0;
+        }
     }
     return 1;
 }
 
 sub getTypeId($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/type[ ]*:[ ]*@(\d+) /) {
-        return $1;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/type[ ]*:[ ]*@(\d+) /) {
+            return $1;
+        }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub setTypeMemb($$)
@@ -4188,14 +4230,18 @@ sub detect_nolimit_args($$)
         my $ParamTypeId = getTreeAttr($ParamListElemId, "valu");
         if(my $PurpId = getTreeAttr($ParamListElemId, "purp"))
         {
-            if($LibInfo{$Version}{"info_type"}{$PurpId} eq "integer_cst") {
-                $SymbolInfo{$Version}{$InfoId}{"Param"}{$Position}{"default"} = getTreeValue($PurpId);
-            }
-            elsif($LibInfo{$Version}{"info_type"}{$PurpId} eq "string_cst") {
-                $SymbolInfo{$Version}{$InfoId}{"Param"}{$Position}{"default"} = getNodeStrCst($PurpId);
+            if(my $PurpType = $LibInfo{$Version}{"info_type"}{$PurpId})
+            {
+                if($PurpType eq "integer_cst") {
+                    $SymbolInfo{$Version}{$InfoId}{"Param"}{$Position}{"default"} = getTreeValue($PurpId);
+                }
+                elsif($PurpType eq "string_cst") {
+                    $SymbolInfo{$Version}{$InfoId}{"Param"}{$Position}{"default"} = getNodeStrCst($PurpId);
+                }
             }
         }
-        if($TypeInfo{$Version}{getTypeDeclId($ParamTypeId)}{$ParamTypeId}{"Name"} eq "void") {
+        if($TypeInfo{$Version}{getTypeDeclId($ParamTypeId)}{$ParamTypeId}{"Name"} eq "void")
+        {
             $HaveVoid = 1;
             last;
         }
@@ -4215,40 +4261,48 @@ sub detect_nolimit_args($$)
 sub getTreeAttr($$)
 {
     my $Attr = $_[1];
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/\Q$Attr\E\s*:\s*\@(\d+) /) {
-        return $1;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/\Q$Attr\E\s*:\s*\@(\d+) /) {
+            return $1;
+        }
     }
     return "";
 }
 
 sub getTreeValue($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/low[ ]*:[ ]*([^ ]+) /) {
-        return $1;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/low[ ]*:[ ]*([^ ]+) /) {
+            return $1;
+        }
     }
     return "";
 }
 
 sub getTreeAccess($)
 {
-    my $InfoId = $_[0];
-    if($LibInfo{$Version}{"info"}{$InfoId}=~/accs[ ]*:[ ]*([a-zA-Z]+) /)
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
     {
-        my $Access = $1;
-        if($Access eq "prot") {
+        if($Info=~/accs[ ]*:[ ]*([a-zA-Z]+) /)
+        {
+            my $Access = $1;
+            if($Access eq "prot") {
+                return "protected";
+            }
+            elsif($Access eq "priv") {
+                return "private";
+            }
+        }
+        elsif($Info=~/ protected /)
+        { # support for old GCC versions
             return "protected";
         }
-        elsif($Access eq "priv") {
+        elsif($Info=~/ private /)
+        { # support for old GCC versions
             return "private";
         }
-    }
-    elsif($LibInfo{$Version}{"info"}{$InfoId}=~/ protected /)
-    { # support for old GCC versions
-        return "protected";
-    }
-    elsif($LibInfo{$Version}{"info"}{$InfoId}=~/ private /)
-    { # support for old GCC versions
-        return "private";
     }
     return "public";
 }
@@ -4278,124 +4332,131 @@ sub setTypeAccess($$)
 
 sub setFuncKind($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/pseudo tmpl/) {
-        $SymbolInfo{$Version}{$_[0]}{"PseudoTemplate"} = 1;
-    }
-    elsif($LibInfo{$Version}{"info"}{$_[0]}=~/ constructor /) {
-        $SymbolInfo{$Version}{$_[0]}{"Constructor"} = 1;
-    }
-    elsif($LibInfo{$Version}{"info"}{$_[0]}=~/ destructor /) {
-        $SymbolInfo{$Version}{$_[0]}{"Destructor"} = 1;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/pseudo tmpl/) {
+            $SymbolInfo{$Version}{$_[0]}{"PseudoTemplate"} = 1;
+        }
+        elsif($Info=~/ constructor /) {
+            $SymbolInfo{$Version}{$_[0]}{"Constructor"} = 1;
+        }
+        elsif($Info=~/ destructor /) {
+            $SymbolInfo{$Version}{$_[0]}{"Destructor"} = 1;
+        }
     }
 }
 
 sub getFuncSpec($)
 {
-    my $FuncInfo = $LibInfo{$Version}{"info"}{$_[0]};
-    if($FuncInfo=~/spec[ ]*:[ ]*pure /) {
-        return "PureVirt";
-    }
-    elsif($FuncInfo=~/spec[ ]*:[ ]*virt /) {
-        return "Virt";
-    }
-    elsif($FuncInfo=~/ pure\s+virtual /)
-    { # support for old GCC versions
-        return "PureVirt";
-    }
-    elsif($FuncInfo=~/ virtual /)
-    { # support for old GCC versions
-        return "Virt";
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/spec[ ]*:[ ]*pure /) {
+            return "PureVirt";
+        }
+        elsif($Info=~/spec[ ]*:[ ]*virt /) {
+            return "Virt";
+        }
+        elsif($Info=~/ pure\s+virtual /)
+        { # support for old GCC versions
+            return "PureVirt";
+        }
+        elsif($Info=~/ virtual /)
+        { # support for old GCC versions
+            return "Virt";
+        }
     }
     return "";
 }
 
 sub getFuncClass($)
 {
-    my $FuncInfo = $LibInfo{$Version}{"info"}{$_[0]};
-    if($FuncInfo=~/scpe[ ]*:[ ]*@(\d+) /) {
-        return $1;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/scpe[ ]*:[ ]*@(\d+) /) {
+            return $1;
+        }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub getFuncLink($)
 {
-    my $FuncInfo = $LibInfo{$Version}{"info"}{$_[0]};
-    if($FuncInfo=~/link[ ]*:[ ]*static /) {
-        return "Static";
-    }
-    else {
-        if($FuncInfo=~/link[ ]*:[ ]*([a-zA-Z]+) /) {
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/link[ ]*:[ ]*static /) {
+            return "Static";
+        }
+        elsif($Info=~/link[ ]*:[ ]*([a-zA-Z]+) /) {
             return $1;
         }
-        else {
-            return "";
-        }
     }
+    return "";
 }
 
 sub getNextElem($)
 {
-    my $FuncInfo = $LibInfo{$Version}{"info"}{$_[0]};
-    if($FuncInfo=~/(chan|chain)[ ]*:[ ]*@(\d+) /) {
-        return $2;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/(chan|chain)[ ]*:[ ]*@(\d+) /) {
+            return $2;
+        }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub getFuncParamInfoId($)
 {
-    my $FuncInfo = $LibInfo{$Version}{"info"}{$_[0]};
-    if($FuncInfo=~/args[ ]*:[ ]*@(\d+) /) {
-        return $1;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/args[ ]*:[ ]*@(\d+) /) {
+            return $1;
+        }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub getFuncParamType($)
 {
-    my $ParamInfo = $LibInfo{$Version}{"info"}{$_[0]};
-    if($ParamInfo=~/type[ ]*:[ ]*@(\d+) /) {
-        return $1;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/type[ ]*:[ ]*@(\d+) /) {
+            return $1;
+        }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub getFuncParamName($)
 {
-    my $ParamInfo = $LibInfo{$Version}{"info"}{$_[0]};
-    if($ParamInfo=~/name[ ]*:[ ]*@(\d+) /) {
-        return getTreeStr($1);
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/name[ ]*:[ ]*@(\d+) /) {
+            return getTreeStr($1);
+        }
     }
     return "";
 }
 
 sub getEnumMembInfoId($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/csts[ ]*:[ ]*@(\d+) /) {
-        return $1;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/csts[ ]*:[ ]*@(\d+) /) {
+            return $1;
+        }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub getStructMembInfoId($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/flds[ ]*:[ ]*@(\d+) /) {
-        return $1;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/flds[ ]*:[ ]*@(\d+) /) {
+            return $1;
+        }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub get_IntNameSpace($$)
@@ -4446,76 +4507,85 @@ sub parse_TypeNameSpace($$)
 sub getNameSpace($)
 {
     my $TypeInfoId = $_[0];
-    my $NameSpaceInfoId = getTreeAttr($TypeInfoId, "scpe");
-    return "" if(not $NameSpaceInfoId);
-    if($LibInfo{$Version}{"info_type"}{$NameSpaceInfoId} eq "namespace_decl")
+    my $NSInfoId = getTreeAttr($TypeInfoId, "scpe");
+    return "" if(not $NSInfoId);
+    if(my $InfoType = $LibInfo{$Version}{"info_type"}{$NSInfoId})
     {
-        my $NameSpaceInfo = $LibInfo{$Version}{"info"}{$NameSpaceInfoId};
-        if($NameSpaceInfo=~/name[ ]*:[ ]*@(\d+) /)
+        if($InfoType eq "namespace_decl")
         {
-            my $NameSpace = getTreeStr($1);
-            return "" if($NameSpace eq "::");
-            if(my $BaseNameSpace = getNameSpace($NameSpaceInfoId)) {
-                $NameSpace = $BaseNameSpace."::".$NameSpace;
+            if($LibInfo{$Version}{"info"}{$NSInfoId}=~/name[ ]*:[ ]*@(\d+) /)
+            {
+                my $NameSpace = getTreeStr($1);
+                return "" if($NameSpace eq "::");
+                if(my $BaseNameSpace = getNameSpace($NSInfoId)) {
+                    $NameSpace = $BaseNameSpace."::".$NameSpace;
+                }
+                $NestedNameSpaces{$Version}{$NameSpace} = 1;
+                return $NameSpace;
             }
-            $NestedNameSpaces{$Version}{$NameSpace} = 1;
-            return $NameSpace;
+            else {
+                return "";
+            }
         }
-        else {
-            return "";
+        elsif($InfoType eq "record_type")
+        { # inside data type
+            my ($Name, $NameNS) = getTrivialName(getTypeDeclId($NSInfoId), $NSInfoId);
+            return $Name;
         }
     }
-    elsif($LibInfo{$Version}{"info_type"}{$NameSpaceInfoId} eq "record_type")
-    { # inside data type
-        my ($Name, $NameNS) = getTrivialName(getTypeDeclId($NameSpaceInfoId), $NameSpaceInfoId);
-        return $Name;
-    }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub getNameSpaceId($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/scpe[ ]*:[ ]*\@(\d+)/) {
-        return $1;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/scpe[ ]*:[ ]*\@(\d+)/) {
+            return $1;
+        }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub getEnumMembName($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/purp[ ]*:[ ]*\@(\d+)/) {
-        return getTreeStr($1);
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/purp[ ]*:[ ]*\@(\d+)/) {
+            return getTreeStr($1);
+        }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub getStructMembName($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/name[ ]*:[ ]*\@(\d+)/) {
-        return getTreeStr($1);
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/name[ ]*:[ ]*\@(\d+)/) {
+            return getTreeStr($1);
+        }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub getEnumMembVal($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/valu[ ]*:[ ]*\@(\d+)/)
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
     {
-        if($LibInfo{$Version}{"info"}{$1}=~/cnst[ ]*:[ ]*\@(\d+)/)
-        {# in newer versions of GCC the value is in the "const_decl->cnst" node
-            return getTreeValue($1);
-        }
-        else
-        {# some old versions of GCC (3.3) have the value in the "integer_cst" node
-            return getTreeValue($1);
+        if($Info=~/valu[ ]*:[ ]*\@(\d+)/)
+        {
+            if(my $VInfo = $LibInfo{$Version}{"info"}{$1})
+            {
+                if($VInfo=~/cnst[ ]*:[ ]*\@(\d+)/)
+                { # in newer versions of GCC the value is in the "const_decl->cnst" node
+                    return getTreeValue($1);
+                }
+                else
+                { # some old versions of GCC (3.3) have the value in the "integer_cst" node
+                    return getTreeValue($1);
+                }
+            }
         }
     }
     return "";
@@ -4523,69 +4593,57 @@ sub getEnumMembVal($)
 
 sub getSize($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/size[ ]*:[ ]*\@(\d+)/) {
-        return getTreeValue($1);
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/size[ ]*:[ ]*\@(\d+)/) {
+            return getTreeValue($1);
+        }
     }
-    else {
-        return 0;
-    }
+    return 0;
 }
 
 sub getAlgn($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/algn[ ]*:[ ]*(\d+) /) {
-        return $1;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/algn[ ]*:[ ]*(\d+) /) {
+            return $1;
+        }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub getStructMembBitFieldSize($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/ bitfield /) {
-        return getSize($_[0]);
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/ bitfield /) {
+            return getSize($_[0]);
+        }
     }
-    else {
-        return 0;
-    }
+    return 0;
 }
 
 sub getNextMembInfoId($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/(chan|chain)[ ]*:[ ]*@(\d+) /) {
-        return $2;
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/(chan|chain)[ ]*:[ ]*@(\d+) /) {
+            return $2;
+        }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub getNextStructMembInfoId($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/(chan|chain)[ ]*:[ ]*@(\d+) /) {
-        return $2;
-    }
-    else {
-        return "";
-    }
-}
-
-sub fieldHasName($)
-{
-    my $TypeMembInfoId = $_[0];
-    if($LibInfo{$Version}{"info_type"}{$TypeMembInfoId} eq "field_decl")
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
     {
-        if($LibInfo{$Version}{"info"}{$TypeMembInfoId}=~/name[ ]*:[ ]*@(\d+) /) {
-            return $1;
-        }
-        else {
-            return "";
+        if($Info=~/(chan|chain)[ ]*:[ ]*@(\d+) /) {
+            return $2;
         }
     }
-    else {
-        return 0;
-    }
+    return "";
 }
 
 sub register_header($$)
@@ -4921,21 +4979,23 @@ sub searchForHeaders($)
             exitStatus("Access_Error", "can't identify \'$Dest\' as a header file");
         }
     }
-    # preparing preamble headers
-    my $Preamble_Position=0;
-    foreach my $Header (split(/\s*\n\s*/, $Descriptor{$LibVersion}{"IncludePreamble"}))
-    {
-        if(is_abs($Header) and not -f $Header) {
-            exitStatus("Access_Error", "can't access file \'$Header\'");
-        }
-        $Header = path_format($Header, $OSgroup);
-        if(my $Header_Path = is_header($Header, 1, $LibVersion))
+    if(my $HList = $Descriptor{$LibVersion}{"IncludePreamble"})
+    { # preparing preamble headers
+        my $PPos=0;
+        foreach my $Header (split(/\s*\n\s*/, $HList))
         {
-            next if(skip_header($Header_Path, $LibVersion));
-            $Include_Preamble{$LibVersion}{$Header_Path}{"Position"} = $Preamble_Position++;
-        }
-        else {
-            exitStatus("Access_Error", "can't identify \'$Header\' as a header file");
+            if(is_abs($Header) and not -f $Header) {
+                exitStatus("Access_Error", "can't access file \'$Header\'");
+            }
+            $Header = path_format($Header, $OSgroup);
+            if(my $Header_Path = is_header($Header, 1, $LibVersion))
+            {
+                next if(skip_header($Header_Path, $LibVersion));
+                $Include_Preamble{$LibVersion}{$Header_Path}{"Position"} = $PPos++;
+            }
+            else {
+                exitStatus("Access_Error", "can't identify \'$Header\' as a header file");
+            }
         }
     }
     foreach my $Header_Name (keys(%{$HeaderName_Paths{$LibVersion}}))
@@ -5507,9 +5567,9 @@ sub identify_header_internal($$)
     { # search in the internal GCC include paths
         return $DefaultGccHeader{$Header};
     }
-    elsif(my $HeaderDir = find_in_defaults($Header))
+    elsif(my $DefaultDir = find_in_defaults($Header))
     { # search in the default GCC include paths
-        return joinPath($HeaderDir,$Header);
+        return joinPath($DefaultDir,$Header);
     }
     elsif($DefaultCppHeader{$Header})
     { # search in the default G++ include paths
@@ -5527,73 +5587,56 @@ sub identify_header_internal($$)
 
 sub getLocation($)
 {
-    if($LibInfo{$Version}{"info"}{$_[0]}=~/srcp[ ]*:[ ]*([\w\-\<\>\.\+\/\\]+):(\d+) /) {
-        return ($1, $2);
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/srcp[ ]*:[ ]*([\w\-\<\>\.\+\/\\]+):(\d+) /) {
+            return ($1, $2);
+        }
     }
-    else {
-        return ();
-    }
+    return ();
 }
 
 sub getTypeTypeByTypeId($)
 {
     my $TypeId = $_[0];
-    my $TypeType = $LibInfo{$Version}{"info_type"}{$TypeId};
-    if($TypeType=~/integer_type|real_type|boolean_type|void_type|complex_type/)
+    if(my $TType = $LibInfo{$Version}{"info_type"}{$TypeId})
     {
-        return "Intrinsic";
+        my $NType = $NodeType{$TType};
+        if($NType eq "Intrinsic") {
+            return $NType;
+        }
+        elsif(isFuncPtr($TypeId)) {
+            return "FuncPtr";
+        }
+        elsif(isMethodPtr($TypeId)) {
+            return "MethodPtr";
+        }
+        elsif(isFieldPtr($TypeId)) {
+            return "FieldPtr";
+        }
+        elsif($NType ne "Other") {
+            return $NType;
+        }
     }
-    elsif(isFuncPtr($TypeId)) {
-        return "FuncPtr";
-    }
-    elsif(isMethodPtr($TypeId)) {
-        return "MethodPtr";
-    }
-    elsif(isFieldPtr($TypeId)) {
-        return "FieldPtr";
-    }
-    elsif($TypeType eq "pointer_type") {
-        return "Pointer";
-    }
-    elsif($TypeType eq "reference_type") {
-        return "Ref";
-    }
-    elsif($TypeType eq "union_type") {
-        return "Union";
-    }
-    elsif($TypeType eq "enumeral_type") {
-        return "Enum";
-    }
-    elsif($TypeType eq "record_type") {
-        return "Struct";
-    }
-    elsif($TypeType eq "array_type") {
-        return "Array";
-    }
-    elsif($TypeType eq "complex_type") {
-        return "Intrinsic";
-    }
-    elsif($TypeType eq "function_type") {
-        return "FunctionType";
-    }
-    elsif($TypeType eq "method_type") {
-        return "MethodType";
-    }
-    else {
-        return "Unknown";
-    }
+    return "Unknown";
 }
 
 sub getNameByInfo($)
 {
-    return "" if($LibInfo{$Version}{"info"}{$_[0]}!~/name[ ]*:[ ]*@(\d+) /);
-    if($LibInfo{$Version}{"info"}{$1}=~/strg[ ]*:[ ]*(.*?)[ ]+lngt/)
-    {# short unsigned int (may include spaces)
-        return $1;
+    if(my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/name[ ]*:[ ]*@(\d+) /)
+        {
+            if(my $NInfo = $LibInfo{$Version}{"info"}{$1})
+            {
+                if($NInfo=~/strg[ ]*:[ ]*(.*?)[ ]+lngt/)
+                { # short unsigned int (may include spaces)
+                    return $1;
+                }
+            }
+        }
     }
-    else {
-        return "";
-    }
+    return "";
 }
 
 sub getTreeStr($)
@@ -5681,7 +5724,7 @@ sub unmangleSymbol($)
 
 sub unmangleArray(@)
 {
-    if(@_[0]=~/\A\?/)
+    if($_[0]=~/\A\?/)
     { # MSVC mangling
         my $UndNameCmd = get_CmdPath("undname");
         if(not $UndNameCmd) {
@@ -6707,9 +6750,9 @@ sub callPreprocessor($$$)
         $IncludeString = getIncString(getIncPaths($Path), "GCC");
     }
     my $Cmd = getCompileCmd($Path, "-dD -E", $IncludeString);
-    my $Path = "$TMP_DIR/preprocessed";
-    system("$Cmd >$Path 2>$TMP_DIR/null");
-    return $Path;
+    my $Out = "$TMP_DIR/preprocessed";
+    system("$Cmd >$Out 2>$TMP_DIR/null");
+    return $Out;
 }
 
 sub cmd_find($$$$)
@@ -7297,11 +7340,11 @@ sub prepareSymbols($)
             }
         }
     }
-    foreach my $MnglName (keys(%{$VTableClass{$LibVersion}}))
+    foreach my $MnglName (keys(%VTableClass))
     { # reconstruct header name for v-tables
         if($MnglName=~/\A_ZTV/)
         {
-            if(my $ClassName = $VTableClass{$LibVersion}{$MnglName})
+            if(my $ClassName = $VTableClass{$MnglName})
             {
                 if(my $ClassId = $TName_Tid{$LibVersion}{$ClassName}) {
                     $CompleteSignature{$LibVersion}{$MnglName}{"Header"} = get_TypeAttr($ClassId, $LibVersion, "Header");
@@ -7441,6 +7484,12 @@ sub formatDump($)
                     }
                 }
             }
+        }
+    }
+    foreach my $Tid (keys(%{$Tid_TDid{$LibVersion}}))
+    {
+        if(not $Tid_TDid{$LibVersion}{$Tid}) {
+            delete($Tid_TDid{$LibVersion}{$Tid});
         }
     }
 }
@@ -7716,10 +7765,12 @@ sub getShift($$)
     my $Shift = 0;
     foreach my $BaseId (@Bases)
     {
-        my $Size = get_TypeSize($BaseId, $LibVersion);
-        if($Size!=1) {
-            # empty base class
-            $Shift+=get_TypeSize($BaseId, $LibVersion);
+        if(my $Size = get_TypeSize($BaseId, $LibVersion))
+        {
+            if($Size!=1)
+            { # not empty base class
+                $Shift+=$Size;
+            }
         }
     }
     return $Shift;
@@ -7749,12 +7800,12 @@ sub isLeafClass($$)
 }
 
 sub havePubFields($)
-{# check structured type for public fields
-    return isAccessible($_[0], (), 0, -1);
+{ # check structured type for public fields
+    return isAccessible($_[0], {}, 0, -1);
 }
 
 sub isAccessible($$$$)
-{# check interval in structured type for public fields
+{ # check interval in structured type for public fields
     my ($TypePtr, $Skip, $Start, $End) = @_;
     return 0 if(not $TypePtr);
     if($End==-1) {
@@ -8037,6 +8088,9 @@ sub cmpVTables($$)
     my ($ClassName, $Strong) = @_;
     my $ClassId1 = $ClassToId{1}{$ClassName};
     my $ClassId2 = $ClassToId{2}{$ClassName};
+    if(not $ClassId1 or not $ClassId2) {
+        return 0;
+    }
     my %Type1 = get_Type($Tid_TDid{1}{$ClassId1}, $ClassId1, 1);
     my %Type2 = get_Type($Tid_TDid{2}{$ClassId2}, $ClassId2, 2);
     if(not defined $Type1{"VTable"}
@@ -8109,23 +8163,29 @@ sub mergeBases($)
     { # detect added and removed virtual functions
         my $ClassId = $ClassToId{1}{$ClassName};
         next if(not $ClassId);
-        foreach my $VirtFunc (keys(%{$VirtualTable{2}{$ClassName}}))
+        if(defined $VirtualTable{2}{$ClassName})
         {
-            if($ClassToId{1}{$ClassName}
-            and not defined $VirtualTable{1}{$ClassName}{$VirtFunc})
-            { # added to v-table
-                if(not $CompleteSignature{2}{$VirtFunc}{"Override"}) {
-                    $AddedInt_Virt{$Level}{$ClassName}{$VirtFunc} = 1;
+            foreach my $VirtFunc (keys(%{$VirtualTable{2}{$ClassName}}))
+            {
+                if($ClassToId{1}{$ClassName}
+                and not defined $VirtualTable{1}{$ClassName}{$VirtFunc})
+                { # added to v-table
+                    if(not $CompleteSignature{2}{$VirtFunc}{"Override"}) {
+                        $AddedInt_Virt{$Level}{$ClassName}{$VirtFunc} = 1;
+                    }
                 }
             }
         }
-        foreach my $VirtFunc (keys(%{$VirtualTable{1}{$ClassName}}))
+        if(defined $VirtualTable{1}{$ClassName})
         {
-            if($ClassToId{2}{$ClassName}
-            and not defined $VirtualTable{2}{$ClassName}{$VirtFunc})
-            { # removed from v-table
-                if(not $CompleteSignature{1}{$VirtFunc}{"Override"}) {
-                    $RemovedInt_Virt{$Level}{$ClassName}{$VirtFunc} = 1;
+            foreach my $VirtFunc (keys(%{$VirtualTable{1}{$ClassName}}))
+            {
+                if($ClassToId{2}{$ClassName}
+                and not defined $VirtualTable{2}{$ClassName}{$VirtFunc})
+                { # removed from v-table
+                    if(not $CompleteSignature{1}{$VirtFunc}{"Override"}) {
+                        $RemovedInt_Virt{$Level}{$ClassName}{$VirtFunc} = 1;
+                    }
                 }
             }
         }
@@ -8206,8 +8266,8 @@ sub mergeBases($)
         my ($BNum1, $BNum2) = (1, 1);
         my %BasePos_Old = map {get_TypeName($_, 1) => $BNum1++} @Bases_Old;
         my %BasePos_New = map {get_TypeName($_, 2) => $BNum2++} @Bases_New;
-        my %ShortBase_Old = map {get_TypeShort($_, 1) => 1} @Bases_Old;
-        my %ShortBase_New = map {get_TypeShort($_, 2) => 1} @Bases_New;
+        my %ShortBase_Old = map {get_ShortType($_, 1) => 1} @Bases_Old;
+        my %ShortBase_New = map {get_ShortType($_, 2) => 1} @Bases_New;
         my $Shift_Old = getShift($ClassId_Old, 1);
         my $Shift_New = getShift($ClassId_New, 2);
         my %BaseId_New = map {get_TypeName($_, 2) => $_} @Bases_New;
@@ -8220,7 +8280,7 @@ sub mergeBases($)
                 push(@StableBases_Old, $BaseId);
             }
             elsif(not $ShortBase_New{$BaseName}
-            and not $ShortBase_New{get_TypeShort($BaseId, 1)})
+            and not $ShortBase_New{get_ShortType($BaseId, 1)})
             { # removed base
               # excluding namespace::SomeClass to SomeClass renaming
                 my $ProblemKind = "Removed_Base_Class";
@@ -8272,7 +8332,7 @@ sub mergeBases($)
                 push(@StableBases_New, $BaseId);
             }
             elsif(not $ShortBase_Old{$BaseName}
-            and not $ShortBase_Old{get_TypeShort($BaseId, 2)})
+            and not $ShortBase_Old{get_ShortType($BaseId, 2)})
             { # added base
               # excluding namespace::SomeClass to SomeClass renaming
                 my $ProblemKind = "Added_Base_Class";
@@ -8407,7 +8467,8 @@ sub mergeBases($)
                     }
                 }
             }
-            if(my @VFunctions = keys(%{$VirtualTable{1}{$ClassName}}))
+            if(defined $VirtualTable{1}{$ClassName}
+            and my @VFunctions = keys(%{$VirtualTable{1}{$ClassName}}))
             { # compare virtual tables size in base classes
                 my $VShift_Old = getVShift($ClassId_Old, 1);
                 my $VShift_New = getVShift($ClassId_New, 2);
@@ -8567,7 +8628,8 @@ sub mergeVirtualTables($$)
                     "Target"=>get_Signature($AddedVFunc, 2)  );
                 $VTableChanged{$CName} = 1;
             }
-            elsif($VPos_Added>keys(%{$VirtualTable{1}{$CName}}))
+            elsif(not defined $VirtualTable{1}{$CName}
+            or $VPos_Added>keys(%{$VirtualTable{1}{$CName}}))
             { # added virtual function at the end of v-table
                 if(not keys(%{$VirtualTable_Full{1}{$CName}}))
                 { # became polymorphous class, added v-table pointer
@@ -8611,23 +8673,27 @@ sub mergeVirtualTables($$)
             elsif($CompleteSignature{1}{$Interface}{"Virt"}
             or $CompleteSignature{1}{$Interface}{"PureVirt"})
             {
-                my $VPos_Old = $VirtualTable{1}{$CName}{$Interface};
-                my $VPos_New = $VirtualTable{2}{$CName}{$Interface};
-                if($VPos_Added<=$VPos_Old and $VPos_Old!=$VPos_New)
+                if(defined $VirtualTable{1}{$CName}
+                and defined $VirtualTable{2}{$CName})
                 {
-                    my @Affected = ($Interface, keys(%{$OverriddenMethods{1}{$Interface}}));
-                    foreach my $ASymbol (@Affected)
+                    my $VPos_Old = $VirtualTable{1}{$CName}{$Interface};
+                    my $VPos_New = $VirtualTable{2}{$CName}{$Interface};
+                    if($VPos_Added<=$VPos_Old and $VPos_Old!=$VPos_New)
                     {
-                        if(not $CompleteSignature{1}{$ASymbol}{"PureVirt"}
-                        and not link_symbol($ASymbol, 1, "-Deps")) {
-                            next;
+                        my @Affected = ($Interface, keys(%{$OverriddenMethods{1}{$Interface}}));
+                        foreach my $ASymbol (@Affected)
+                        {
+                            if(not $CompleteSignature{1}{$ASymbol}{"PureVirt"}
+                            and not link_symbol($ASymbol, 1, "-Deps")) {
+                                next;
+                            }
+                            $CheckedSymbols{$Level}{$ASymbol} = 1;
+                            %{$CompatProblems{$Level}{$ASymbol}{"Added_Virtual_Method"}{$tr_name{$AddedVFunc}}}=(
+                                "Type_Name"=>$CName,
+                                "Type_Type"=>"Class",
+                                "Target"=>get_Signature($AddedVFunc, 2)  );
+                            $VTableChanged{get_TypeName($CompleteSignature{1}{$ASymbol}{"Class"}, 1)} = 1;
                         }
-                        $CheckedSymbols{$Level}{$ASymbol} = 1;
-                        %{$CompatProblems{$Level}{$ASymbol}{"Added_Virtual_Method"}{$tr_name{$AddedVFunc}}}=(
-                            "Type_Name"=>$CName,
-                            "Type_Type"=>"Class",
-                            "Target"=>get_Signature($AddedVFunc, 2)  );
-                        $VTableChanged{get_TypeName($CompleteSignature{1}{$ASymbol}{"Class"}, 1)} = 1;
                     }
                 }
             }
@@ -8655,28 +8721,44 @@ sub mergeVirtualTables($$)
             elsif($CompleteSignature{1}{$Interface}{"Virt"}
             or $CompleteSignature{1}{$Interface}{"PureVirt"})
             {
-                my $VPos_Removed = $VirtualTable{1}{$CName}{$RemovedVFunc};
-                my $VPos_Old = $VirtualTable{1}{$CName}{$Interface};
-                my $VPos_New = $VirtualTable{2}{$CName}{$Interface};
-                if($VPos_Removed<=$VPos_Old and $VPos_Old!=$VPos_New)
+                if(defined $VirtualTable{1}{$CName} and defined $VirtualTable{2}{$CName})
                 {
-                    my @Affected = ($Interface, keys(%{$OverriddenMethods{1}{$Interface}}));
-                    foreach my $ASymbol (@Affected)
+                    if(not defined $VirtualTable{1}{$CName}{$Interface}) {
+                        next;
+                    }
+                    my $VPos_New = -1;
+                    if(defined $VirtualTable{2}{$CName}{$Interface})
                     {
-                        if(not $CompleteSignature{1}{$ASymbol}{"PureVirt"}
-                        and not link_symbol($ASymbol, 1, "-Deps")) {
+                        $VPos_New = $VirtualTable{2}{$CName}{$Interface};
+                    }
+                    else
+                    {
+                        if($Interface ne $RemovedVFunc) {
                             next;
                         }
-                        my $ProblemType = "Removed_Virtual_Method";
-                        if($CompleteSignature{1}{$RemovedVFunc}{"PureVirt"}) {
-                            $ProblemType = "Removed_Pure_Virtual_Method";
+                    }
+                    my $VPos_Removed = $VirtualTable{1}{$CName}{$RemovedVFunc};
+                    my $VPos_Old = $VirtualTable{1}{$CName}{$Interface};
+                    if($VPos_Removed<=$VPos_Old and $VPos_Old!=$VPos_New)
+                    {
+                        my @Affected = ($Interface, keys(%{$OverriddenMethods{1}{$Interface}}));
+                        foreach my $ASymbol (@Affected)
+                        {
+                            if(not $CompleteSignature{1}{$ASymbol}{"PureVirt"}
+                            and not link_symbol($ASymbol, 1, "-Deps")) {
+                                next;
+                            }
+                            my $ProblemType = "Removed_Virtual_Method";
+                            if($CompleteSignature{1}{$RemovedVFunc}{"PureVirt"}) {
+                                $ProblemType = "Removed_Pure_Virtual_Method";
+                            }
+                            $CheckedSymbols{$Level}{$ASymbol} = 1;
+                            %{$CompatProblems{$Level}{$ASymbol}{$ProblemType}{$tr_name{$RemovedVFunc}}}=(
+                                "Type_Name"=>$CName,
+                                "Type_Type"=>"Class",
+                                "Target"=>get_Signature($RemovedVFunc, 1)  );
+                            $VTableChanged{get_TypeName($CompleteSignature{1}{$ASymbol}{"Class"}, 1)} = 1;
                         }
-                        $CheckedSymbols{$Level}{$ASymbol} = 1;
-                        %{$CompatProblems{$Level}{$ASymbol}{$ProblemType}{$tr_name{$RemovedVFunc}}}=(
-                            "Type_Name"=>$CName,
-                            "Type_Type"=>"Class",
-                            "Target"=>get_Signature($RemovedVFunc, 1)  );
-                        $VTableChanged{get_TypeName($CompleteSignature{1}{$ASymbol}{"Class"}, 1)} = 1;
                     }
                 }
             }
@@ -8739,26 +8821,34 @@ sub find_MemberPair_Pos_byVal($$)
     return "lost";
 }
 
-my %Priority_Value=(
+my %Severity_Val=(
     "High"=>3,
     "Medium"=>2,
-    "Low"=>1);
+    "Low"=>1,
+    "Safe"=>-1
+);
 
-sub max_priority($$)
+sub maxSeverity($$)
 {
-    my ($Pr1, $Pr2) = @_;
-    if(cmp_priority($Pr1, $Pr2)) {
-        return $Pr1;
+    my ($S1, $S2) = @_;
+    if(cmpSeverities($S1, $S2)) {
+        return $S1;
     }
     else {
-        return $Pr2;
+        return $S2;
     }
 }
 
-sub cmp_priority($$)
+sub cmpSeverities($$)
 {
-    my ($Pr1, $Pr2) = @_;
-    return ($Priority_Value{$Pr1}>$Priority_Value{$Pr2});
+    my ($S1, $S2) = @_;
+    if(not $S1) {
+        return 0;
+    }
+    elsif(not $S2) {
+        return 1;
+    }
+    return ($Severity_Val{$S1}>$Severity_Val{$S2});
 }
 
 sub getProblemSeverity($$)
@@ -8892,6 +8982,8 @@ sub mergeTypes($$$$$)
 {
     my ($Type1_Id, $Type1_DId, $Type2_Id, $Type2_DId, $Level) = @_;
     return () if((not $Type1_Id and not $Type1_DId) or (not $Type2_Id and not $Type2_DId));
+    $Type1_DId = "" if(not defined $Type1_DId);
+    $Type2_DId = "" if(not defined $Type2_DId);
     my (%Sub_SubProblems, %SubProblems) = ();
     if($Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type1_DId}{$Type2_Id}{$Type2_DId})
     { # already merged
@@ -8914,8 +9006,9 @@ sub mergeTypes($$$$$)
     
     my %Typedef_1 = goToFirst($Type1{"TDid"}, $Type1{"Tid"}, 1, "Typedef");
     my %Typedef_2 = goToFirst($Type2{"TDid"}, $Type2{"Tid"}, 2, "Typedef");
-    if($Typedef_1{"Type"} eq "Typedef" and $Typedef_2{"Type"} eq "Typedef"
-    and $Typedef_1{"Name"} eq $Typedef_2{"Name"} and not $UseOldDumps)
+    if(not $UseOldDumps and %Typedef_1 and %Typedef_2
+    and $Typedef_1{"Type"} eq "Typedef" and $Typedef_2{"Type"} eq "Typedef"
+    and $Typedef_1{"Name"} eq $Typedef_2{"Name"})
     {
         my %Base_1 = get_OneStep_BaseType($Typedef_1{"TDid"}, $Typedef_1{"Tid"}, 1);
         my %Base_2 = get_OneStep_BaseType($Typedef_2{"TDid"}, $Typedef_2{"Tid"}, 2);
@@ -9540,28 +9633,34 @@ sub isUnnamed($) {
 sub get_TypeName($$)
 {
     my ($TypeId, $LibVersion) = @_;
-    return $TypeInfo{$LibVersion}{$Tid_TDid{$LibVersion}{$TypeId}}{$TypeId}{"Name"};
-}
-
-sub get_TypeShort($$)
-{
-    my ($TypeId, $LibVersion) = @_;
-    my $TypeName = $TypeInfo{$LibVersion}{$Tid_TDid{$LibVersion}{$TypeId}}{$TypeId}{"Name"};
-    my $NameSpace = $TypeInfo{$LibVersion}{$Tid_TDid{$LibVersion}{$TypeId}}{$TypeId}{"NameSpace"};
-    $TypeName=~s/\A$NameSpace\:\://g;
-    return $TypeName;
+    return get_TypeAttr($TypeId, $LibVersion, "Name");
 }
 
 sub get_TypeSize($$)
 {
     my ($TypeId, $LibVersion) = @_;
-    return $TypeInfo{$LibVersion}{$Tid_TDid{$LibVersion}{$TypeId}}{$TypeId}{"Size"};
+    return get_TypeAttr($TypeId, $LibVersion, "Size");
 }
 
 sub get_TypeAttr($$$)
 {
     my ($TypeId, $LibVersion, $Attr) = @_;
+    return "" if(not defined $TypeId);
+    if(not defined $Tid_TDid{$LibVersion}{$TypeId})
+    { # correcting data
+        $Tid_TDid{$LibVersion}{$TypeId} = "";
+    }
     return $TypeInfo{$LibVersion}{$Tid_TDid{$LibVersion}{$TypeId}}{$TypeId}{$Attr};
+}
+
+sub get_ShortType($$)
+{
+    my ($TypeId, $LibVersion) = @_;
+    my $TypeName = get_TypeAttr($TypeId, $LibVersion, "Name");
+    if(my $NameSpace = get_TypeAttr($TypeId, $LibVersion, "NameSpace")) {
+        $TypeName=~s/\A$NameSpace\:\://g;
+    }
+    return $TypeName;
 }
 
 sub goToFirst($$$$)
@@ -9593,11 +9692,12 @@ my %TypeSpecAttributes = (
 sub get_PureType($$$)
 {
     my ($TypeDId, $TypeId, $LibVersion) = @_;
-    return "" if(not $TypeId);
+    return () if(not $TypeId);
+    $TypeDId = "" if(not defined $TypeDId);
     if(defined $Cache{"get_PureType"}{$TypeDId}{$TypeId}{$LibVersion}) {
         return %{$Cache{"get_PureType"}{$TypeDId}{$TypeId}{$LibVersion}};
     }
-    return "" if(not $TypeInfo{$LibVersion}{$TypeDId}{$TypeId});
+    return () if(not $TypeInfo{$LibVersion}{$TypeDId}{$TypeId});
     my %Type = %{$TypeInfo{$LibVersion}{$TypeDId}{$TypeId}};
     return %Type if(not $Type{"BaseType"}{"TDid"} and not $Type{"BaseType"}{"Tid"});
     if($TypeSpecAttributes{$Type{"Type"}}) {
@@ -9611,10 +9711,11 @@ sub get_PointerLevel($$$)
 {
     my ($TypeDId, $TypeId, $LibVersion) = @_;
     return 0 if(not $TypeId);
+    $TypeDId = "" if(not defined $TypeDId);
     if(defined $Cache{"get_PointerLevel"}{$TypeDId}{$TypeId}{$LibVersion}) {
         return $Cache{"get_PointerLevel"}{$TypeDId}{$TypeId}{$LibVersion};
     }
-    return "" if(not $TypeInfo{$LibVersion}{$TypeDId}{$TypeId});
+    return 0 if(not $TypeInfo{$LibVersion}{$TypeDId}{$TypeId});
     my %Type = %{$TypeInfo{$LibVersion}{$TypeDId}{$TypeId}};
     return 1 if($Type{"Type"}=~/FuncPtr|MethodPtr|FieldPtr/);
     return 0 if(not $Type{"BaseType"}{"TDid"} and not $Type{"BaseType"}{"Tid"});
@@ -9631,6 +9732,7 @@ sub get_BaseType($$$)
 {
     my ($TypeDId, $TypeId, $LibVersion) = @_;
     return () if(not $TypeId);
+    $TypeDId = "" if(not defined $TypeDId);
     if(defined $Cache{"get_BaseType"}{$TypeDId}{$TypeId}{$LibVersion}) {
         return %{$Cache{"get_BaseType"}{$TypeDId}{$TypeId}{$LibVersion}};
     }
@@ -9684,8 +9786,9 @@ sub get_OneStep_BaseType($$$)
 sub get_Type($$$)
 {
     my ($TypeDId, $TypeId, $LibVersion) = @_;
-    return "" if(not $TypeId);
-    return "" if(not $TypeInfo{$LibVersion}{$TypeDId}{$TypeId});
+    return () if(not $TypeId);
+    $TypeDId = "" if(not defined $TypeDId);
+    return () if(not $TypeInfo{$LibVersion}{$TypeDId}{$TypeId});
     return %{$TypeInfo{$LibVersion}{$TypeDId}{$TypeId}};
 }
 
@@ -9886,7 +9989,7 @@ sub get_CodeView($)
     foreach my $Line (split(/\n/, $Code))
     {
         if($Line=~s/\A(\+|-)/$1 /g)
-        {# bold line
+        { # bold line
             $View .= "<tr><td><b>".htmlSpecChars($Line)."</b></td></tr>\n";
         }
         else {
@@ -9997,10 +10100,13 @@ sub mergeLibs($)
         if($Symbol=~/\A_ZTV/)
         { # skip v-tables for templates, that should not be imported by applications
             next if($tr_name{$Symbol}=~/</);
-            if(not keys(%{$ClassMethods{$Level}{1}{$VTableClass{1}{$Symbol}}}))
-            { # vtables for "private" classes
-              # use case: vtable for QDragManager (Qt 4.5.3 to 4.6.0) became HIDDEN symbol
-                next;
+            if(my $CName = $VTableClass{$Symbol})
+            {
+                if(not keys(%{$ClassMethods{$Level}{1}{$CName}}))
+                { # vtables for "private" classes
+                # use case: vtable for QDragManager (Qt 4.5.3 to 4.6.0) became HIDDEN symbol
+                    next;
+                }
             }
         }
         else {
@@ -10228,30 +10334,12 @@ sub setAlternative($)
     or (not $CompleteSignature{2}{$PSymbol}{"MnglName"}
     and not $CompleteSignature{2}{$PSymbol}{"ShortName"}))
     { # search for a pair
-        my $ShortName = $CompleteSignature{1}{$PSymbol}{"ShortName"};
-        if($CompleteSignature{1}{$PSymbol}{"Data"})
+        if(my $ShortName = $CompleteSignature{1}{$PSymbol}{"ShortName"})
         {
-            if($PSymbol=~s/L(\d+$ShortName(E)\Z)/$1/
-            or $PSymbol=~s/(\d+$ShortName(E)\Z)/L$1/)
+            if($CompleteSignature{1}{$PSymbol}{"Data"})
             {
-                if(defined $CompleteSignature{2}{$PSymbol}
-                and $CompleteSignature{2}{$PSymbol}{"MnglName"})
-                {
-                    $SourceAlternative{$Symbol} = $PSymbol;
-                    $SourceAlternative_B{$PSymbol} = $Symbol;
-                    if(not defined $CompleteSignature{1}{$PSymbol}
-                    or not $CompleteSignature{1}{$PSymbol}{"MnglName"}) {
-                        $SourceReplacement{$Symbol} = $PSymbol;
-                    }
-                }
-            }
-        }
-        else
-        {
-            foreach my $Sp ("KV", "VK", "K", "V")
-            {
-                if($PSymbol=~s/\A_ZN$Sp/_ZN/
-                or $PSymbol=~s/\A_ZN/_ZN$Sp/)
+                if($PSymbol=~s/L(\d+$ShortName(E)\Z)/$1/
+                or $PSymbol=~s/(\d+$ShortName(E)\Z)/L$1/)
                 {
                     if(defined $CompleteSignature{2}{$PSymbol}
                     and $CompleteSignature{2}{$PSymbol}{"MnglName"})
@@ -10264,7 +10352,27 @@ sub setAlternative($)
                         }
                     }
                 }
-                $PSymbol = $Symbol;
+            }
+            else
+            {
+                foreach my $Sp ("KV", "VK", "K", "V")
+                {
+                    if($PSymbol=~s/\A_ZN$Sp/_ZN/
+                    or $PSymbol=~s/\A_ZN/_ZN$Sp/)
+                    {
+                        if(defined $CompleteSignature{2}{$PSymbol}
+                        and $CompleteSignature{2}{$PSymbol}{"MnglName"})
+                        {
+                            $SourceAlternative{$Symbol} = $PSymbol;
+                            $SourceAlternative_B{$PSymbol} = $Symbol;
+                            if(not defined $CompleteSignature{1}{$PSymbol}
+                            or not $CompleteSignature{1}{$PSymbol}{"MnglName"}) {
+                                $SourceReplacement{$Symbol} = $PSymbol;
+                            }
+                        }
+                    }
+                    $PSymbol = $Symbol;
+                }
             }
         }
     }
@@ -10478,7 +10586,9 @@ sub mergeSignatures($)
                         $NewSymbol=~s/(D0E|D1E|D2E)/$DtorType/g;
                     }
                 }
-                if($CompleteSignature{1}{$Symbol}{"NameSpace"} eq $CompleteSignature{2}{$NewSymbol}{"NameSpace"})
+                my $NS1 = $CompleteSignature{1}{$Symbol}{"NameSpace"};
+                my $NS2 = $CompleteSignature{2}{$NewSymbol}{"NameSpace"};
+                if((not $NS1 and not $NS2) or ($NS1 and $NS2 and $NS1 eq $NS2))
                 { # from the same class and namespace
                     if($CompleteSignature{1}{$Symbol}{"Const"}
                     and not $CompleteSignature{2}{$NewSymbol}{"Const"})
@@ -10638,10 +10748,13 @@ sub mergeSignatures($)
         { # relative position of virtual and pure virtual methods
             if($Level eq "Binary")
             {
-                if($CompleteSignature{1}{$Symbol}{"RelPos"}!=$CompleteSignature{2}{$PSymbol}{"RelPos"})
-                {
+                if(defined $CompleteSignature{1}{$Symbol}{"RelPos"} and defined $CompleteSignature{2}{$PSymbol}{"RelPos"}
+                and $CompleteSignature{1}{$Symbol}{"RelPos"}!=$CompleteSignature{2}{$PSymbol}{"RelPos"})
+                { # top-level virtual methods only
                     my $Class_Id = $CompleteSignature{1}{$Symbol}{"Class"};
-                    if($VirtualTable{1}{get_TypeName($Class_Id, 1)}{$Symbol}!=$VirtualTable{2}{get_TypeName($Class_Id, 1)}{$Symbol})
+                    my $Class_Name = get_TypeName($Class_Id, 1);
+                    if(defined $VirtualTable{1}{$Class_Name} and defined $VirtualTable{2}{$Class_Name}
+                    and $VirtualTable{1}{$Class_Name}{$Symbol}!=$VirtualTable{2}{$Class_Name}{$Symbol})
                     { # check the absolute position of virtual method (including added and removed methods)
                         my %Class_Type = get_Type($Tid_TDid{1}{$Class_Id}, $Class_Id, 1);
                         my $ProblemType = "Virtual_Method_Position";
@@ -10684,15 +10797,15 @@ sub mergeSignatures($)
         { # C: added/removed parameters
             foreach my $ParamPos (sort {int($a) <=> int($b)} keys(%{$CompleteSignature{2}{$PSymbol}{"Param"}}))
             { # checking added parameters
-                my $ParamType2_Id = $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos}{"type"};
-                last if(get_TypeName($ParamType2_Id, 2) eq "...");
+                my $PType2_Id = $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos}{"type"};
+                last if(get_TypeName($PType2_Id, 2) eq "...");
                 my $Parameter_Name = $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos}{"name"};
                 my $Parameter_OldName = (defined $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos})?$CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos}{"name"}:"";
                 my $ParamPos_Prev = "-1";
                 if($Parameter_Name=~/\Ap\d+\Z/i)
                 { # added unnamed parameter ( pN )
-                    my @Positions1 = find_ParamPair_Pos_byTypeAndPos(get_TypeName($ParamType2_Id, 2), $ParamPos, "backward", $Symbol, 1);
-                    my @Positions2 = find_ParamPair_Pos_byTypeAndPos(get_TypeName($ParamType2_Id, 2), $ParamPos, "backward", $Symbol, 2);
+                    my @Positions1 = find_ParamPair_Pos_byTypeAndPos(get_TypeName($PType2_Id, 2), $ParamPos, "backward", $Symbol, 1);
+                    my @Positions2 = find_ParamPair_Pos_byTypeAndPos(get_TypeName($PType2_Id, 2), $ParamPos, "backward", $Symbol, 2);
                     if($#Positions1==-1 or $#Positions2>$#Positions1) {
                         $ParamPos_Prev = "lost";
                     }
@@ -10708,26 +10821,26 @@ sub mergeSignatures($)
                         if($Parameter_Name=~/\Ap\d+\Z/) {
                             $ProblemType = "Added_Unnamed_Parameter";
                         }
-                        %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{numToStr($ParamPos+1)." Parameter"}}=(
+                        %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{showNum($ParamPos)." Parameter"}}=(
                             "Target"=>$Parameter_Name,
                             "Param_Pos"=>$ParamPos,
-                            "Param_Type"=>get_TypeName($ParamType2_Id, 2),
+                            "Param_Type"=>get_TypeName($PType2_Id, 2),
                             "New_Signature"=>get_Signature($Symbol, 2)  );
                     }
                     else
                     {
-                        my %ParamType_Pure = get_PureType($Tid_TDid{2}{$ParamType2_Id}, $ParamType2_Id, 2);
+                        my %ParamType_Pure = get_PureType($Tid_TDid{2}{$PType2_Id}, $PType2_Id, 2);
                         my $ParamStraightPairType_Id = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos}{"type"};
                         my %ParamStraightPairType_Pure = get_PureType($Tid_TDid{1}{$ParamStraightPairType_Id}, $ParamStraightPairType_Id, 1);
-                        if(($ParamType_Pure{"Name"} eq $ParamStraightPairType_Pure{"Name"} or get_TypeName($ParamType2_Id, 2) eq get_TypeName($ParamStraightPairType_Id, 1))
+                        if(($ParamType_Pure{"Name"} eq $ParamStraightPairType_Pure{"Name"} or get_TypeName($PType2_Id, 2) eq get_TypeName($ParamStraightPairType_Id, 1))
                         and find_ParamPair_Pos_byName($Parameter_OldName, $Symbol, 2) eq "lost")
                         {
                             if($Parameter_OldName!~/\Ap\d+\Z/ and $Parameter_Name!~/\Ap\d+\Z/)
                             {
-                                %{$CompatProblems{$Level}{$Symbol}{"Renamed_Parameter"}{numToStr($ParamPos+1)." Parameter"}}=(
+                                %{$CompatProblems{$Level}{$Symbol}{"Renamed_Parameter"}{showNum($ParamPos)." Parameter"}}=(
                                     "Target"=>$Parameter_OldName,
                                     "Param_Pos"=>$ParamPos,
-                                    "Param_Type"=>get_TypeName($ParamType2_Id, 2),
+                                    "Param_Type"=>get_TypeName($PType2_Id, 2),
                                     "Old_Value"=>$Parameter_OldName,
                                     "New_Value"=>$Parameter_Name,
                                     "New_Signature"=>get_Signature($Symbol, 2)  );
@@ -10739,10 +10852,10 @@ sub mergeSignatures($)
                             if($Parameter_Name=~/\Ap\d+\Z/) {
                                 $ProblemType = "Added_Middle_Unnamed_Parameter";
                             }
-                            %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{numToStr($ParamPos+1)." Parameter"}}=(
+                            %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{showNum($ParamPos)." Parameter"}}=(
                                 "Target"=>$Parameter_Name,
                                 "Param_Pos"=>$ParamPos,
-                                "Param_Type"=>get_TypeName($ParamType2_Id, 2),
+                                "Param_Type"=>get_TypeName($PType2_Id, 2),
                                 "New_Signature"=>get_Signature($Symbol, 2)  );
                         }
                     }
@@ -10750,30 +10863,30 @@ sub mergeSignatures($)
             }
             foreach my $ParamPos (sort {int($a) <=> int($b)} keys(%{$CompleteSignature{1}{$Symbol}{"Param"}}))
             { # check relevant parameters
-                my $ParamType1_Id = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos}{"type"};
+                my $PType1_Id = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos}{"type"};
                 my $ParamName1 = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos}{"name"};
                 # FIXME: find relevant parameter by name
                 if(defined $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos})
                 {
-                    my $ParamType2_Id = $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos}{"type"};
+                    my $PType2_Id = $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos}{"type"};
                     my $ParamName2 = $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos}{"name"};
                     if(($ParamName1!~/\Ap\d+\Z/i and $ParamName1 eq $ParamName2)
-                    or get_TypeName($ParamType1_Id, 1) eq get_TypeName($ParamType2_Id, 2)) {
+                    or get_TypeName($PType1_Id, 1) eq get_TypeName($PType2_Id, 2)) {
                         mergeParameters($Symbol, $PSymbol, $ParamPos, $ParamPos, $Level);
                     }
                 }
             }
             foreach my $ParamPos (sort {int($a) <=> int($b)} keys(%{$CompleteSignature{1}{$Symbol}{"Param"}}))
             { # checking removed parameters
-                my $ParamType1_Id = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos}{"type"};
-                last if(get_TypeName($ParamType1_Id, 1) eq "...");
+                my $PType1_Id = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos}{"type"};
+                last if(get_TypeName($PType1_Id, 1) eq "...");
                 my $Parameter_Name = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos}{"name"};
                 my $Parameter_NewName = (defined $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos})?$CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos}{"name"}:"";
                 my $ParamPos_New = "-1";
                 if($Parameter_Name=~/\Ap\d+\Z/i)
                 { # removed unnamed parameter ( pN )
-                    my @Positions1 = find_ParamPair_Pos_byTypeAndPos(get_TypeName($ParamType1_Id, 1), $ParamPos, "forward", $Symbol, 1);
-                    my @Positions2 = find_ParamPair_Pos_byTypeAndPos(get_TypeName($ParamType1_Id, 1), $ParamPos, "forward", $Symbol, 2);
+                    my @Positions1 = find_ParamPair_Pos_byTypeAndPos(get_TypeName($PType1_Id, 1), $ParamPos, "forward", $Symbol, 1);
+                    my @Positions2 = find_ParamPair_Pos_byTypeAndPos(get_TypeName($PType1_Id, 1), $ParamPos, "forward", $Symbol, 2);
                     if($#Positions2==-1 or $#Positions2<$#Positions1) {
                         $ParamPos_New = "lost";
                     }
@@ -10789,26 +10902,26 @@ sub mergeSignatures($)
                         if($Parameter_Name=~/\Ap\d+\Z/) {
                             $ProblemType = "Removed_Unnamed_Parameter";
                         }
-                        %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{numToStr($ParamPos+1)." Parameter"}}=(
+                        %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{showNum($ParamPos)." Parameter"}}=(
                             "Target"=>$Parameter_Name,
                             "Param_Pos"=>$ParamPos,
-                            "Param_Type"=>get_TypeName($ParamType1_Id, 1),
+                            "Param_Type"=>get_TypeName($PType1_Id, 1),
                             "New_Signature"=>get_Signature($Symbol, 2)  );
                     }
                     elsif($ParamPos<keys(%{$CompleteSignature{1}{$Symbol}{"Param"}})-1)
                     {
-                        my %ParamType_Pure = get_PureType($Tid_TDid{1}{$ParamType1_Id}, $ParamType1_Id, 1);
+                        my %ParamType_Pure = get_PureType($Tid_TDid{1}{$PType1_Id}, $PType1_Id, 1);
                         my $ParamStraightPairType_Id = $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos}{"type"};
                         my %ParamStraightPairType_Pure = get_PureType($Tid_TDid{2}{$ParamStraightPairType_Id}, $ParamStraightPairType_Id, 2);
-                        if(($ParamType_Pure{"Name"} eq $ParamStraightPairType_Pure{"Name"} or get_TypeName($ParamType1_Id, 1) eq get_TypeName($ParamStraightPairType_Id, 2))
+                        if(($ParamType_Pure{"Name"} eq $ParamStraightPairType_Pure{"Name"} or get_TypeName($PType1_Id, 1) eq get_TypeName($ParamStraightPairType_Id, 2))
                         and find_ParamPair_Pos_byName($Parameter_NewName, $Symbol, 1) eq "lost")
                         {
                             if($Parameter_NewName!~/\Ap\d+\Z/ and $Parameter_Name!~/\Ap\d+\Z/)
                             {
-                                %{$CompatProblems{$Level}{$Symbol}{"Renamed_Parameter"}{numToStr($ParamPos+1)." Parameter"}}=(
+                                %{$CompatProblems{$Level}{$Symbol}{"Renamed_Parameter"}{showNum($ParamPos)." Parameter"}}=(
                                     "Target"=>$Parameter_Name,
                                     "Param_Pos"=>$ParamPos,
-                                    "Param_Type"=>get_TypeName($ParamType1_Id, 1),
+                                    "Param_Type"=>get_TypeName($PType1_Id, 1),
                                     "Old_Value"=>$Parameter_Name,
                                     "New_Value"=>$Parameter_NewName,
                                     "New_Signature"=>get_Signature($Symbol, 2)  );
@@ -10820,10 +10933,10 @@ sub mergeSignatures($)
                             if($Parameter_Name=~/\Ap\d+\Z/) {
                                 $ProblemType = "Removed_Middle_Unnamed_Parameter";
                             }
-                            %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{numToStr($ParamPos+1)." Parameter"}}=(
+                            %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{showNum($ParamPos)." Parameter"}}=(
                                 "Target"=>$Parameter_Name,
                                 "Param_Pos"=>$ParamPos,
-                                "Param_Type"=>get_TypeName($ParamType1_Id, 1),
+                                "Param_Type"=>get_TypeName($PType1_Id, 1),
                                 "New_Signature"=>get_Signature($Symbol, 2)  );
                         }
                     }
@@ -10982,16 +11095,16 @@ sub mergeParameters($$$$$)
     return if(not $Symbol);
     return if(not defined $CompleteSignature{1}{$Symbol}{"Param"});
     return if(not defined $CompleteSignature{2}{$PSymbol}{"Param"});
-    my $ParamType1_Id = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos1}{"type"};
-    my $ParamName1 = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos1}{"name"};
-    my $ParamType2_Id = $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos2}{"type"};
-    my $ParamName2 = $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos2}{"name"};
-    return if(not $ParamType1_Id or not $ParamType2_Id);
-    my %Type1 = get_Type($Tid_TDid{1}{$ParamType1_Id}, $ParamType1_Id, 1);
-    my %Type2 = get_Type($Tid_TDid{2}{$ParamType2_Id}, $ParamType2_Id, 2);
-    my %BaseType1 = get_BaseType($Tid_TDid{1}{$ParamType1_Id}, $ParamType1_Id, 1);
-    my %BaseType2 = get_BaseType($Tid_TDid{2}{$ParamType2_Id}, $ParamType2_Id, 2);
-    my $Parameter_Location = ($ParamName1)?$ParamName1:numToStr($ParamPos1+1)." Parameter";
+    my $PType1_Id = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos1}{"type"};
+    my $PName1 = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos1}{"name"};
+    my $PType2_Id = $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos2}{"type"};
+    my $PName2 = $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos2}{"name"};
+    return if(not $PType1_Id or not $PType2_Id);
+    my %Type1 = get_Type($Tid_TDid{1}{$PType1_Id}, $PType1_Id, 1);
+    my %Type2 = get_Type($Tid_TDid{2}{$PType2_Id}, $PType2_Id, 2);
+    my %BaseType1 = get_BaseType($Tid_TDid{1}{$PType1_Id}, $PType1_Id, 1);
+    my %BaseType2 = get_BaseType($Tid_TDid{2}{$PType2_Id}, $PType2_Id, 2);
+    my $Parameter_Location = ($PName1)?$PName1:showNum($ParamPos1)." Parameter";
     if($Level eq "Binary")
     {
         if(checkDumpVersion(1, "2.6.1") and checkDumpVersion(2, "2.6.1"))
@@ -11000,14 +11113,14 @@ sub mergeParameters($$$$$)
             and not $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos2}{"reg"})
             {
                 %{$CompatProblems{$Level}{$Symbol}{"Parameter_Became_Non_Register"}{$Parameter_Location}}=(
-                    "Target"=>$ParamName1,
+                    "Target"=>$PName1,
                     "Param_Pos"=>$ParamPos1  );
             }
             elsif(not $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos1}{"reg"}
             and $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos2}{"reg"})
             {
                 %{$CompatProblems{$Level}{$Symbol}{"Parameter_Became_Register"}{$Parameter_Location}}=(
-                    "Target"=>$ParamName1,
+                    "Target"=>$PName1,
                     "Param_Pos"=>$ParamPos1  );
             }
         }
@@ -11016,7 +11129,7 @@ sub mergeParameters($$$$$)
     { # "default" attribute added in ACC 1.22 (dump 2.0 format)
         my $DefaultValue_Old = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos1}{"default"};
         my $DefaultValue_New = $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos2}{"default"};
-        my %PureType1 = get_PureType($Tid_TDid{1}{$ParamType1_Id}, $ParamType1_Id, 1);
+        my %PureType1 = get_PureType($Tid_TDid{1}{$PType1_Id}, $PType1_Id, 1);
         if($PureType1{"Name"}=~/\A(char\*|char const\*)\Z/)
         {
             if($DefaultValue_Old)
@@ -11036,14 +11149,16 @@ sub mergeParameters($$$$$)
                 $DefaultValue_New = "\'$DefaultValue_New\'";
             }
         }
-        if($DefaultValue_Old ne "")
+        if(defined $DefaultValue_Old
+        and $DefaultValue_Old ne "")
         {
-            if($DefaultValue_New ne "")
+            if(defined $DefaultValue_New
+            and $DefaultValue_New ne "")
             {
                 if($DefaultValue_Old ne $DefaultValue_New)
                 {
                     %{$CompatProblems{$Level}{$Symbol}{"Parameter_Default_Value_Changed"}{$Parameter_Location}}=(
-                        "Target"=>$ParamName1,
+                        "Target"=>$PName1,
                         "Param_Pos"=>$ParamPos1,
                         "Old_Value"=>$DefaultValue_Old,
                         "New_Value"=>$DefaultValue_New  );
@@ -11052,26 +11167,26 @@ sub mergeParameters($$$$$)
             else
             {
                 %{$CompatProblems{$Level}{$Symbol}{"Parameter_Default_Value_Removed"}{$Parameter_Location}}=(
-                        "Target"=>$ParamName1,
+                        "Target"=>$PName1,
                         "Param_Pos"=>$ParamPos1,
                         "Old_Value"=>$DefaultValue_Old  );
             }
         }
     }
-    if($ParamName1 ne $ParamName2
-    and $ParamType1_Id!=-1 and $ParamType2_Id!=-1
-    and $ParamName1!~/\Ap\d+\Z/ and $ParamName2!~/\Ap\d+\Z/)
+    if($PName1 and $PName2 and $PName1 ne $PName2
+    and $PType1_Id!=-1 and $PType2_Id!=-1
+    and $PName1!~/\Ap\d+\Z/ and $PName2!~/\Ap\d+\Z/)
     { # except unnamed "..." value list (Id=-1)
-        %{$CompatProblems{$Level}{$Symbol}{"Renamed_Parameter"}{numToStr($ParamPos1+1)." Parameter"}}=(
-            "Target"=>$ParamName1,
+        %{$CompatProblems{$Level}{$Symbol}{"Renamed_Parameter"}{showNum($ParamPos1)." Parameter"}}=(
+            "Target"=>$PName1,
             "Param_Pos"=>$ParamPos1,
-            "Param_Type"=>get_TypeName($ParamType1_Id, 1),
-            "Old_Value"=>$ParamName1,
-            "New_Value"=>$ParamName2,
+            "Param_Type"=>get_TypeName($PType1_Id, 1),
+            "Old_Value"=>$PName1,
+            "New_Value"=>$PName2,
             "New_Signature"=>get_Signature($Symbol, 2)  );
     }
     # checking type change (replace)
-    my %SubProblems = detectTypeChange($ParamType1_Id, $ParamType2_Id, "Parameter", $Level);
+    my %SubProblems = detectTypeChange($PType1_Id, $PType2_Id, "Parameter", $Level);
     foreach my $SubProblemType (keys(%SubProblems))
     { # add new problems, remove false alarms
         my $New_Value = $SubProblems{$SubProblemType}{"New_Value"};
@@ -11178,14 +11293,14 @@ sub mergeParameters($$$$$)
             $SubProblems{$SubProblemType}{"New_Reg"} = $RegName2;
         }
         %{$CompatProblems{$Level}{$Symbol}{$NewProblemType}{$Parameter_Location}}=(
-            "Target"=>$ParamName1,
+            "Target"=>$PName1,
             "Param_Pos"=>$ParamPos1,
             "New_Signature"=>get_Signature($Symbol, 2) );
         @{$CompatProblems{$Level}{$Symbol}{$NewProblemType}{$Parameter_Location}}{keys(%{$SubProblems{$SubProblemType}})} = values %{$SubProblems{$SubProblemType}};
     }
     @RecurTypes = ();
     # checking type definition changes
-    my %SubProblems_Merge = mergeTypes($ParamType1_Id, $Tid_TDid{1}{$ParamType1_Id}, $ParamType2_Id, $Tid_TDid{2}{$ParamType2_Id}, $Level);
+    my %SubProblems_Merge = mergeTypes($PType1_Id, $Tid_TDid{1}{$PType1_Id}, $PType2_Id, $Tid_TDid{2}{$PType2_Id}, $Level);
     foreach my $SubProblemType (keys(%SubProblems_Merge))
     {
         foreach my $SubLocation (keys(%{$SubProblems_Merge{$SubProblemType}}))
@@ -11201,12 +11316,12 @@ sub mergeParameters($$$$$)
             }
             my $NewLocation = ($SubLocation)?$Parameter_Location."->".$SubLocation:$Parameter_Location;
             %{$CompatProblems{$Level}{$Symbol}{$NewProblemType}{$NewLocation}}=(
-                "Param_Type"=>get_TypeName($ParamType1_Id, 1),
+                "Param_Type"=>get_TypeName($PType1_Id, 1),
                 "Param_Pos"=>$ParamPos1,
-                "Param_Name"=>$ParamName1  );
+                "Param_Name"=>$PName1  );
             @{$CompatProblems{$Level}{$Symbol}{$NewProblemType}{$NewLocation}}{keys(%{$SubProblems_Merge{$SubProblemType}{$SubLocation}})} = values %{$SubProblems_Merge{$SubProblemType}{$SubLocation}};
             if($SubLocation!~/\-\>/) {
-                $CompatProblems{$Level}{$Symbol}{$NewProblemType}{$NewLocation}{"Start_Type_Name"} = get_TypeName($ParamType1_Id, 1);
+                $CompatProblems{$Level}{$Symbol}{$NewProblemType}{$NewLocation}{"Start_Type_Name"} = get_TypeName($PType1_Id, 1);
             }
         }
     }
@@ -11467,6 +11582,9 @@ sub isFloat($) {
 sub detectTypeChange($$$$)
 {
     my ($Type1_Id, $Type2_Id, $Prefix, $Level) = @_;
+    if(not $Type1_Id or not $Type2_Id) {
+        return ();
+    }
     my %LocalProblems = ();
     my $Type1_DId = $Tid_TDid{1}{$Type1_Id};
     my $Type2_DId = $Tid_TDid{2}{$Type2_Id};
@@ -11510,8 +11628,6 @@ sub detectTypeChange($$$$)
                     %{$LocalProblems{$Prefix."_BaseType_Format"}}=(
                         "Old_Value"=>$Type1_Base{"Name"},
                         "New_Value"=>$Type2_Base{"Name"},
-                        "Old_Size"=>$Type1_Base{"Size"}*$BYTE_SIZE,
-                        "New_Size"=>$Type2_Base{"Size"}*$BYTE_SIZE,
                         "InitialType_Type"=>$Type1_Pure{"Type"});
                 }
                 elsif(tNameLock($Type1_Base{"Tid"}, $Type2_Base{"Tid"}))
@@ -11519,8 +11635,6 @@ sub detectTypeChange($$$$)
                     %{$LocalProblems{$Prefix."_BaseType"}}=(
                         "Old_Value"=>$Type1_Base{"Name"},
                         "New_Value"=>$Type2_Base{"Name"},
-                        "Old_Size"=>$Type1_Base{"Size"}*$BYTE_SIZE,
-                        "New_Size"=>$Type2_Base{"Size"}*$BYTE_SIZE,
                         "InitialType_Type"=>$Type1_Pure{"Type"});
                 }
             }
@@ -11599,8 +11713,8 @@ sub detectTypeChange($$$$)
             else
             {
                 if($Level eq "Binary"
-                and $Type1{"Size"} ne $Type2{"Size"}
-                and $Type1{"Size"} and $Type2{"Size"})
+                and $Type1{"Size"} and $Type2{"Size"}
+                and $Type1{"Size"} ne $Type2{"Size"})
                 {
                     %{$LocalProblems{$Prefix."_Type_And_Size"}}=(
                         "Old_Value"=>$Type1{"Name"},
@@ -11616,8 +11730,6 @@ sub detectTypeChange($$$$)
                         %{$LocalProblems{$Prefix."_Type_Format"}}=(
                             "Old_Value"=>$Type1{"Name"},
                             "New_Value"=>$Type2{"Name"},
-                            "Old_Size"=>$Type1{"Size"}*$BYTE_SIZE,
-                            "New_Size"=>$Type2{"Size"}*$BYTE_SIZE,
                             "InitialType_Type"=>$Type1_Pure{"Type"});
                     }
                     elsif(tNameLock($Type1_Id, $Type2_Id))
@@ -11625,8 +11737,6 @@ sub detectTypeChange($$$$)
                         %{$LocalProblems{$Prefix."_Type"}}=(
                             "Old_Value"=>$Type1{"Name"},
                             "New_Value"=>$Type2{"Name"},
-                            "Old_Size"=>$Type1{"Size"}*$BYTE_SIZE,
-                            "New_Size"=>$Type2{"Size"}*$BYTE_SIZE,
                             "InitialType_Type"=>$Type1_Pure{"Type"});
                     }
                 }
@@ -11718,19 +11828,22 @@ sub tNameLock($$)
 sub differentDumps($)
 {
     my $Check = $_[0];
-    if($Check eq "G")
+    if($UsedDump{1}{"V"} and $UsedDump{2}{"V"})
     {
-        if(getGccVersion(1) ne getGccVersion(2))
-        { # different GCC versions
-            return 1;
+        if($Check eq "G")
+        {
+            if(getGccVersion(1) ne getGccVersion(2))
+            { # different GCC versions
+                return 1;
+            }
         }
-    }
-    if($Check eq "V")
-    {
-        if(cmpVersions(formatVersion($UsedDump{1}{"V"}, 2),
-        formatVersion($UsedDump{2}{"V"}, 2))!=0)
-        { # different dump versions (skip micro version)
-            return 1;
+        if($Check eq "V")
+        {
+            if(cmpVersions(formatVersion($UsedDump{1}{"V"}, 2),
+            formatVersion($UsedDump{2}{"V"}, 2))!=0)
+            { # different dump versions (skip micro version)
+                return 1;
+            }
         }
     }
     return 0;
@@ -11738,14 +11851,17 @@ sub differentDumps($)
 
 sub formatVersion($$)
 { # cut off version digits
-    my ($Version, $Digits) = @_;
-    my @Elems = split(/\./, $Version);
+    my ($V, $Digits) = @_;
+    my @Elems = split(/\./, $V);
     return join(".", splice(@Elems, 0, $Digits));
 } 
 
 sub htmlSpecChars($)
 {
     my $Str = $_[0];
+    if($Str eq "") {
+        return "";
+    }
     $Str=~s/\&([^#]|\Z)/&amp;$1/g;
     $Str=~s/</&lt;/g;
     $Str=~s/\-\>/&#45;&gt;/g; # &minus;
@@ -11797,7 +11913,8 @@ sub cut_f_attrs($)
 
 sub highLight_Signature_PPos_Italic($$$$$)
 {
-    my ($FullSignature, $Parameter_Position, $ItalicParams, $ColorParams, $ShowReturn) = @_;
+    my ($FullSignature, $Param_Pos, $ItalicParams, $ColorParams, $ShowReturn) = @_;
+    $Param_Pos = "" if(not defined $Param_Pos);
     if($CheckObjectsOnly) {
         $ItalicParams=$ColorParams=0;
     }
@@ -11822,9 +11939,9 @@ sub highLight_Signature_PPos_Italic($$$$$)
     $End = cut_f_attrs($Signature);
     my @Parts = ();
     my @SParts = get_s_params($Signature, 1);
-    foreach my $Num (0 .. $#SParts)
+    foreach my $Pos (0 .. $#SParts)
     {
-        my $Part = $SParts[$Num];
+        my $Part = $SParts[$Pos];
         $Part=~s/\A\s+|\s+\Z//g;
         my ($Part_Styled, $ParamName) = (htmlSpecChars($Part), "");
         if($Part=~/\([\*]+(\w+)\)/i) {
@@ -11840,8 +11957,8 @@ sub highLight_Signature_PPos_Italic($$$$$)
         if($ItalicParams and not $TName_Tid{1}{$Part}
         and not $TName_Tid{2}{$Part})
         {
-            if($Parameter_Position ne ""
-            and $Num==$Parameter_Position) {
+            if($Param_Pos ne ""
+            and $Pos==$Param_Pos) {
                 $Part_Styled =~ s!(\W)$ParamName([\,\)]|\Z)!$1<span class='focus_p'>$ParamName</span>$2!ig;
             }
             elsif($ColorParams) {
@@ -11884,7 +12001,6 @@ sub get_s_params($$)
 {
     my ($Signature, $Comma) = @_;
     my @Parts = ();
-    my $Signature = $Signature;
     my $ShortName = substr($Signature, 0, detect_center($Signature, "("));
     $Signature=~s/\A\Q$ShortName\E\(//g;
     cut_f_attrs($Signature);
@@ -12217,7 +12333,7 @@ sub get_TypeProblems_Count($$$)
                 if($Kinds_Target{$Kind}{$Target}) {
                     next;
                 }
-                if(cmp_priority($Type_MaxPriority{$Level}{$Type_Name}{$Kind}{$Target}, $Priority))
+                if(cmpSeverities($Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target}, $Priority))
                 { # select a problem with the highest priority
                     next;
                 }
@@ -12306,16 +12422,16 @@ sub get_Summary($)
                     my $Type_Name = $CompatProblems{$Level}{$Interface}{$Kind}{$Location}{"Type_Name"};
                     my $Target = $CompatProblems{$Level}{$Interface}{$Kind}{$Location}{"Target"};
                     my $Priority = getProblemSeverity($Level, $Kind);
-                    if(cmp_priority($Type_MaxPriority{$Level}{$Type_Name}{$Kind}{$Target}, $Priority))
+                    if(cmpSeverities($Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target}, $Priority))
                     { # select a problem with the highest priority
                         next;
                     }
                     if(($Priority ne "Low" or $StrictCompat)
                     and $Priority ne "Safe") {
-                        $TotalAffected{$Level}{$Interface} = max_priority($TotalAffected{$Level}{$Interface}, $Priority);
+                        $TotalAffected{$Level}{$Interface} = maxSeverity($TotalAffected{$Level}{$Interface}, $Priority);
                     }
                     %{$TypeChanges{$Type_Name}{$Kind}{$Location}} = %{$CompatProblems{$Level}{$Interface}{$Kind}{$Location}};
-                    $Type_MaxPriority{$Level}{$Type_Name}{$Kind}{$Target} = max_priority($Type_MaxPriority{$Level}{$Type_Name}{$Kind}{$Target}, $Priority);
+                    $Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target} = maxSeverity($Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target}, $Priority);
                 }
             }
         }
@@ -13093,6 +13209,10 @@ sub applyMacroses($$$$)
     {
         my $Macro = "\@".lc($Attr);
         my $Value = $Problem->{$Attr};
+        if(not defined $Value
+        or $Value eq "") {
+            next;
+        }
         if($Value=~/\s\(/)
         { # functions
             $Value=~s/\s*\[[\w\-]+\]//g; # remove quals
@@ -13143,7 +13263,7 @@ sub applyMacroses($$$$)
     return $Content;
 }
 
-sub get_Report_InterfaceProblems($$)
+sub get_Report_SymbolProblems($$)
 {
     my ($TargetSeverity, $Level) = @_;
     my ($INTERFACE_PROBLEMS, %ReportMap, %SymbolChanges);
@@ -13204,7 +13324,7 @@ sub get_Report_InterfaceProblems($$)
                         foreach my $Location (sort keys(%{$SymbolChanges{$Symbol}{$Kind}}))
                         {
                             my %Problem = %{$SymbolChanges{$Symbol}{$Kind}{$Location}};
-                            $Problem{"Param_Pos"} = numToStr($Problem{"Param_Pos"} + 1);
+                            $Problem{"Param_Pos"} = showNum($Problem{"Param_Pos"});
                             $INTERFACE_PROBLEMS .= "        <problem id=\"$Kind\">\n";
                             my $Change = $CompatRules{$Level}{$Kind}{"Change"};
                             $INTERFACE_PROBLEMS .= "          <change".getXmlParams($Change, \%Problem).">$Change</change>\n";
@@ -13248,7 +13368,7 @@ sub get_Report_InterfaceProblems($$)
                             foreach my $Location (sort keys(%{$SymbolChanges{$Symbol}{$Kind}}))
                             {
                                 my %Problem = %{$SymbolChanges{$Symbol}{$Kind}{$Location}};
-                                $Problem{"Param_Pos"} = numToStr($Problem{"Param_Pos"} + 1);
+                                $Problem{"Param_Pos"} = showNum($Problem{"Param_Pos"});
                                 if($Problem{"New_Signature"}) {
                                     $NewSignature{$Symbol} = $Problem{"New_Signature"};
                                 }
@@ -13332,7 +13452,7 @@ sub get_Report_TypeProblems($$)
                         $TypeType{$TypeName} = $CompatProblems{$Level}{$Interface}{$Kind}{$Location}{"Type_Type"};
                     }
                     
-                    if(cmp_priority($Type_MaxPriority{$Level}{$TypeName}{$Kind}{$Target}, $Severity))
+                    if(cmpSeverities($Type_MaxSeverity{$Level}{$TypeName}{$Kind}{$Target}, $Severity))
                     { # select a problem with the highest priority
                         next;
                     }
@@ -13567,6 +13687,10 @@ sub showVTables($)
 sub simpleVEntry($)
 {
     my $VEntry = $_[0];
+    if(not defined $VEntry
+    or $VEntry eq "") {
+        return "";
+    }
     $VEntry=~s/\A(.+)::(_ZThn.+)\Z/$2/; # thunks
     $VEntry=~s/_ZTI\w+/typeinfo/g; # typeinfo
     if($VEntry=~/\A_ZThn.+\Z/) {
@@ -13601,7 +13725,7 @@ sub simpleVEntry($)
 sub getAffectedInterfaces($$$)
 {
     my ($Level, $Target_TypeName, $Kinds_Locations) = @_;
-    my (%INumber, %IProblems) = ();
+    my (%INumber, %SymProblems) = ();
     my $LIMIT = 1000;
     foreach my $Symbol (sort {lc($tr_name{$a}?$tr_name{$a}:$a) cmp lc($tr_name{$b}?$tr_name{$b}:$b)} keys(%{$CompatProblems{$Level}}))
     {
@@ -13615,8 +13739,8 @@ sub getAffectedInterfaces($$$)
         { # remove symbol version
             $Symbol=$SN;
         }
-        my ($MinPath_Length, $ProblemLocation_Last) = ();
-        my $MaxPriority = 0;
+        my ($MinPath_Length, $ProblemLocation_Last) = (-1, "");
+        my $Severity_Max = 0;
         my $Signature = get_Signature($Symbol, 1);
         foreach my $Kind (keys(%{$CompatProblems{$Level}{$Symbol}}))
         {
@@ -13636,23 +13760,25 @@ sub getAffectedInterfaces($$$)
                 
                 my $Position = $CompatProblems{$Level}{$Symbol}{$Kind}{$Location}{"Param_Pos"};
                 my $Param_Name = $CompatProblems{$Level}{$Symbol}{$Kind}{$Location}{"Param_Name"};
-                my $Priority = $CompatProblems{$Level}{$Symbol}{$Kind}{$Location}{"Priority"};
+                my $Severity = getProblemSeverity($Level, $Kind);
                 $INumber{$Symbol} = 1;
                 my $Path_Length = 0;
                 my $ProblemLocation = $Location;
                 if($Type_Name) {
                     $ProblemLocation=~s/->\Q$Type_Name\E\Z//g;
                 }
-                while($ProblemLocation=~/\-\>/g){$Path_Length += 1;}
-                if($MinPath_Length eq "" or ($Path_Length<=$MinPath_Length and $Priority_Value{$Priority}>$MaxPriority)
-                or (cmp_locations($ProblemLocation, $ProblemLocation_Last) and $Priority_Value{$Priority}==$MaxPriority))
+                while($ProblemLocation=~/\-\>/g) {
+                    $Path_Length += 1;
+                }
+                if($MinPath_Length==-1 or ($Path_Length<=$MinPath_Length and $Severity_Val{$Severity}>$Severity_Max)
+                or (cmp_locations($ProblemLocation, $ProblemLocation_Last) and $Severity_Val{$Severity}==$Severity_Max))
                 {
                     $MinPath_Length = $Path_Length;
-                    $MaxPriority = $Priority_Value{$Priority};
+                    $Severity_Max = $Severity_Val{$Severity};
                     $ProblemLocation_Last = $ProblemLocation;
-                    %{$IProblems{$Symbol}} = (
-                        "Description"=>getAffectDescription($Level, $Symbol, $Kind, $Location),
-                        "Priority"=>$MaxPriority,
+                    %{$SymProblems{$Symbol}} = (
+                        "Descr"=>getAffectDescription($Level, $Symbol, $Kind, $Location),
+                        "Severity_Max"=>$Severity_Max,
                         "Signature"=>$Signature,
                         "Position"=>$Position,
                         "Param_Name"=>$Param_Name,
@@ -13662,18 +13788,18 @@ sub getAffectedInterfaces($$$)
             }
         }
     }
-    my @Symbols = keys(%IProblems);
+    my @Symbols = keys(%SymProblems);
     @Symbols = sort {lc($tr_name{$a}?$tr_name{$a}:$a) cmp lc($tr_name{$b}?$tr_name{$b}:$b)} @Symbols;
-    @Symbols = sort {$IProblems{$b}{"Priority"}<=>$IProblems{$a}{"Priority"}} @Symbols;
+    @Symbols = sort {$SymProblems{$b}{"Severity_Max"}<=>$SymProblems{$a}{"Severity_Max"}} @Symbols;
     my $Affected = "";
     if($ReportFormat eq "xml")
     { # XML
         $Affected .= "      <affected>\n";
         foreach my $Symbol (@Symbols)
         {
-            my $Param_Name = $IProblems{$Symbol}{"Param_Name"};
-            my $Description = $IProblems{$Symbol}{"Description"};
-            my $Location = $IProblems{$Symbol}{"Location"};
+            my $Param_Name = $SymProblems{$Symbol}{"Param_Name"};
+            my $Description = $SymProblems{$Symbol}{"Descr"};
+            my $Location = $SymProblems{$Symbol}{"Location"};
             my $Target = "";
             if($Param_Name) {
                 $Target = " affected=\"param\" param_name=\"$Param_Name\"";
@@ -13694,9 +13820,9 @@ sub getAffectedInterfaces($$$)
     { # HTML
         foreach my $Symbol (@Symbols)
         {
-            my $Description = $IProblems{$Symbol}{"Description"};
-            my $Signature = $IProblems{$Symbol}{"Signature"};
-            my $Pos = $IProblems{$Symbol}{"Position"};
+            my $Description = $SymProblems{$Symbol}{"Descr"};
+            my $Signature = $SymProblems{$Symbol}{"Signature"};
+            my $Pos = $SymProblems{$Symbol}{"Position"};
             $Affected .= "<span class='iname_b'>".highLight_Signature_PPos_Italic($Signature, $Pos, 1, 0, 0)."</span><br/>"."<div class='affect'>".htmlSpecChars($Description)."</div>\n";
         }
         $Affected = "<div class='affected'>".$Affected."</div>";
@@ -13731,7 +13857,7 @@ sub getAffectDescription($$$$)
 {
     my ($Level, $Symbol, $Kind, $Location) = @_;
     my %Problem = %{$CompatProblems{$Level}{$Symbol}{$Kind}{$Location}};
-    my $PPos = numToStr($Problem{"Param_Pos"} + 1);
+    my $PPos = showNum($Problem{"Param_Pos"});
     my @Sentence = ();
     $Location=~s/\A(.*)\-\>.+?\Z/$1/;
     if($Kind eq "Overridden_Virtual_Method"
@@ -13761,11 +13887,14 @@ sub getAffectDescription($$$$)
                 else {
                     push(@Sentence, "Return value");
                 }
-                if($Problem{"InitialType_Type"} eq "Pointer") {
-                    push(@Sentence, "(pointer)");
-                }
-                elsif($Problem{"InitialType_Type"} eq "Ref") {
-                    push(@Sentence, "(reference)");
+                if(my $Init = $Problem{"InitialType_Type"})
+                {
+                    if($Init eq "Pointer") {
+                        push(@Sentence, "(pointer)");
+                    }
+                    elsif($Init eq "Ref") {
+                        push(@Sentence, "(reference)");
+                    }
                 }
             }
             elsif($Location=~/this/)
@@ -13788,11 +13917,14 @@ sub getAffectDescription($$$$)
                 if($Problem{"Param_Name"}) {
                     push(@Sentence, "\'".$Problem{"Param_Name"}."\'");
                 }
-                if($Problem{"InitialType_Type"} eq "Pointer") {
-                    push(@Sentence, "(pointer)");
-                }
-                elsif($Problem{"InitialType_Type"} eq "Ref") {
-                    push(@Sentence, "(reference)");
+                if(my $Init = $Problem{"InitialType_Type"})
+                {
+                    if($Init eq "Pointer") {
+                        push(@Sentence, "(pointer)");
+                    }
+                    elsif($Init eq "Ref") {
+                        push(@Sentence, "(reference)");
+                    }
                 }
             }
             if($Location eq "this") {
@@ -14036,7 +14168,10 @@ sub getReportFooter($)
 sub get_Report_Problems($$)
 {
     my ($Priority, $Level) = @_;
-    my $Report = get_Report_TypeProblems($Priority, $Level).get_Report_InterfaceProblems($Priority, $Level);
+    my $Report = get_Report_TypeProblems($Priority, $Level);
+    if(my $SymProblems = get_Report_SymbolProblems($Priority, $Level)) {
+        $Report .= $SymProblems;
+    }
     if($Priority eq "Low")
     {
         $Report .= get_Report_ChangedConstants($Level);
@@ -14301,7 +14436,7 @@ sub uncover_constant($$)
     my ($LibVersion, $Constant) = @_;
     return "" if(not $LibVersion or not $Constant);
     return $Constant if(isCyclical(\@RecurConstant, $Constant));
-    if($Cache{"uncover_constant"}{$LibVersion}{$Constant} ne "") {
+    if(defined $Cache{"uncover_constant"}{$LibVersion}{$Constant}) {
         return $Cache{"uncover_constant"}{$LibVersion}{$Constant};
     }
     my $Value = $Constants{$LibVersion}{$Constant}{"Value"};
@@ -14344,21 +14479,23 @@ sub get_VTableSymbolSize($$)
 {
     my ($ClassName, $LibVersion) = @_;
     return 0 if(not $ClassName);
-    my $Symbol = $ClassVTable{$LibVersion}{$ClassName};
-    if(defined $Symbol_Library{$LibVersion}{$Symbol}
-    and my $DyLib = $Symbol_Library{$LibVersion}{$Symbol})
-    { # bind class name and v-table size
-        if(defined $Library_Symbol{$LibVersion}{$DyLib}{$Symbol}
-        and my $Size = -$Library_Symbol{$LibVersion}{$DyLib}{$Symbol})
-        { # size from the shared library
-            if($Size>=12) {
-#               0     (int (*)(...))0
-#               4     (int (*)(...))(& _ZTIN7mysqlpp8DateTimeE)
-#               8     mysqlpp::DateTime::~DateTime
-                return $Size;
-            }
-            else {
-                return 0;
+    if(my $Symbol = $ClassVTable{$ClassName})
+    {
+        if(defined $Symbol_Library{$LibVersion}{$Symbol}
+        and my $DyLib = $Symbol_Library{$LibVersion}{$Symbol})
+        { # bind class name and v-table size
+            if(defined $Library_Symbol{$LibVersion}{$DyLib}{$Symbol}
+            and my $Size = -$Library_Symbol{$LibVersion}{$DyLib}{$Symbol})
+            { # size from the shared library
+                if($Size>=12) {
+    #               0     (int (*)(...))0
+    #               4     (int (*)(...))(& _ZTIN7mysqlpp8DateTimeE)
+    #               8     mysqlpp::DateTime::~DateTime
+                    return $Size;
+                }
+                else {
+                    return 0;
+                }
             }
         }
     }
@@ -14380,7 +14517,7 @@ sub canonifyName($)
     return $Name;
 }
 
-sub translateSymbols(@_$)
+sub translateSymbols(@)
 {
     my $LibVersion = pop(@_);
     my (@MnglNames1, @MnglNames2, @UnMnglNames) = ();
@@ -14413,8 +14550,9 @@ sub translateSymbols(@_$)
             }
             if($MnglName=~/\A_ZTV/ and $Unmangled=~/vtable for (.+)/)
             { # bind class name and v-table symbol
-                $ClassVTable{$LibVersion}{$1} = $MnglName;
-                $VTableClass{$LibVersion}{$MnglName} = $1;
+                my $ClassName = $1;
+                $ClassVTable{$ClassName} = $MnglName;
+                $VTableClass{$MnglName} = $ClassName;
             }
         }
     }
@@ -14611,9 +14749,10 @@ sub getSymbols_Lib($$$$$)
             $GLIBC_TESTING = 1;
         }
     }
-    my $DebugPath = $DEBUG_PATH{$LibVersion}."/libs/".get_filename($Lib_Path).".txt";
+    my $DebugPath = "";
     if($Debug)
     { # debug mode
+        $DebugPath = $DEBUG_PATH{$LibVersion}."/libs/".get_filename($Lib_Path).".txt";
         mkpath(get_dirname($DebugPath));
     }
     if($OStarget eq "macos")
@@ -15931,8 +16070,12 @@ sub detect_default_paths($)
     }
     if($HSearch)
     { # user include paths
-        if(-d $SystemRoot."/usr/include") {
-            $UserIncPath{$SystemRoot."/usr/include"}=1;
+        my $IncPath = "/usr/include";
+        if($SystemRoot) {
+            $IncPath = $SystemRoot.$IncPath;
+        }
+        if(-d $IncPath) {
+            $UserIncPath{$IncPath}=1;
         }
     }
 }
@@ -16050,6 +16193,9 @@ sub find_gcc_cxx_headers($)
 sub parse_libname($$$)
 {
     my ($Name, $Type, $Target) = @_;
+    if(not $Name) {
+        return "";
+    }
     if($Target eq "symbian") {
         return parse_libname_symbian($Name, $Type);
     }
@@ -17063,8 +17209,14 @@ sub compareInit()
             if($Debug) {
                 @PARAMS = (@PARAMS, "-debug");
             }
-            if($Quiet) {
+            if($Quiet)
+            {
                 @PARAMS = (@PARAMS, "-quiet");
+                @PARAMS = (@PARAMS, "-logging-mode", "a");
+            }
+            elsif($LogMode and $LogMode ne "w")
+            { # "w" is default
+                @PARAMS = (@PARAMS, "-logging-mode", $LogMode);
             }
             if($ExtendedCheck) {
                 @PARAMS = (@PARAMS, "-extended");
@@ -17074,12 +17226,6 @@ sub compareInit()
             }
             if($TargetVersion{1}) {
                 @PARAMS = (@PARAMS, "-vnum", $TargetVersion{1});
-            }
-            if($LogMode eq "n") {
-                @PARAMS = (@PARAMS, "-logging-mode", "n");
-            }
-            elsif($Quiet) {
-                @PARAMS = (@PARAMS, "-logging-mode", "a");
             }
             system("perl", $0, @PARAMS);
             if($?) {
@@ -17101,8 +17247,14 @@ sub compareInit()
             if($Debug) {
                 @PARAMS = (@PARAMS, "-debug");
             }
-            if($Quiet) {
+            if($Quiet)
+            {
                 @PARAMS = (@PARAMS, "-quiet");
+                @PARAMS = (@PARAMS, "-logging-mode", "a");
+            }
+            elsif($LogMode and $LogMode ne "w")
+            { # "w" is default
+                @PARAMS = (@PARAMS, "-logging-mode", $LogMode);
             }
             if($ExtendedCheck) {
                 @PARAMS = (@PARAMS, "-extended");
@@ -17112,12 +17264,6 @@ sub compareInit()
             }
             if($TargetVersion{2}) {
                 @PARAMS = (@PARAMS, "-vnum", $TargetVersion{2});
-            }
-            if($LogMode eq "n") {
-                @PARAMS = (@PARAMS, "-logging-mode", "n");
-            }
-            elsif($Quiet) {
-                @PARAMS = (@PARAMS, "-logging-mode", "a");
             }
             system("perl", $0, @PARAMS);
             if($?) {
@@ -17140,16 +17286,17 @@ sub compareInit()
         if($CrossGcc) {
             @CMP_PARAMS = (@CMP_PARAMS, "-cross-gcc", $CrossGcc);
         }
-        if($Quiet) {
+        if($Quiet)
+        {
             @CMP_PARAMS = (@CMP_PARAMS, "-quiet");
-        }
-        if($LogMode eq "n") {
-            @CMP_PARAMS = (@CMP_PARAMS, "-logging-mode", "n");
-        }
-        elsif($Quiet) {
             @CMP_PARAMS = (@CMP_PARAMS, "-logging-mode", "a");
         }
-        if($ReportFormat) {
+        elsif($LogMode and $LogMode ne "w")
+        { # "w" is default
+            @CMP_PARAMS = (@CMP_PARAMS, "-logging-mode", $LogMode);
+        }
+        if($ReportFormat and $ReportFormat ne "html")
+        { # HTML is default format
             @CMP_PARAMS = (@CMP_PARAMS, "-report-format", $ReportFormat);
         }
         if($OutputReportPath) {
@@ -17353,6 +17500,10 @@ sub scenario()
     { # enable quiet mode
         $Quiet = 1;
         $JoinReport = 1;
+    }
+    if(not $LogMode)
+    { # default
+        $LogMode = "w";
     }
     if($UserLang)
     { # --lang=C++

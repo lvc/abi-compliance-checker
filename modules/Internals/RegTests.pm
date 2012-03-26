@@ -3966,6 +3966,11 @@ sub runTests($$$$$$$$)
     if($Quiet)
     { # quiet mode
         @Cmd = (@Cmd, "-quiet");
+        @Cmd = (@Cmd, "-logging-mode", "a");
+    }
+    elsif($LogMode and $LogMode ne "w")
+    { # "w" is default
+        @Cmd = (@Cmd, "-logging-mode", $LogMode);
     }
     if($ExtendedCheck)
     { # extended mode
@@ -3973,12 +3978,6 @@ sub runTests($$$$$$$$)
         if($Lang eq "C") {
             @Cmd = (@Cmd, "-lang", "C");
         }
-    }
-    if($LogMode eq "n") {
-        @Cmd = (@Cmd, "-logging-mode", "n");
-    }
-    elsif($Quiet) {
-        @Cmd = (@Cmd, "-logging-mode", "a");
     }
     if($ReportFormat and $ReportFormat ne "html")
     { # HTML is default format
