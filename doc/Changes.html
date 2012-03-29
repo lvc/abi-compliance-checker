@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker_Downloads", "wgTitle": "ABI Compliance Checker Downloads", "wgCurRevisionId": 7731, "wgArticleId": 2293, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker_Downloads", "wgTitle": "ABI Compliance Checker Downloads", "wgCurRevisionId": 7780, "wgArticleId": 2293, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -43,7 +43,7 @@
 </p>
 <table id="toc" class="toc"><tr><td><div id="toctitle"><h2>Contents</h2></div>
 <ul>
-<li class="toclevel-1 tocsection-1"><a href="#Version_1.97.1_.28March_26.2C_2012.29"><span class="tocnumber">1</span> <span class="toctext">Version 1.97.1 (March 26, 2012)</span></a></li>
+<li class="toclevel-1 tocsection-1"><a href="#Version_1.97.2_.28March_29.2C_2012.29"><span class="tocnumber">1</span> <span class="toctext">Version 1.97.2 (March 29, 2012)</span></a></li>
 <li class="toclevel-1 tocsection-2"><a href="#Version_1.96.8_.28February_17.2C_2012.29"><span class="tocnumber">2</span> <span class="toctext">Version 1.96.8 (February 17, 2012)</span></a></li>
 <li class="toclevel-1 tocsection-3"><a href="#Version_1.94_.28September_09.2C_2011.29"><span class="tocnumber">3</span> <span class="toctext">Version 1.94 (September 09, 2011)</span></a></li>
 <li class="toclevel-1 tocsection-4"><a href="#Version_1.93.8_.28September_08.2C_2011.29"><span class="tocnumber">4</span> <span class="toctext">Version 1.93.8 (September 08, 2011)</span></a></li>
@@ -76,8 +76,8 @@
 <li class="toclevel-1 tocsection-31"><a href="#Version_1.0_.28July_31.2C_2009.29"><span class="tocnumber">31</span> <span class="toctext">Version 1.0 (July 31, 2009)</span></a></li>
 </ul>
 </td></tr></table>
-<h2> <span class="mw-headline" id="Version_1.97.1_.28March_26.2C_2012.29"> Version 1.97.1 (March 26, 2012) </span></h2>
-<p><a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/downloads/abi-compliance-checker-1.97.1.tar.gz">abi-compliance-checker-1.97.1.tar.gz</a><br />
+<h2> <span class="mw-headline" id="Version_1.97.2_.28March_29.2C_2012.29"> Version 1.97.2 (March 29, 2012) </span></h2>
+<p><a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/downloads/abi-compliance-checker-1.97.2.tar.gz">abi-compliance-checker-1.97.2.tar.gz</a><br />
 <b>ACC 2.0</b> pre-release.
 </p><p>This is a next major release. The tool now checks for both <b>binary</b> and <b>source-level compatibility</b> issues with C/C++ APIs.
 </p>
@@ -87,17 +87,22 @@
 </li></ul>
 </li></ul>
 <ul><li> <b>New Features</b>
-<ul><li> Added --browse=PROG option (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/2612">2612</a>)
-</li><li> Added --xml alias option for --report-format=xml (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/2611">2611</a>)
-</li><li> Added --binary option to generate binary-compatibility report only
-</li><li> Added --source option to generate source-compatibility report only
-</li><li> Added --bin-report-path: path to binary-compatibility report
-</li><li> Added --src-report-path: path to source-compatibility report
+<ul><li> Added <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--browse=PROG</a> option (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/2612">2612</a>)
+</li><li> Added <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--xml</a> alias option for <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--report-format=xml</a> (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/2611">2611</a>)
+</li><li> Added <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--binary</a> option to generate binary-compatibility report only
+</li><li> Added <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--source</a> option to generate source-compatibility report only
+</li><li> Added <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--bin-report-path</a> option: path to binary-compatibility report
+</li><li> Added <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--src-report-path</a> option: path to source-compatibility report
 </li></ul>
 </li></ul>
 <ul><li> <b>Other Features</b>
 <ul><li> Improved debug mode (--debug)
 </li><li> Improved mark-up of the HTML report
+</li><li> Improved support for old ABI dumps
+</li></ul>
+</li></ul>
+<ul><li> <b>Bug Fixes</b>
+<ul><li> Corrected ABI dumps
 </li></ul>
 </li></ul>
 <h2> <span class="mw-headline" id="Version_1.96.8_.28February_17.2C_2012.29"> Version 1.96.8 (February 17, 2012) </span></h2>
@@ -111,17 +116,17 @@
 </li></ul>
 <ul><li> <b>New Features</b>
 <ul><li> Add hidden statistics line to compatibility report for operating systems (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/2403">2403</a>)
-</li><li> Add --headers-list option (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/2400">2400</a>)
-</li><li> Add --lang option (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/2223">2223</a>)
+</li><li> Add <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--headers-list</a> option (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/2400">2400</a>)
+</li><li> Add <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--lang</a> option (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/2223">2223</a>)
 </li><li> Support for symbolic links in /usr/include and /usr/lib (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/2022">2022</a>)
 </li><li> Add &lt;skip_include_paths&gt; section of XML-descriptor (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/2021">2021</a>)
 </li><li> Add &lt;skip_including&gt; section of XML-descriptor (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/2012">2012</a>)
-</li><li> Add a --list-affected option to create plain list of incompatible symbols (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/1994">1994</a>)
+</li><li> Add <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--list-affected</a> option to create plain list of incompatible symbols (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/1994">1994</a>)
 </li><li> Add --quiet option to print all errors and warnings to the log file instead of stderr and stdout (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/1983">1983</a>)
-</li><li> Add --stdout option to print results to stdout (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/1982">1982</a>)
+</li><li> Add <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--stdout</a> option to print results to stdout (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/1982">1982</a>)
 </li><li> Add an option to check binary compatibility in the extended sense (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/1855">1855</a>)
 </li><li> Improve diagnostic messages for added base classes with virtual functions (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/1849">1849</a>)
-</li><li> Add "-update" option to installer (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/1837">1837</a>)
+</li><li> Add -update option to installer (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/1837">1837</a>)
 </li><li> Add a relative default directory to locate modules after installation (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/1836">1836</a>)
 </li><li> Compatibility rate = (high+1/2*medium+1/4*low) / number of symbols (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/1794">1794</a>)
 </li></ul>
@@ -213,7 +218,7 @@
 </li></ul>
 <h2> <span class="mw-headline" id="Version_1.23.5_.28July_01.2C_2011.29"> Version 1.23.5 (July 01, 2011) </span></h2>
 <p><a rel="nofollow" class="external text" href="http://upstream-tracker.org/downloads/abi-compliance-checker-1.23.5.tar.gz">abi-compliance-checker-1.23.5.tar.gz</a><br />
-This is a next bug fix release. Tested on <a rel="nofollow" class="external text" href="http://linuxtesting.org/upstream-tracker/">335 libraries</a>
+This is a next bug fix release. Tested on <a rel="nofollow" class="external text" href="http://upstream-tracker.org/">335 libraries</a>
 </p>
 <ul><li> <b>Bug Fixes</b>
 <ul><li> Corrected exit codes: 0 - compatible, 1 - incompatible, 2 - error, ... (<a rel="nofollow" class="external text" href="http://forge.ispras.ru/issues/1351">1351</a>)
@@ -266,8 +271,8 @@ This release is sponsored by <a rel="nofollow" class="external text" href="http:
 </li></ul>
 </li></ul>
 <h2> <span class="mw-headline" id="Version_1.21.12_.28April_29.2C_2011.29"> Version 1.21.12 (April 29, 2011) </span></h2>
-<p><a rel="nofollow" class="external text" href="http://upstream-tracker.org/downloads/abi-compliance-checker-1.21.12.tar.gz">abi-compliance-checker-1.21.12.tar.gz</a> (previous bug-fix releases: <a rel="nofollow" class="external text" href="http://linuxtesting.org/downloads/abi-compliance-checker-1.21.9.tar.gz">1.21.9</a>, <a rel="nofollow" class="external text" href="http://linuxtesting.org/downloads/abi-compliance-checker-1.21.6.tar.gz">1.21.6</a>)<br />
-This is a next bug fix release. Tested on <a rel="nofollow" class="external text" href="http://linuxtesting.org/upstream-tracker/">280 libraries</a>.
+<p><a rel="nofollow" class="external text" href="http://upstream-tracker.org/downloads/abi-compliance-checker-1.21.12.tar.gz">abi-compliance-checker-1.21.12.tar.gz</a> (previous bug-fix releases: <a rel="nofollow" class="external text" href="http://upstream-tracker.org/downloads/abi-compliance-checker-1.21.9.tar.gz">1.21.9</a>, <a rel="nofollow" class="external text" href="http://upstream-tracker.org/downloads/abi-compliance-checker-1.21.6.tar.gz">1.21.6</a>)<br />
+This is a next bug fix release. Tested on <a rel="nofollow" class="external text" href="http://upstream-tracker.org/">280 libraries</a>.
 </p>
 <ul><li> <b>Bug Fixes</b>
 <ul><li> Corrected automatic detection of include paths for header files.
@@ -292,7 +297,7 @@ This is a next bug fix release. Tested on <a rel="nofollow" class="external text
 </li></ul>
 <h2> <span class="mw-headline" id="Version_1.21_.28August_19.2C_2010.29"> Version 1.21 (August 19, 2010) </span></h2>
 <p><a rel="nofollow" class="external text" href="http://upstream-tracker.org/downloads/abi-compliance-checker-1.21.tar.gz">abi-compliance-checker-1.21.tar.gz</a><br />
-This release includes many improvements and bug fixes. Tested on <a rel="nofollow" class="external text" href="http://linuxtesting.org/upstream-tracker/">155 libraries</a>.
+This release includes many improvements and bug fixes. Tested on <a rel="nofollow" class="external text" href="http://upstream-tracker.org/">155 libraries</a>.
 </p>
 <ul><li> <b>New Features</b>
 <ul><li> Added <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--check-implementation</a> option: compare disassembled binary code to detect changes in the interface implementation.
@@ -313,7 +318,7 @@ This release includes many improvements and bug fixes. Tested on <a rel="nofollo
 </li></ul>
 <h2> <span class="mw-headline" id="Version_1.20_.28August_30.2C_2010.29"> Version 1.20 (August 30, 2010) </span></h2>
 <p><a rel="nofollow" class="external text" href="http://upstream-tracker.org/downloads/abi-compliance-checker-1.20.tar.gz">abi-compliance-checker-1.20.tar.gz</a><br />
-This is a next bug fix release. Tested on <a rel="nofollow" class="external text" href="http://linuxtesting.org/upstream-tracker/">145 libraries</a>.
+This is a next bug fix release. Tested on <a rel="nofollow" class="external text" href="http://upstream-tracker.org/">145 libraries</a>.
 </p>
 <ul><li> <b>Bug Fixes</b>
 <ul><li> Corrected reports about added/withdrawn members in the structure types and added/withdrawn parameters.
@@ -327,7 +332,7 @@ This is a next bug fix release. Tested on <a rel="nofollow" class="external text
 </li></ul>
 <h2> <span class="mw-headline" id="Version_1.19_.28July_22.2C_2010.29"> Version 1.19 (July 22, 2010) </span></h2>
 <p><a href="http://ispras.linuxfoundation.org/images/e/e0/Abi-compliance-checker-1.19.tar.gz" class="internal" title="Abi-compliance-checker-1.19.tar.gz">Abi-compliance-checker-1.19.tar.gz</a><br />
-This is a next bug fix release with several new features. Tested on <a rel="nofollow" class="external text" href="http://linuxtesting.org/upstream-tracker/">130 libraries</a>.
+This is a next bug fix release with several new features. Tested on <a rel="nofollow" class="external text" href="http://upstream-tracker.org/">130 libraries</a>.
 </p>
 <ul><li> <b>Bug Fixes</b>
 <ul><li> Removed duplicated problems from the report.
@@ -348,7 +353,7 @@ This is a next bug fix release with several new features. Tested on <a rel="nofo
 </li></ul>
 <h2> <span class="mw-headline" id="Version_1.18_.28June_25.2C_2010.29"> Version 1.18 (June 25, 2010) </span></h2>
 <p><a href="http://ispras.linuxfoundation.org/images/f/f4/Abi-compliance-checker-1.18.tar.gz" class="internal" title="Abi-compliance-checker-1.18.tar.gz">Abi-compliance-checker-1.18.tar.gz</a><br />
-This is generally a bug fix release. Tested on <a rel="nofollow" class="external text" href="http://linuxtesting.org/upstream-tracker/">100 libraries</a>.
+This is generally a bug fix release. Tested on <a rel="nofollow" class="external text" href="http://upstream-tracker.org/">100 libraries</a>.
 </p>
 <ul><li> <b>New Features</b>
 <ul><li> Added <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--relpath1</a> and <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--relpath2</a> options for replacing the {RELPATH} in the descriptors. Old option -relpath was removed.
@@ -392,7 +397,7 @@ This intermediate release includes critical bug fixes.
 </li></ul>
 <h2> <span class="mw-headline" id="Version_1.17_.28June_08.2C_2010.29"> Version 1.17 (June 08, 2010) </span></h2>
 <p><a href="http://ispras.linuxfoundation.org/images/e/e7/Abi-compliance-checker-1.17.tar.gz" class="internal" title="Abi-compliance-checker-1.17.tar.gz">Abi-compliance-checker-1.17.tar.gz</a><br />
-This is generally a bug fix release. Tested on <a rel="nofollow" class="external text" href="http://linuxtesting.org/upstream-tracker/">75 libraries</a>.
+This is generally a bug fix release. Tested on <a rel="nofollow" class="external text" href="http://upstream-tracker.org/">75 libraries</a>.
 </p>
 <ul><li> <b>New Features</b>
 <ul><li> Visualizing of the serious changes (added/withdrawn parameters) in the interface signature.
@@ -417,7 +422,7 @@ This is generally a bug fix release. Tested on <a rel="nofollow" class="external
 </li></ul>
 <h2> <span class="mw-headline" id="Version_1.16_.28May_05.2C_2010.29"> Version 1.16 (May 05, 2010) </span></h2>
 <p><a href="http://ispras.linuxfoundation.org/images/8/8d/Abi-compliance-checker-1.16.tar.gz" class="internal" title="Abi-compliance-checker-1.16.tar.gz">Abi-compliance-checker-1.16.tar.gz</a><br />
-This release includes many bug fixes and new features after integration to the <b><a rel="nofollow" class="external text" href="http://linuxtesting.org/upstream-tracker/">Upstream Tracker</a></b> system.<br />
+This release includes many bug fixes and new features after integration to the <b><a rel="nofollow" class="external text" href="http://upstream-tracker.org/">Upstream Tracker</a></b> system.<br />
 </p>
 <ul><li> <b>New Features</b>
 <ul><li> Added <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--strict</a> option for treating all compatibility warnings as problems.
@@ -461,7 +466,7 @@ This is generally a bug fix release with the changed license.<br />
 </p>
 <ul><li> <b>New Features</b>
 <ul><li> Added techniques for auto-detection of header file dependencies (include paths). Now providing of &lt;include_paths&gt; section in the descriptor is not necessary.
-</li><li> Ported to <a rel="nofollow" class="external text" href="http://www.freebsd.org/">FreeBSD</a> and <a rel="nofollow" class="external text" href="http://www.haiku-os.org/">Haiku</a>.
+</li><li> Ported to FreeBSD and Haiku.
 </li><li> Added check for gcc/g++ version (&gt;=3.0.0).
 </li><li> Added sorting of interface problems by namespace in the report (C++).
 </li><li> Improved internal test suite.
@@ -511,7 +516,7 @@ This is generally a bug fix release.
 <p><a href="http://ispras.linuxfoundation.org/images/5/59/Abi-compliance-checker-1.11.tar.gz" class="internal" title="Abi-compliance-checker-1.11.tar.gz">Abi-compliance-checker-1.11.tar.gz</a><br />
 </p>
 <ul><li> <b>New Features</b>
-<ul><li> Added ability to check portability of applications to the new library version ( <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--app option</a> ).
+<ul><li> Added <a href="http://ispras.linuxfoundation.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">--app</a> option to check portability of applications to the new library version.
 </li><li> Memory usage decreased twice.
 </li></ul>
 </li></ul>
@@ -547,8 +552,7 @@ This is generally a bug fix release.
 </li></ul>
 <h2> <span class="mw-headline" id="Version_1.8_.28September_29.2C_2009.29"> Version 1.8 (September 29, 2009) </span></h2>
 <p><a href="http://ispras.linuxfoundation.org/images/7/75/Abi-compliance-checker-1.8.tar.gz" class="internal" title="Abi-compliance-checker-1.8.tar.gz">Abi-compliance-checker-1.8.tar.gz</a><br />
-It is the bug fix release after integration to the Moblin SigChk<br />
-and testing of <a rel="nofollow" class="external text" href="http://moblin.org/">Moblin-2.0</a> libraries for ABI compliance with <a rel="nofollow" class="external text" href="http://www.ubuntu.com/">Ubuntu-Moblin-Remix-9.10</a> libraries.
+It is the bug fix release after integration to the Moblin SigChk and testing Moblin-2.0 libraries for ABI compatibility with Ubuntu-Moblin-Remix-9.10 libraries.
 </p>
 <ul><li> <b>Bug fixes</b>
 <ul><li> Size of ABI info dumps have been reduced through removing of unnecessary information.
@@ -638,5 +642,5 @@ Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2293-0!*!0!!en!*!* and timestamp 20120326150808 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2293-0!*!0!!en!*!* and timestamp 20120329133249 -->
 </div></div></div></div></div></body></html>
