@@ -53,7 +53,7 @@ use File::Temp qw(tempdir);
 use File::Copy qw(copy move);
 use Cwd qw(abs_path cwd);
 use Data::Dumper;
-use Config;
+use Config;use strict;
 
 my $TOOL_VERSION = "1.97.2";
 my $ABI_DUMP_VERSION = "2.12";
@@ -6418,7 +6418,10 @@ sub getDump()
         "rpc/xdr.h" => ["bool_t"],
         "in_systm.h" => ["n_long", "n_short"],
         # Fields
-        "arpa/inet.h" => ["fw_src", "ip_src"]
+        "arpa/inet.h" => ["fw_src", "ip_src"],
+        # Functions
+        "stdlib.h" => ["free", "malloc"],
+        "string.h" => ["memmove"]
     );
     my %AutoPreamble = ();
     foreach (keys(%HeaderElems)) {
