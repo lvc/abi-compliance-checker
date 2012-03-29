@@ -53,7 +53,7 @@ use File::Temp qw(tempdir);
 use File::Copy qw(copy move);
 use Cwd qw(abs_path cwd);
 use Data::Dumper;
-use Config;use strict;
+use Config;
 
 my $TOOL_VERSION = "1.97.2";
 my $ABI_DUMP_VERSION = "2.12";
