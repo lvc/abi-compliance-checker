@@ -65,8 +65,8 @@ span.h_name {
     font-weight:bold;
 }
 div.h_list {
-    padding-left:10px;
     font-size:15px;
+    padding-left:10px;
 }
 span.ns_title {
     color:#408080;
@@ -78,8 +78,8 @@ span.ns {
     font-weight:bold;
 }
 div.lib_list {
-    padding-left:10px;
     font-size:15px;
+    padding-left:10px;
 }
 span.lib_name {
     color:Green;
@@ -150,12 +150,6 @@ table.ptable th, table.vtable th {
     white-space:nowrap;
     padding: 3px;
 }
-td.vtable_red {
-    background-color:#FFCCCC;
-}
-td.vtable_yellow {
-    background-color:#FFFFCC;
-}
 table.summary {
     border-collapse:collapse;
     border:1px outset black;
@@ -220,4 +214,16 @@ span.nowrap {
 span.value {
     white-space:nowrap;
     font-weight:bold;
+}
+td.passed {
+    background-color:#CCFFCC;
+}
+td.warning {
+    background-color:#F4F4AF;
+}
+td.failed {
+    background-color:#FFC3CE;
+}
+td.new {
+    background-color:#C6DEFF;
 }

@@ -190,24 +190,6 @@
 
 <rule>
     <id>
-        Virtual_Table_Size
-    </id>
-    <severity>
-        High
-    </severity>
-    <kind>
-        V-table
-    </kind>
-    <change>
-        Size of v-table in this class has been changed from @old_size to @new_size.
-    </change>
-    <effect>
-        The layout of v-tables in subclasses of this class has been changed. Call of any virtual method in subclasses may result in crash or incorrect behavior of applications.
-    </effect>
-</rule>
-
-<rule>
-    <id>
         Virtual_Table_Changed_Unknown
     </id>
     <severity>
