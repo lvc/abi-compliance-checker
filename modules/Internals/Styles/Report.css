@@ -26,6 +26,7 @@ span.section {
     font-size:16px;
     color:#003E69;
     white-space:nowrap;
+    margin-left:3px;
 }
 span.new_sign {
     font-weight:bold;
@@ -90,6 +91,7 @@ span.iname {
     font-weight:bold;
     font-size:16px;
     color:#003E69;
+    margin-left:3px;
 }
 span.iname_b {
     font-weight:bold;
