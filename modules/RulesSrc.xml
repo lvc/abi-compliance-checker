@@ -231,7 +231,7 @@
         Field @target has been removed from this type.
     </change>
     <effect>
-        Recompilation of a client program may be broken.
+        Recompilation of a client program may be broken with the error message: '@type_type @type_name' has no member named '@target'.
     </effect>
 </rule>
 
@@ -321,7 +321,7 @@
         Name of member with value @target has been changed from @old_value to @new_value.
     </change>
     <effect>
-        Recompilation of a client program may be broken.
+        Recompilation of a client program may be broken with the error message: '@old_value' was not declared in this scope.
     </effect>
 </rule>
 
@@ -472,6 +472,24 @@
     </change>
     <effect>
         Recompilation of a client program may be broken.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Parameter_Default_Value_Added
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Parameters
+    </kind>
+    <change>
+        The default argument @new_value of @param_pos parameter @target has been added.
+    </change>
+    <effect>
+        No effect.
     </effect>
 </rule>
 
@@ -1071,10 +1089,10 @@
 
 <rule>
     <id>
-        Symbol_Became_NonConst
+        Method_Became_NonConst
     </id>
     <severity>
-        Safe
+        Medium
     </severity>
     <kind>
         Symbols
@@ -1083,13 +1101,13 @@
         Method became non-const.
     </change>
     <effect>
-        No effect.
+        Recompilation of a client program may be broken with the error message: passing 'const @type_name' as 'this' argument of '@target' discards qualifiers.
     </effect>
 </rule>
 
 <rule>
     <id>
-        Symbol_Became_Const
+        Method_Became_Const
     </id>
     <severity>
         Safe
@@ -1107,7 +1125,7 @@
 
 <rule>
     <id>
-        Symbol_Became_Volatile
+        Method_Became_Volatile
     </id>
     <severity>
         Safe
@@ -1125,7 +1143,7 @@
 
 <rule>
     <id>
-        Symbol_Became_NonVolatile
+        Method_Became_NonVolatile
     </id>
     <severity>
         Safe
@@ -1207,6 +1225,294 @@
     </kind>
     <change>
         Field @target became non-volatile.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Global_Data_Value_Changed
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        The initial value of this global data has been changed from @old_value to @new_value.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Field_Became_Mutable
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Fields
+    </kind>
+    <change>
+        Field @target became **mutable**.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Field_Became_NonMutable
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Fields
+    </kind>
+    <change>
+        Field @target became **non-mutable**.
+    </change>
+    <effect>
+        Recompilation of a client program may be broken with the error message: assignment of member '@type_name::@target' in read-only object.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Removed_Const_Overload
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        The **const** overload of the method @target has been removed from this class.
+    </change>
+    <effect>
+        Recompilation of a client program may be broken with the error message: passing 'const @type_name' as 'this' argument of '@target' discards qualifiers.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Method_Became_Private
+    </id>
+    <severity>
+        High
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        This method became **private**.
+    </change>
+    <effect>
+        Recompilation of a client program may be broken with the error message: '@target' is private.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Method_Became_Protected
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        This method became **protected**.
+    </change>
+    <effect>
+        Recompilation of a client program may be broken with the error message: '@target' is protected.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Method_Became_Public
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        This method became **public**.
+    </change>
+    <effect>
+        No effect. 
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Global_Data_Became_Private
+    </id>
+    <severity>
+        High
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        This global data became **private**.
+    </change>
+    <effect>
+        Recompilation of a client program may be broken with the error message: '@target' is private.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Global_Data_Became_Protected
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        This global data became **protected**.
+    </change>
+    <effect>
+        Recompilation of a client program may be broken with the error message: '@target' is protected.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Global_Data_Became_Public
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        This global data became **public**.
+    </change>
+    <effect>
+        No effect. 
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Field_Became_Const
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Field @target became **const**.
+    </change>
+    <effect>
+        Recompilation of a client program may be broken with the error message: assignment of read-only member/location '@type_name::@target'.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Field_Became_NonConst
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Field @target became **non-const**.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Field_Added_Const
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Added **const** qualifier to field @target.
+    </change>
+    <effect>
+        Recompilation of a client program may be broken with the error message: assignment of read-only member/location '@type_name::@target'.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Field_Removed_Const
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Removed **const** qualifier from field @target.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Virtual_Method_Became_Pure
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Virtual method @target became **pure**.
+    </change>
+    <effect>
+        Recompilation of a client program may be broken with the error message: cannot allocate an object of abstract type '@type_name' because the following virtual functions are pure within '@type_name': virtual @target.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Virtual_Method_Became_Non_Pure
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Virtual method @target became **non-pure**.
     </change>
     <effect>
         No effect.

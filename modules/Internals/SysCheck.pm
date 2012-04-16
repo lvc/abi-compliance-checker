@@ -334,7 +334,7 @@ sub cmpSystems($$$)
         else
         {
             printMsg("INFO", "Ok");
-            $TestResults{$LName} = readAttributes($LReportPath_Full);
+            $TestResults{$LName} = readAttributes($LReportPath_Full, 0);
             $TestResults{$LName}{"v1"} = $LV1;
             $TestResults{$LName}{"v2"} = $LV2;
             $TestResults{$LName}{"path"} = $LReportPath;

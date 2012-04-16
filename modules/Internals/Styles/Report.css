@@ -26,16 +26,16 @@ span.section {
     font-size:16px;
     color:#003E69;
     white-space:nowrap;
-    margin-left:3px;
+    margin-left:5px;
 }
 span.new_sign {
     font-weight:bold;
-    margin-left:24px;
+    margin-left:26px;
     font-size:16px;
     color:#003E69;
 }
 span.new_sign_lbl {
-    margin-left:26px;
+    margin-left:28px;
     font-size:14px;
     color:Black;
 }
@@ -67,7 +67,7 @@ span.h_name {
 }
 div.h_list {
     font-size:15px;
-    padding-left:10px;
+    padding-left:5px;
 }
 span.ns_title {
     color:#408080;
@@ -80,7 +80,7 @@ span.ns {
 }
 div.lib_list {
     font-size:15px;
-    padding-left:10px;
+    padding-left:5px;
 }
 span.lib_name {
     color:Green;
@@ -91,7 +91,7 @@ span.iname {
     font-weight:bold;
     font-size:16px;
     color:#003E69;
-    margin-left:3px;
+    margin-left:5px;
 }
 span.iname_b {
     font-weight:bold;
@@ -202,6 +202,9 @@ span.sym_ver {
 span.color_p {
     font-style:italic;
     color:Brown;
+}
+span.param {
+    font-style:italic;
 }
 span.focus_p {
     font-style:italic;

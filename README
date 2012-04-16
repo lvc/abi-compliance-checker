@@ -1,5 +1,5 @@
 NAME:
-  ABI Compliance Checker (ACC) - a tool for checking backward binary compatibility of a shared C/C++ library API.
+  ABI Compliance Checker (ACC) - a tool for checking backward binary and source-level compatibility of a shared C/C++ library API.
 
 INSTALL:
   sudo perl Makefile.pl -install --prefix=/usr

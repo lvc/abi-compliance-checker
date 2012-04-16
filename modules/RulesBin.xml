@@ -199,7 +199,7 @@
         V-table
     </kind>
     <change>
-        The layout of v-table has been changed for <b>unknown</b> reason.
+        The layout of v-table has been changed for **unknown** reason.
     </change>
     <effect>
         Call of any method in this class may result in crash or incorrect behavior of applications.
@@ -256,7 +256,7 @@
         Virtual method @old_value has been overridden by @new_value.
     </change>
     <effect>
-        Method @new_value will be called instead of @old_value.
+        Method @new_value will be called instead of @old_value by old applications.
     </effect>
 </rule>
 
@@ -274,7 +274,7 @@
         Virtual method @old_value has been overridden by @new_value.
     </change>
     <effect>
-        Method @new_value will be called instead of @old_value.
+        Method @new_value will be called instead of @old_value by old applications.
     </effect>
 </rule>
 
@@ -363,7 +363,7 @@
         Classes
     </kind>
     <change>
-        Base class @target became virtually inherited.
+        Base class @target became **virtually** inherited.
     </change>
     <effect>
         Size, memory layout and v-table layout of this class and subclasses may change.
@@ -381,7 +381,7 @@
         Classes
     </kind>
     <change>
-        Base class @target became non-virtually inherited.
+        Base class @target became **non-virtually** inherited.
     </change>
     <effect>
         Size, memory layout and v-table layout of this class and subclasses may change.
@@ -1214,7 +1214,7 @@
     </change>
     <effect>
         1) This field may be incorrectly initialized or accessed by applications.
-        2) Size of the inclusive type has changed.
+        2) Size of the inclusive type has been changed.
     </effect>
 </rule>
 
@@ -1232,7 +1232,7 @@
         Type of field @target has been changed from @old_value (@old_size) to @new_value (@new_size).
     </change>
     <effect>
-        1) Size of the inclusive type has changed.
+        1) Size of the inclusive type has been changed.
         2) Previous accesses of applications and library functions to this field and fields at higher positions of the structure definition may be broken.
     </effect>
 </rule>
@@ -1269,7 +1269,7 @@
         Type of field @target has been changed from @old_value (@old_size) to @new_value (@new_size).
     </change>
     <effect>
-        Size of the inclusive type has changed.
+        Size of the inclusive type has been changed.
     </effect>
 </rule>
 
@@ -1287,7 +1287,7 @@
         Type of field @target has been changed from @old_value (@old_size) to @new_value (@new_size).
     </change>
     <effect>
-        1) Size of the inclusive type has changed.
+        1) Size of the inclusive type has been changed.
         2) Previous accesses of applications and library functions to the fields at higher positions of the structure definition may be broken.
     </effect>
 </rule>
@@ -1414,7 +1414,7 @@
         Size of field @target has been changed from @old_size to @new_size.
     </change>
     <effect>
-        1) Size of the inclusive type has changed.
+        1) Size of the inclusive type has been changed.
         2) Previous accesses of applications and library functions to this field may be broken.
     </effect>
 </rule>
@@ -1433,7 +1433,7 @@
         Size of field @target has been changed from @old_size to @new_size.
     </change>
     <effect>
-        1) Size of the inclusive type has changed.
+        1) Size of the inclusive type has been changed.
         2) Previous accesses of applications and library functions to this field and fields at higher positions of the structure definition may be broken.
     </effect>
 </rule>
@@ -1470,7 +1470,7 @@
         Size of field @target has been changed from @old_size to @new_size.
     </change>
     <effect>
-        Size of the inclusive type has changed.
+        Size of the inclusive type has been changed.
     </effect>
 </rule>
 
@@ -1488,7 +1488,7 @@
         Size of field @target has been changed from @old_size to @new_size.
     </change>
     <effect>
-        1) Size of the inclusive type has changed.
+        1) Size of the inclusive type has been changed.
         2) Previous accesses of applications and library functions to the fields at higher positions of the structure definition may be broken.
     </effect>
 </rule>
@@ -1604,6 +1604,24 @@
     </change>
     <effect>
         Applications will pass an old default argument (that is not default any more) that may not be properly handled anymore. This may result in crash or incorrect behavior of applications.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Parameter_Default_Value_Added
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Parameters
+    </kind>
+    <change>
+        The default argument @new_value of @param_pos parameter @target has been added.
+    </change>
+    <effect>
+        No effect.
     </effect>
 </rule>
 
@@ -2477,7 +2495,7 @@
 
 <rule>
     <id>
-        Symbol_Became_NonConst
+        Method_Became_NonConst
     </id>
     <severity>
         High
@@ -2495,7 +2513,7 @@
 
 <rule>
     <id>
-        Symbol_Became_Const
+        Method_Became_Const
     </id>
     <severity>
         High
@@ -2513,7 +2531,7 @@
 
 <rule>
     <id>
-        Symbol_Became_Volatile
+        Method_Became_Volatile
     </id>
     <severity>
         High
@@ -2531,7 +2549,7 @@
 
 <rule>
     <id>
-        Symbol_Became_NonVolatile
+        Method_Became_NonVolatile
     </id>
     <severity>
         High
@@ -2570,7 +2588,7 @@
         Field_Became_Volatile
     </id>
     <severity>
-        Medium
+        Low
     </severity>
     <kind>
         Fields
@@ -2775,6 +2793,276 @@
     </kind>
     <change>
         The member @target with value @new_value has been added.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Global_Data_Value_Changed
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        The initial value of this global data has been changed from @old_value to @new_value.
+    </change>
+    <effect>
+        Applications will use an old value of this data instead of the new one. This may cause incorrect behavior of applications.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Field_Became_Mutable
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Fields
+    </kind>
+    <change>
+        Field @target became **mutable**.
+    </change>
+    <effect>
+        The value of this field can begin to change in ways outside the control of old client applications.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Field_Became_NonMutable
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Fields
+    </kind>
+    <change>
+        Field @target became **non-mutable**.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Method_Became_Private
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        This method became **private**.
+    </change>
+    <effect>
+        Old applications will continue using this method, but it may require a different initialization of the environment and parameters. 
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Method_Became_Protected
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        This method became **protected**.
+    </change>
+    <effect>
+        Old applications will continue using this method, but it may require a different initialization of the environment and parameters. 
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Method_Became_Public
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        This method became **public**.
+    </change>
+    <effect>
+        No effect. 
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Global_Data_Became_Private
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        This global data became **private**.
+    </change>
+    <effect>
+        Old applications will continue using this global data, but it may require a different initialization of the environment. 
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Global_Data_Became_Protected
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        This global data became **protected**.
+    </change>
+    <effect>
+        Old applications will continue using this global data, but it may require a different initialization of the environment. 
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Global_Data_Became_Public
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        This global data became **public**.
+    </change>
+    <effect>
+        No effect. 
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Field_Became_Const
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Field @target became **const**.
+    </change>
+    <effect>
+        The value of this field expected to be **const** in new library version, but can be modified by old applications.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Field_Became_NonConst
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Field @target became **non-const**.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Field_Added_Const
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Added **const** qualifier to field @target.
+    </change>
+    <effect>
+        The value of this field expected to be **const** in new library version, but can be modified by old applications.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Field_Removed_Const
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Removed **const** qualifier from field @target.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Virtual_Method_Became_Pure
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Virtual method @target became **pure**.
+    </change>
+    <effect>
+        Old applications will not provide implementation for this pure virtual method. This may result in crash or incorrect behavior of applications.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Virtual_Method_Became_Non_Pure
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Virtual method @target became **non-pure**.
     </change>
     <effect>
         No effect.

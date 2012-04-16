@@ -3,8 +3,8 @@
 #
 # Copyright (C) 2009-2010 The Linux Foundation.
 # Copyright (C) 2009-2011 Institute for System Programming, RAS.
-# Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
-# Copyright (C) 2011 ROSA Laboratory.
+# Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies).
+# Copyright (C) 2011-2012 ROSA Laboratory.
 #
 # Written by Andrey Ponomarenko
 #
@@ -47,6 +47,157 @@ sub testCpp()
     $HEADER2 .= "namespace TestNS {\n";
     $SOURCE1 .= "namespace TestNS {\n";
     $SOURCE2 .= "namespace TestNS {\n";
+    
+    # Field_Became_Const
+    # Typedef
+    $HEADER1 .= "
+        typedef int*const CONST_INT_PTR;
+        class $DECL_SPEC FieldBecameConstTypedef {
+        public:
+            int* f;
+            int*const f2;
+            int method(CONST_INT_PTR p);
+        };";
+    $SOURCE1 .= "
+        int FieldBecameConstTypedef::method(CONST_INT_PTR p) { return 0; }";
+    
+    $HEADER2 .= "
+        typedef int*const CONST_INT_PTR;
+        class $DECL_SPEC FieldBecameConstTypedef {
+        public:
+            CONST_INT_PTR f;
+            int*const f2;
+            int method(CONST_INT_PTR p);
+        };";
+    $SOURCE2 .= "
+        int FieldBecameConstTypedef::method(CONST_INT_PTR p) { return 0; }";
+    
+    # Field_Removed_Const
+    $HEADER1 .= "
+        class $DECL_SPEC FieldRemovedConst {
+        public:
+            int*const*const f;
+            int method();
+        };";
+    $SOURCE1 .= "
+        int FieldRemovedConst::method() { return 0; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC FieldRemovedConst {
+        public:
+            int**const f;
+            int method();
+        };";
+    $SOURCE2 .= "
+        int FieldRemovedConst::method() { return 0; }";
+    
+    # Field_Became_Const
+    $HEADER1 .= "
+        class $DECL_SPEC FieldBecameConst {
+        public:
+            int* f;
+            int method();
+        };";
+    $SOURCE1 .= "
+        int FieldBecameConst::method() { return 0; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC FieldBecameConst {
+        public:
+            int*const f;
+            int method();
+        };";
+    $SOURCE2 .= "
+        int FieldBecameConst::method() { return 0; }";
+    
+    # Global_Data_Became_Private
+    $HEADER1 .= "
+        class $DECL_SPEC GlobalDataBecamePrivate {
+        public:
+            static int data;
+            
+        };";
+    $SOURCE1 .= "
+        int GlobalDataBecamePrivate::data = 10;";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC GlobalDataBecamePrivate {
+        private:
+            static int data;
+            
+        };";
+    $SOURCE2 .= "
+        int GlobalDataBecamePrivate::data = 10;";
+    
+    # Method_Became_Private
+    $HEADER1 .= "
+        class $DECL_SPEC MethodBecamePrivate {
+        public:
+            int method();
+        };";
+    $SOURCE1 .= "
+        int MethodBecamePrivate::method() { return 0; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC MethodBecamePrivate {
+        private:
+            int method();
+        };";
+    $SOURCE2 .= "
+        int MethodBecamePrivate::method() { return 0; }";
+
+    # Method_Became_Protected
+    $HEADER1 .= "
+        class $DECL_SPEC MethodBecameProtected {
+        public:
+            int method();
+        };";
+    $SOURCE1 .= "
+        int MethodBecameProtected::method() { return 0; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC MethodBecameProtected {
+        protected:
+            int method();
+        };";
+    $SOURCE2 .= "
+        int MethodBecameProtected::method() { return 0; }";
+
+    # Method_Became_Public
+    $HEADER1 .= "
+        class $DECL_SPEC MethodBecamePublic {
+        protected:
+            int method();
+        };";
+    $SOURCE1 .= "
+        int MethodBecamePublic::method() { return 0; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC MethodBecamePublic {
+        public:
+            int method();
+        };";
+    $SOURCE2 .= "
+        int MethodBecamePublic::method() { return 0; }";
+    
+    # Removed_Const_Overload
+    $HEADER1 .= "
+        class $DECL_SPEC RemovedConstOverload {
+        public:
+            int removed();
+            int removed() const;
+        };";
+    $SOURCE1 .= "
+        int RemovedConstOverload::removed() { return 0; }
+        int RemovedConstOverload::removed() const { return 0; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC RemovedConstOverload {
+        public:
+            int removed();
+        };";
+    $SOURCE2 .= "
+        int RemovedConstOverload::removed() { return 0; }";
     
     # Inline method
     $HEADER1 .= "
@@ -95,7 +246,7 @@ sub testCpp()
         int globalDataBecameConst = 10;";
     
     $HEADER2 .= "
-        $EXTERN $DECL_SPEC const int globalDataBecameConst = 15;";
+        $DECL_SPEC const int globalDataBecameConst = 15;";
 
     # Global_Data_Became_Const
     # Class Member
@@ -113,12 +264,36 @@ sub testCpp()
             static const int Data = 15;
         };";
 
-    # Global_Data_Value (int)
+    # Global_Data_Value_Changed
     $HEADER1 .= "
-        $EXTERN $DECL_SPEC const int globalDataValue = 10;";
+        class $DECL_SPEC GlobalDataValue {
+        public:
+            static const int Integer = 10;
+            static const char Char = \'o\';
+        };";
     
     $HEADER2 .= "
-        $EXTERN $DECL_SPEC const int globalDataValue = 15;";
+        class $DECL_SPEC GlobalDataValue {
+        public:
+            static const int Integer = 15;
+            static const char Char = \'N\';
+        };";
+    
+    # Global_Data_Value_Changed
+    # Integer
+    $HEADER1 .= "
+        $DECL_SPEC const int globalDataValue_Integer = 10;";
+    
+    $HEADER2 .= "
+        $DECL_SPEC const int globalDataValue_Integer = 15;";
+
+    # Global_Data_Value_Changed
+    # Character
+    $HEADER1 .= "
+        $DECL_SPEC const char globalDataValue_Char = \'o\';";
+    
+    $HEADER2 .= "
+        $DECL_SPEC const char globalDataValue_Char = \'N\';";
     
     # Parameter_Became_Restrict
     $HEADER1 .= "
@@ -191,9 +366,47 @@ sub testCpp()
         };";
     $SOURCE2 .= "
         int FieldBecameNonVolatile::method(int param) { return param; }";
+
+    # Field_Became_Mutable
+    $HEADER1 .= "
+        class $DECL_SPEC FieldBecameMutable {
+        public:
+            int method(int param);
+            int f;
+        };";
+    $SOURCE1 .= "
+        int FieldBecameMutable::method(int param) { return param; }";
     
-    # Symbol_Became_Const
-    # Symbol_Became_Volatile
+    $HEADER2 .= "
+        class $DECL_SPEC FieldBecameMutable {
+        public:
+            int method(int param);
+            mutable int f;
+        };";
+    $SOURCE2 .= "
+        int FieldBecameMutable::method(int param) { return param; }";
+
+    # Field_Became_NonMutable
+    $HEADER1 .= "
+        class $DECL_SPEC FieldBecameNonMutable {
+        public:
+            int method(int param);
+            mutable int f;
+        };";
+    $SOURCE1 .= "
+        int FieldBecameNonMutable::method(int param) { return param; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC FieldBecameNonMutable {
+        public:
+            int method(int param);
+            int f;
+        };";
+    $SOURCE2 .= "
+        int FieldBecameNonMutable::method(int param) { return param; }";
+    
+    # Method_Became_Const
+    # Method_Became_Volatile
     $HEADER1 .= "
         class $DECL_SPEC MethodBecameConstVolatile {
         public:
@@ -210,7 +423,7 @@ sub testCpp()
     $SOURCE2 .= "
         int MethodBecameConstVolatile::method(int param) volatile const { return param; }";
     
-    # Symbol_Became_Const
+    # Method_Became_Const
     $HEADER1 .= "
         class $DECL_SPEC MethodBecameConst {
         public:
@@ -227,7 +440,7 @@ sub testCpp()
     $SOURCE2 .= "
         int MethodBecameConst::method(int param) const { return param; }";
 
-    # Symbol_Became_NonConst
+    # Method_Became_NonConst
     $HEADER1 .= "
         class $DECL_SPEC MethodBecameNonConst {
         public:
@@ -244,7 +457,7 @@ sub testCpp()
     $SOURCE2 .= "
         int MethodBecameNonConst::method(int param) { return param; }";
     
-    # Symbol_Became_Volatile
+    # Method_Became_Volatile
     $HEADER1 .= "
         class $DECL_SPEC MethodBecameVolatile {
         public:
@@ -261,7 +474,8 @@ sub testCpp()
     $SOURCE2 .= "
         int MethodBecameVolatile::method(int param) volatile { return param; }";
     
-    # Virtual_Method_Position (multiple bases)
+    # Virtual_Method_Position
+    # Multiple bases
     $HEADER1 .= "
         class $DECL_SPEC PrimaryBase
         {
@@ -2302,30 +2516,56 @@ sub testCpp()
         int parameterTypedefChange(TYPEDEF_TYPE param) { return 1; }";
 
     # Parameter_Default_Value_Changed
+    # Integer
     $HEADER1 .= "
-        $DECL_SPEC int parameterDefaultValueChanged(int param = 0xf00f); ";
+        $DECL_SPEC int paramDefaultValueChanged_Integer(int param = 0xf00f); ";
     $SOURCE1 .= "
-        int parameterDefaultValueChanged(int param) { return param; }";
+        int paramDefaultValueChanged_Integer(int param) { return param; }";
     
     $HEADER2 .= "
-        $DECL_SPEC int parameterDefaultValueChanged(int param = 0xf00b); ";
+        $DECL_SPEC int paramDefaultValueChanged_Integer(int param = 0xf00b); ";
     $SOURCE2 .= "
-        int parameterDefaultValueChanged(int param) { return param; }";
+        int paramDefaultValueChanged_Integer(int param) { return param; }";
 
-    # Parameter_Default_Value_Changed (char const *)
+    # Parameter_Default_Value_Changed
+    # String
     $HEADER1 .= "
-        $DECL_SPEC int parameterDefaultStringValueChanged(char const* param = \" str  1 \"); ";
+        $DECL_SPEC int paramDefaultValueChanged_String(char const* param = \" str  1 \"); ";
     $SOURCE1 .= "
-        int parameterDefaultStringValueChanged(char const* param) { return 0; }";
+        int paramDefaultValueChanged_String(char const* param) { return 0; }";
     
     $HEADER2 .= "
-        $DECL_SPEC int parameterDefaultStringValueChanged(char const* param = \" str  2 \"); ";
+        $DECL_SPEC int paramDefaultValueChanged_String(char const* param = \" str  2 \"); ";
     $SOURCE2 .= "
-        int parameterDefaultStringValueChanged(char const* param) { return 0; }";
+        int paramDefaultValueChanged_String(char const* param) { return 0; }";
+
+    # Parameter_Default_Value_Changed
+    # Character
+    $HEADER1 .= "
+        $DECL_SPEC int paramDefaultValueChanged_Char(char param = \'A\'); ";
+    $SOURCE1 .= "
+        int paramDefaultValueChanged_Char(char param) { return 0; }";
+    
+    $HEADER2 .= "
+        $DECL_SPEC int paramDefaultValueChanged_Char(char param = \'B\'); ";
+    $SOURCE2 .= "
+        int paramDefaultValueChanged_Char(char param) { return 0; }";
+
+    # Parameter_Default_Value_Changed
+    # Bool
+    $HEADER1 .= "
+        $DECL_SPEC int paramDefaultValueChanged_Bool(bool param = true); ";
+    $SOURCE1 .= "
+        int paramDefaultValueChanged_Bool(bool param) { return 0; }";
+    
+    $HEADER2 .= "
+        $DECL_SPEC int paramDefaultValueChanged_Bool(bool param = false); ";
+    $SOURCE2 .= "
+        int paramDefaultValueChanged_Bool(bool param) { return 0; }";
 
     # Parameter_Default_Value_Removed
     $HEADER1 .= "
-        $DECL_SPEC int parameterDefaultValueRemoved(int param = 0xf00f);
+        $DECL_SPEC int parameterDefaultValueRemoved(int param = 15);
     ";
     $SOURCE1 .= "
         int parameterDefaultValueRemoved(int param) { return param; }";
@@ -2334,6 +2574,18 @@ sub testCpp()
         $DECL_SPEC int parameterDefaultValueRemoved(int param);";
     $SOURCE2 .= "
         int parameterDefaultValueRemoved(int param) { return param; }";
+
+    # Parameter_Default_Value_Added
+    $HEADER1 .= "
+        $DECL_SPEC int parameterDefaultValueAdded(int param);
+    ";
+    $SOURCE1 .= "
+        int parameterDefaultValueAdded(int param) { return param; }";
+    
+    $HEADER2 .= "
+        $DECL_SPEC int parameterDefaultValueAdded(int param = 15);";
+    $SOURCE2 .= "
+        int parameterDefaultValueAdded(int param) { return param; }";
     
     # Field_Type (typedefs in member type)
     $HEADER1 .= "
@@ -2653,16 +2905,25 @@ sub testC()
     $HEADER2 .= "
         $EXTERN $DECL_SPEC short globalDataTypeAndSize;";
     
-    # Global_Data_Value (int)
+    # Global_Data_Value_Changed
+    # Integer
     $HEADER1 .= "
-        $EXTERN $DECL_SPEC const int globalDataValue = 10;";
+        $DECL_SPEC const int globalDataValue_Integer = 10;";
     
     $HEADER2 .= "
-        $EXTERN $DECL_SPEC const int globalDataValue = 15;";
+        $DECL_SPEC const int globalDataValue_Integer = 15;";
+
+    # Global_Data_Value_Changed
+    # Character
+    $HEADER1 .= "
+        $DECL_SPEC const char globalDataValue_Char = \'o\';";
+    
+    $HEADER2 .= "
+        $DECL_SPEC const char globalDataValue_Char = \'N\';";
     
     # Global_Data_Became_Non_Const
     $HEADER1 .= "
-        $EXTERN $DECL_SPEC const int globalDataBecameNonConst = 10;";
+        $DECL_SPEC const int globalDataBecameNonConst = 10;";
     
     $HEADER2 .= "
         extern $DECL_SPEC int globalDataBecameNonConst;";
@@ -2676,16 +2937,16 @@ sub testC()
         int globalDataBecameConst = 10;";
     
     $HEADER2 .= "
-        $EXTERN $DECL_SPEC const int globalDataBecameConst=15;";
+        $DECL_SPEC const int globalDataBecameConst = 15;";
     
     # Global_Data_Became_Non_Const
     $HEADER1 .= "
         struct GlobalDataType{int a;int b;struct GlobalDataType* p;};
-        $EXTERN $DECL_SPEC const struct GlobalDataType globalStructDataBecameConst = {1, 2, (struct GlobalDataType*)0};";
+        $EXTERN $DECL_SPEC const struct GlobalDataType globalStructDataBecameConst = { 1, 2, (struct GlobalDataType*)0 };";
     
     $HEADER2 .= "
         struct GlobalDataType{int a;int b;struct GlobalDataType* p;};
-        $EXTERN $DECL_SPEC struct GlobalDataType globalStructDataBecameConst = {1, 2, (struct GlobalDataType*)0};";
+        $EXTERN $DECL_SPEC struct GlobalDataType globalStructDataBecameConst = { 1, 2, (struct GlobalDataType*)0 };";
     
     # Removed_Parameter
     $HEADER1 .= "
@@ -3949,11 +4210,11 @@ sub runTests($$$$$$$$)
     writeFile("$Path_v2/Makefile", $MkContent);
     system("cd $Path_v1 && $BuildCmd >build-log.txt 2>&1");
     if($?) {
-        exitStatus("Error", "can't compile \'$Path_v1/libsample.$Ext\'");
+        exitStatus("Error", "can't compile $LibName v.1: \'$Path_v1/build-log.txt\'");
     }
     system("cd $Path_v2 && $BuildCmd >build-log.txt 2>&1");
     if($?) {
-        exitStatus("Error", "can't compile \'$Path_v2/libsample.$Ext\'");
+        exitStatus("Error", "can't compile $LibName v.2: \'$Path_v2/build-log.txt\'");
     }
     # running the tool
     my @Cmd = ("perl", $0, "-l", $LibName, "-d1", "$LibName/v1.xml", "-d2", "$LibName/v2.xml");
@@ -3997,6 +4258,22 @@ sub runTests($$$$$$$$)
     if($ReportFormat eq "xml")
     {
         my $Content = readFile($RPath);
+        # binary
+        if(my $PSummary = parseTag(\$Content, "problem_summary"))
+        {
+            $NProblems += int(parseTag(\$PSummary, "removed_symbols"));
+            if(my $TProblems = parseTag(\$PSummary, "problems_with_types"))
+            {
+                $NProblems += int(parseTag(\$TProblems, "high"));
+                $NProblems += int(parseTag(\$TProblems, "medium"));
+            }
+            if(my $IProblems = parseTag(\$PSummary, "problems_with_symbols"))
+            {
+                $NProblems += int(parseTag(\$IProblems, "high"));
+                $NProblems += int(parseTag(\$IProblems, "medium"));
+            }
+        }
+        # source
         if(my $PSummary = parseTag(\$Content, "problem_summary"))
         {
             $NProblems += int(parseTag(\$PSummary, "removed_symbols"));
@@ -4014,13 +4291,17 @@ sub runTests($$$$$$$$)
     }
     else
     {
-        my $MetaData = readAttributes($RPath);
-        $NProblems += $MetaData->{"removed"};
-        $NProblems += $MetaData->{"type_problems_high"}+$MetaData->{"type_problems_medium"};
-        $NProblems += $MetaData->{"interface_problems_high"}+$MetaData->{"interface_problems_medium"};
+        my $BReport = readAttributes($RPath, 0);
+        $NProblems += $BReport->{"removed"};
+        $NProblems += $BReport->{"type_problems_high"}+$BReport->{"type_problems_medium"};
+        $NProblems += $BReport->{"interface_problems_high"}+$BReport->{"interface_problems_medium"};
+        my $SReport = readAttributes($RPath, 1);
+        $NProblems += $SReport->{"removed"};
+        $NProblems += $SReport->{"type_problems_high"}+$SReport->{"type_problems_medium"};
+        $NProblems += $SReport->{"interface_problems_high"}+$SReport->{"interface_problems_medium"};
     }
-    if(($LibName eq "libsample_c" and $NProblems>30)
-    or ($LibName eq "libsample_cpp" and $NProblems>60)) {
+    if(($LibName eq "libsample_c" and $NProblems>70)
+    or ($LibName eq "libsample_cpp" and $NProblems>150)) {
         printMsg("INFO", "result: SUCCESS ($NProblems problems found)\n");
     }
     else {
