@@ -1,10 +1,10 @@
 ###########################################################################
 # Module for ABI Compliance Checker to compare Operating Systems
 #
-# Copyright (C) 2009-2010 The Linux Foundation.
-# Copyright (C) 2009-2011 Institute for System Programming, RAS.
-# Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
-# Copyright (C) 2011 ROSA Laboratory.
+# Copyright (C) 2009-2010 The Linux Foundation
+# Copyright (C) 2009-2011 Institute for System Programming, RAS
+# Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies)
+# Copyright (C) 2011 ROSA Laboratory
 #
 # Written by Andrey Ponomarenko
 #

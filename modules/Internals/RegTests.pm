@@ -1,10 +1,10 @@
 ###########################################################################
 # Internal Regression Tests for ABI Compliance Checker
 #
-# Copyright (C) 2009-2010 The Linux Foundation.
-# Copyright (C) 2009-2011 Institute for System Programming, RAS.
-# Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies).
-# Copyright (C) 2011-2012 ROSA Laboratory.
+# Copyright (C) 2009-2010 The Linux Foundation
+# Copyright (C) 2009-2011 Institute for System Programming, RAS
+# Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
+# Copyright (C) 2011-2012 ROSA Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -2930,6 +2930,17 @@ sub testC()
     $SOURCE2 .= "
         int globalDataBecameNonConst = 15;";
 
+    # Global_Data_Became_Non_Const
+    # Typedef
+    $HEADER1 .= "
+        typedef const int CONST_INT;
+        $DECL_SPEC CONST_INT globalDataBecameNonConst_Typedef = 10;";
+    
+    $HEADER2 .= "
+        extern $DECL_SPEC int globalDataBecameNonConst_Typedef;";
+    $SOURCE2 .= "
+        int globalDataBecameNonConst_Typedef = 15;";
+
     # Global_Data_Became_Const
     $HEADER1 .= "
         extern $DECL_SPEC int globalDataBecameConst;";
@@ -2942,11 +2953,11 @@ sub testC()
     # Global_Data_Became_Non_Const
     $HEADER1 .= "
         struct GlobalDataType{int a;int b;struct GlobalDataType* p;};
-        $EXTERN $DECL_SPEC const struct GlobalDataType globalStructDataBecameConst = { 1, 2, (struct GlobalDataType*)0 };";
+        $EXTERN $DECL_SPEC const struct GlobalDataType globalStructDataBecameNonConst = { 1, 2, (struct GlobalDataType*)0 };";
     
     $HEADER2 .= "
         struct GlobalDataType{int a;int b;struct GlobalDataType* p;};
-        $EXTERN $DECL_SPEC struct GlobalDataType globalStructDataBecameConst = { 1, 2, (struct GlobalDataType*)0 };";
+        $EXTERN $DECL_SPEC struct GlobalDataType globalStructDataBecameNonConst = { 1, 2, (struct GlobalDataType*)0 };";
     
     # Removed_Parameter
     $HEADER1 .= "

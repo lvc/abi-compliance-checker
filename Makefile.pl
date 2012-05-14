@@ -3,10 +3,10 @@
 # Makefile for ABI Compliance Checker
 # Install/remove the tool for GNU/Linux and FreeBSD
 #
-# Copyright (C) 2009-2010 The Linux Foundation.
-# Copyright (C) 2009-2011 Institute for System Programming, RAS.
-# Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies).
-# Copyright (C) 2011-2012 ROSA Laboratory.
+# Copyright (C) 2009-2010 The Linux Foundation
+# Copyright (C) 2009-2011 Institute for System Programming, RAS
+# Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
+# Copyright (C) 2011-2012 ROSA Laboratory
 #
 # Written by Andrey Ponomarenko
 #

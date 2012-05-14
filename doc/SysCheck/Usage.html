@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "Operating_Systems_Compatibility", "wgTitle": "Operating Systems Compatibility", "wgCurRevisionId": 7596, "wgArticleId": 2655, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "Operating_Systems_Compatibility", "wgTitle": "Operating Systems Compatibility", "wgCurRevisionId": 7913, "wgArticleId": 2655, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -39,7 +39,7 @@
 		<div id="contentSub"></div>
 		
 		<!-- start content -->
-<div lang="en" dir="ltr" class="mw-content-ltr"><p>This tutorial describes how to test operating systems for binary compatibility using the <a href="http://ispras.linuxbase.org/index.php/ABI_compliance_checker" title="ABI Compliance Checker">ABI Compliance Checker</a> tool. The tool is able to find all <b>C/C++</b> libraries and appropriate header files in system directories, create dump of system <b>ABI (API + compiler ABI)</b> including ABIs of all found libraries and then compare dumps created on different operating systems to produce the <a rel="nofollow" class="external text" href="http://linuxtesting.org/compatibility/Maemo_4.1.2_to_Maemo_5.0/arm/abi_compat_report.html">HTML report</a> containing detailed comparison results.
+<div lang="en" dir="ltr" class="mw-content-ltr"><p>This tutorial describes how to test operating systems for binary compatibility using the <a href="http://ispras.linuxbase.org/index.php/ABI_compliance_checker" title="ABI Compliance Checker">ABI Compliance Checker</a> tool. The tool is able to find all <b>C/C++</b> libraries and appropriate header files in system directories, create dump of system <b>ABI (API + compiler ABI)</b> including ABIs of all found libraries and then compare dumps created on different operating systems to produce the <a rel="nofollow" class="external text" href="http://upstream-tracker.org/compatibility/Maemo_4.1.2_to_Maemo_5.0/arm/abi_compat_report.html">HTML report</a> containing detailed comparison results.
 </p>
 <table id="toc" class="toc"><tr><td><div id="toctitle"><h2>Contents</h2></div>
 <ul>
@@ -95,7 +95,7 @@
 <p>The last step is to compare ABI dumps of two operating systems:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -cmp-systems -d1 sys_dumps/<i>&lt;name1&gt;</i>/<i>&lt;arch&gt;</i> -d2 sys_dumps/<i>&lt;name2&gt;</i>/<i>&lt;arch&gt;</i>&#160;</code><br /><br />
 </p><p>The compatibility report will be generated to:<br />
-&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;sys_compat_reports/<i>&lt;name1&gt;</i>_to_<i>&lt;name2&gt;</i>/&lt;arch&gt;/<a rel="nofollow" class="external text" href="http://linuxtesting.org/compatibility/Maemo_4.1.2_to_Maemo_5.0/arm/abi_compat_report.html">abi_compat_report.html</a>&#160;</code><br /><br />
+&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;sys_compat_reports/<i>&lt;name1&gt;</i>_to_<i>&lt;name2&gt;</i>/&lt;arch&gt;/<a rel="nofollow" class="external text" href="http://upstream-tracker.org/compatibility/Maemo_4.1.2_to_Maemo_5.0/arm/abi_compat_report.html">abi_compat_report.html</a>&#160;</code><br /><br />
 </p>
 <h2> <span class="mw-headline" id="Examples"> Examples </span></h2>
 <p>See examples for <b>Maemo</b>, <b>MeeGo</b> and <b>Symbian</b> operating systems on <a href="http://ispras.linuxbase.org/index.php/Operating_Systems_Compatibility_Examples" title="Operating Systems Compatibility Examples">this page</a>.
@@ -109,5 +109,5 @@ Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2655-0!*!0!!en!*!* and timestamp 20120416094645 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2655-0!*!0!!en!*!* and timestamp 20120514122441 -->
 </div></div></div></div></div></body></html>

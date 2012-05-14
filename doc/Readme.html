@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker", "wgTitle": "ABI Compliance Checker", "wgCurRevisionId": 7897, "wgArticleId": 2292, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker", "wgTitle": "ABI Compliance Checker", "wgCurRevisionId": 7927, "wgArticleId": 2292, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -92,7 +92,7 @@
 <h2> <span class="mw-headline" id="Downloads"> Downloads </span></h2>
 <h3> <span class="mw-headline" id="Releases"> Releases </span></h3>
 <p>All releases can be downloaded from <b><a href="http://ispras.linuxbase.org/index.php/ABI_compliance_checker_Downloads" title="ABI Compliance Checker Downloads">this page</a></b> or <b><a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/downloads/">github.com</a></b>.
-</p><p>Latest release: <a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/downloads/abi-compliance-checker-1.97.4.tar.gz">1.97.4</a>
+</p><p>Latest release: <a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/downloads/abi-compliance-checker-1.97.5.tar.gz">1.97.5</a>
 </p>
 <h3> <span class="mw-headline" id="Git"> Git </span></h3>
 <p>Read-only access to the latest development version:<br />
@@ -112,7 +112,7 @@
 <ul><li><b>Linux, FreeBSD</b>
 <ul><li> <a rel="nofollow" class="external text" href="http://gcc.gnu.org/">G++</a> (3.0-4.7, recommended 4.5 or newer)
 </li><li> <a rel="nofollow" class="external text" href="http://www.gnu.org/software/binutils/">GNU Binutils</a> (readelf, c++filt, objdump)
-</li><li> <a rel="nofollow" class="external text" href="http://www.perl.org/">Perl</a> (5.8-5.14)
+</li><li> <a rel="nofollow" class="external text" href="http://www.perl.org/">Perl</a> (5.8 or newer)
 </li><li> WARNING: if you are using ccache program (i.e. gcc points to /usr/lib/ccache/gcc) then it should be newer than 3.1.2 or disabled.
 </li></ul>
 </li></ul>
@@ -123,7 +123,7 @@
 <ul><li><b>MS Windows</b>
 <ul><li> <a rel="nofollow" class="external text" href="http://www.mingw.org/">MinGW</a> (3.0-4.7, recommended 4.5 or newer)
 </li><li> MS Visual C++ (dumpbin, undname, cl)
-</li><li> <a rel="nofollow" class="external text" href="http://www.activestate.com/activeperl">Active Perl</a> (5.8-5.14)
+</li><li> <a rel="nofollow" class="external text" href="http://www.activestate.com/activeperl">Active Perl</a> (5.8 or newer)
 </li><li> Sigcheck v1.71 or newer
 </li><li> Info-ZIP 3.0 (zip, unzip)
 </li><li> Add gcc.exe path (C:\MinGW\bin\) to your system PATH variable
@@ -241,7 +241,7 @@ The compatibility report will be generated to:<br />
 </p>
 <h3> <span class="mw-headline" id="Compare_Operating_Systems"> Compare Operating Systems </span></h3>
 <p>The detailed explanation on how to check compatibility between operating systems you can read on <b><a href="http://ispras.linuxbase.org/index.php/Operating_Systems_Compatibility" title="Operating Systems Compatibility">this page</a></b>.
-</p><p>See current test results for <b>Symbian</b>, <b>Windows</b>, <b>MeeGo</b> and <b>Maemo</b> on <b><a rel="nofollow" class="external text" href="http://linuxtesting.org/compatibility/index.html">this page</a></b>.
+</p><p>See current test results for <b>Symbian</b>, <b>Windows</b>, <b>MeeGo</b> and <b>Maemo</b> on <b><a rel="nofollow" class="external text" href="http://upstream-tracker.org/compatibility/index.html">this page</a></b>.
 </p>
 <h3> <span class="mw-headline" id="Check_Applications_Portability"> Check Applications Portability </span></h3>
 <p>The ACC tool can be used by <b>ISVs</b> for checking applications portability to new library versions by specifying of its binary using <a href="http://ispras.linuxbase.org/index.php/ABI_compliance_checker_Options" title="ABI Compliance Checker Options">-app</a> option:<br />
@@ -403,7 +403,7 @@ Check client application portability between libssh versions:<br />
 <p>We would like to thank <a href="http://ispras.linuxbase.org/index.php/Thanks" title="Thanks">everyone</a> who has contributed to the success of this project!
 </p>
 <h2> <span class="mw-headline" id="Articles"> Articles </span></h2>
-<p>Here is the list of articles about shared libraries and binary compatibility:
+<p>Here is the list of articles about shared libraries, ABI and binary compatibility:
 </p>
 <ol><li> KDE TechBase, <a rel="nofollow" class="external text" href="http://techbase.kde.org/Policies/Binary_Compatibility_Issues_With_C++"><b>“Binary Compatibility Issues With C++”</b></a>
 </li><li> KDE TechBase, <a rel="nofollow" class="external text" href="http://techbase.kde.org/Policies/Binary_Compatibility_Examples"><b>“Binary Compatibility Examples”</b></a>
@@ -434,7 +434,8 @@ Check client application portability between libssh versions:<br />
 </li><li> Forum.Nokia, <a rel="nofollow" class="external text" href="http://library.developer.nokia.com/index.jsp?topic=/S60_5th_Edition_Cpp_Developers_Library/GUID-35228542-8C95-4849-A73F-2B4F082F0C44/sdk/doc_source/ToolsAndUtilities94/BuildTools/bc.guide.html"><b>“How to control binary compatibility”</b></a>
 </li><li> elpauer.org, <a rel="nofollow" class="external text" href="http://www.elpauer.org/?p=230"><b>“ABI compatibility in C++”</b></a>
 </li><li> symbian.org, <a rel="nofollow" class="external text" href="http://developer.symbian.org/wiki/index.php/Preserving_Compatibility"><b>"Preserving Compatibility"</b></a>
-</li><li> Ponomarenko A., Rubanov V., VALID 2010 <a rel="nofollow" class="external text" href="http://doi.ieeecomputersociety.org/10.1109/VALID.2010.27"><b>"Automated Verification of Shared Libraries for Backward Binary Compatibility"</b></a>
+</li><li> Ponomarenko A., Rubanov V., VALID 2010, <a rel="nofollow" class="external text" href="http://doi.ieeecomputersociety.org/10.1109/VALID.2010.27"><b>"Automated Verification of Shared Libraries for Backward Binary Compatibility"</b></a>
+</li><li> Thiago Macieira's blog, <a rel="nofollow" class="external text" href="http://www.macieira.org/blog/2012/01/architectures-and-abis-detailed/"><b>"Architectures and ABIs detailed"</b></a>
 </li><li> FreeStandards.org, <a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/gabi41.pdf"><b>Generic ABI (gABI) Standard</b></a>, <a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/"><b>"ELF and ABI Standards"</b></a>
 </li><li> Processor Supplement ABI (psABI) documents: <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/abi386-4.pdf">Intel386</a></b>, <b><a rel="nofollow" class="external text" href="http://www.x86-64.org/documentation/abi.pdf">AMD64</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/elfspec_ppc.pdf">PowerPC</a></b>, <b><a rel="nofollow" class="external text" href="http://download.boulder.ibm.com/ibmdl/pub/software/dw/linux390/docu/l390abi0.pdf">S/390</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/IA64-SysV-psABI.pdf">Itanium</a></b>, <b><a rel="nofollow" class="external text" href="http://infocenter.arm.com/help/topic/com.arm.doc.ihi0036b/IHI0036B_bsabi.pdf">ARM</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/mipsabi.pdf">MIPS</a></b>, <b><a rel="nofollow" class="external text" href="http://www.sparc.org/standards/psABI3rd.pdf">SPARC</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/elf-pa.pdf">PA-RISK</a></b>, <b><a rel="nofollow" class="external text" href="http://www.linux-m32r.org/cmn/m32r/M32R-elf-abi.pdf">M32R</a></b>
 </li></ol>
@@ -447,5 +448,5 @@ Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2292-0!*!0!!en!2!* and timestamp 20120416122854 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2292-0!*!0!!en!2!* and timestamp 20120514122836 -->
 </div></div></div></div></div></body></html>
