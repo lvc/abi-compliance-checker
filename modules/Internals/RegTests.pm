@@ -23,14 +23,14 @@
 ###########################################################################
 use strict;
 
-my ($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode,
-$ReportFormat, $LIB_EXT, $GCC_PATH, $Browse);
+my ($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode, $ReportFormat,
+$LIB_EXT, $GCC_PATH, $Browse, $OpenReport, $SortDump);
 my $OSgroup = get_OSgroup();
 
-sub testTool($$$$$$$$$)
+sub testTool($$$$$$$$$$$)
 {
-    ($TestDump, $Debug, $Quiet, $ExtendedCheck,
-    $LogMode, $ReportFormat, $LIB_EXT, $GCC_PATH, $Browse) = @_;
+    ($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode, $ReportFormat,
+    $LIB_EXT, $GCC_PATH, $Browse, $OpenReport, $SortDump) = @_;
     testC();
     testCpp();
 }
@@ -4229,8 +4229,12 @@ sub runTests($$$$$$$$)
     }
     # running the tool
     my @Cmd = ("perl", $0, "-l", $LibName, "-d1", "$LibName/v1.xml", "-d2", "$LibName/v2.xml");
-    if($TestDump) {
+    if($TestDump)
+    {
         @Cmd = (@Cmd, "-use-dumps");
+        if($SortDump) {
+            @Cmd = (@Cmd, "-sort");
+        }
     }
     if($GCC_PATH ne "gcc") {
         @Cmd = (@Cmd, "-cross-gcc", $GCC_PATH);
@@ -4258,10 +4262,13 @@ sub runTests($$$$$$$$)
     if($Browse) {
         @Cmd = (@Cmd, "-browse", $Browse);
     }
+    if($OpenReport) {
+        @Cmd = (@Cmd, "-open");
+    }
     if($Debug)
     { # debug mode
         @Cmd = (@Cmd, "-debug");
-        printMsg("INFO", "@Cmd");
+        printMsg("INFO", "running @Cmd");
     }
     system(@Cmd);
     my $RPath = "compat_reports/$LibName/1.0_to_2.0/compat_report.$ReportFormat";
