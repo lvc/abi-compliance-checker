@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.97.6
+# ABI Compliance Checker (ACC) 1.97.7
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -55,8 +55,8 @@ use Cwd qw(abs_path cwd);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.97.6";
-my $ABI_DUMP_VERSION = "2.15";
+my $TOOL_VERSION = "1.97.7";
+my $ABI_DUMP_VERSION = "2.16";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.0";
 my $OSgroup = get_OSgroup();
@@ -2029,9 +2029,9 @@ sub simplifyNames()
             $Typedef_Eq{$Version}{$Base} = $Translations[0];
         }
     }
-    foreach my $Tid (keys(%{$TypeInfo{$Version}}))
+    foreach my $TypeId (keys(%{$TypeInfo{$Version}}))
     {
-        my $TypeName = $TypeInfo{$Version}{$Tid}{"Name"};
+        my $TypeName = $TypeInfo{$Version}{$TypeId}{"Name"};
         if(not $TypeName) {
             next;
         }
@@ -2049,19 +2049,19 @@ sub simplifyNames()
             my $Typedef = $Typedef_Eq{$Version}{$Base};
             $TypeName=~s/(\<|\,)\Q$Base\E(\W|\Z)/$1$Typedef$2/g;
             $TypeName=~s/(\<|\,)\Q$Base\E(\w|\Z)/$1$Typedef $2/g;
-            if(defined $TypeInfo{$Version}{$Tid}{"TParam"})
+            if(defined $TypeInfo{$Version}{$TypeId}{"TParam"})
             {
-                foreach my $TPos (keys(%{$TypeInfo{$Version}{$Tid}{"TParam"}}))
+                foreach my $TPos (keys(%{$TypeInfo{$Version}{$TypeId}{"TParam"}}))
                 {
-                    my $TPName = $TypeInfo{$Version}{$Tid}{"TParam"}{$TPos}{"name"};
+                    my $TPName = $TypeInfo{$Version}{$TypeId}{"TParam"}{$TPos}{"name"};
                     $TPName=~s/\A\Q$Base\E(\W|\Z)/$Typedef$1/g;
-                    $TypeInfo{$Version}{$Tid}{"TParam"}{$TPos}{"name"} = formatName($TPName);
+                    $TypeInfo{$Version}{$TypeId}{"TParam"}{$TPos}{"name"} = formatName($TPName);
                 }
             }
         }
         $TypeName = formatName($TypeName);
-        $TypeInfo{$Version}{$Tid}{"Name"} = $TypeName;
-        $TName_Tid{$Version}{$TypeName} = $Tid;
+        $TypeInfo{$Version}{$TypeId}{"Name"} = $TypeName;
+        $TName_Tid{$Version}{$TypeName} = $TypeId;
     }
 }
 
@@ -2213,6 +2213,7 @@ sub addMissedTypes_Pre()
             }
         }
     }
+    my %AddTypes = ();
     foreach my $Tid (keys(%{$MissedTypes{$Version}}))
     { # add missed typedefs
         my @Missed = keys(%{$MissedTypes{$Version}{$Tid}});
@@ -2221,6 +2222,10 @@ sub addMissedTypes_Pre()
         }
         my $MissedTDid = $Missed[0];
         my ($TypedefName, $TypedefNS) = getTrivialName($MissedTDid, $Tid);
+        if(not $TypedefName) {
+            next;
+        }
+        $MAX_ID++;
         my %MissedInfo = ( # typedef info
             "Name" => $TypedefName,
             "NameSpace" => $TypedefNS,
@@ -2228,18 +2233,15 @@ sub addMissedTypes_Pre()
                             "Tid" => $Tid
                           },
             "Type" => "Typedef",
-            "Tid" => ++$MAX_ID );
+            "Tid" => "$MAX_ID" );
         my ($H, $L) = getLocation($MissedTDid);
         $MissedInfo{"Header"} = $H;
         $MissedInfo{"Line"} = $L;
-        # $MissedInfo{"Size"} = getSize($Tid)/$BYTE_SIZE;
-        my $MName = $MissedInfo{"Name"};
-        next if(not $MName);
-        if($MName=~/\*|\&|\s/)
+        if($TypedefName=~/\*|\&|\s/)
         { # other types
             next;
         }
-        if($MName=~/>(::\w+)+\Z/)
+        if($TypedefName=~/>(::\w+)+\Z/)
         { # QFlags<Qt::DropAction>::enum_type
             next;
         }
@@ -2247,29 +2249,34 @@ sub addMissedTypes_Pre()
         { # double-check for the name of typedef
             my ($TName, $TNS) = getTrivialName(getTypeDeclId($Tid), $Tid); # base type info
             next if(not $TName);
-            if(length($MName)>=length($TName))
+            if(length($TypedefName)>=length($TName))
             { # too long typedef
                 next;
             }
-            if($TName=~/\A\Q$MName\E</) {
+            if($TName=~/\A\Q$TypedefName\E</) {
                 next;
             }
-            if($MName=~/\A\Q$TName\E/)
+            if($TypedefName=~/\A\Q$TName\E/)
             { # QDateTimeEdit::Section and QDateTimeEdit::Sections::enum_type
                 next;
             }
-            if(get_depth($MName)==0 and get_depth($TName)!=0)
+            if(get_depth($TypedefName)==0 and get_depth($TName)!=0)
             { # std::_Vector_base and std::vector::_Base
                 next;
             }
         }
-        %{$TypeInfo{$Version}{$MissedInfo{"Tid"}}} = %MissedInfo;
-        $TName_Tid{$Version}{$TypedefName} = $MissedInfo{"Tid"};
-        delete($TypeInfo{$Version}{$Tid});
+        
+        $AddTypes{$MissedInfo{"Tid"}} = \%MissedInfo;
+        
         # register typedef
         $MissedTypedef{$Version}{$Tid}{"Tid"} = $MissedInfo{"Tid"};
         $MissedTypedef{$Version}{$Tid}{"TDid"} = $MissedTDid;
+        $TName_Tid{$Version}{$TypedefName} = $MissedInfo{"Tid"};
     }
+    
+    # add missed & remove other
+    $TypeInfo{$Version} = \%AddTypes;
+    delete($Cache{"getTypeAttr"}{$Version});
 }
 
 sub addMissedTypes_Post()
@@ -2288,11 +2295,11 @@ sub addMissedTypes_Post()
 
 sub getTypeInfo($)
 {
-    my $Tid = $_[0];
-    %{$TypeInfo{$Version}{$Tid}} = getTypeAttr($Tid);
-    my $TName = $TypeInfo{$Version}{$Tid}{"Name"};
+    my $TypeId = $_[0];
+    %{$TypeInfo{$Version}{$TypeId}} = getTypeAttr($TypeId);
+    my $TName = $TypeInfo{$Version}{$TypeId}{"Name"};
     if(not $TName) {
-        delete($TypeInfo{$Version}{$Tid});
+        delete($TypeInfo{$Version}{$TypeId});
     }
 }
 
@@ -2615,7 +2622,7 @@ sub get_TemplateParam($$)
     if($NodeType eq "integer_cst")
     { # int (1), unsigned (2u), char ('c' as 99), ...
         my $CstTid = getTreeAttr_Type($Type_Id);
-        my %CstType = getTypeAttr($CstTid);
+        my %CstType = getTypeAttr($CstTid); # without recursion
         my $Num = getNodeIntCst($Type_Id);
         if(my $CstSuffix = $ConstantSuffix{$CstType{"Name"}}) {
             return ($Num.$CstSuffix);
@@ -2642,12 +2649,13 @@ sub get_TemplateParam($$)
     else
     {
         my %ParamAttr = getTypeAttr($Type_Id);
-        if(not $ParamAttr{"Name"}) {
+        my $PName = $ParamAttr{"Name"};
+        if(not $PName) {
             return ();
         }
-        my $PName = $ParamAttr{"Name"};
-        if($ParamAttr{"Name"}=~/\>/) {
-            if(my $Cover = cover_stdcxx_typedef($ParamAttr{"Name"})) {
+        if($PName=~/\>/)
+        {
+            if(my $Cover = cover_stdcxx_typedef($PName)) {
                 $PName = $Cover;
             }
         }
@@ -3312,7 +3320,8 @@ sub getTrivialName($$)
             $TypeAttr{"Name"} = $TypeAttr{"NameSpace"}."::".$TypeAttr{"Name"};
         }
     }
-    if(defined $TemplateInstance{$Version}{"Type"}{$TypeId})
+    if(defined $TemplateInstance{$Version}{"Type"}{$TypeId}
+    and getTypeDeclId($TypeId) eq $TypeInfoId)
     {
         my @TParams = getTParams($TypeId, "Type");
         if(not @TParams)
@@ -4445,11 +4454,14 @@ sub getSymbolInfo($)
     if(isInline($InfoId)) {
         $SymbolInfo{$Version}{$InfoId}{"InLine"} = 1;
     }
+    if($LibInfo{$Version}{"info"}{$InfoId}=~/ artificial /i) {
+        $SymbolInfo{$Version}{$InfoId}{"Artificial"} = 1;
+    }
     if($SymbolInfo{$Version}{$InfoId}{"Constructor"}
     and my $ClassId = $SymbolInfo{$Version}{$InfoId}{"Class"})
     {
         if(not $SymbolInfo{$Version}{$InfoId}{"InLine"}
-        and $LibInfo{$Version}{"info"}{$InfoId}!~/ artificial /i)
+        and not $SymbolInfo{$Version}{$InfoId}{"Artificial"})
         { # inline or auto-generated constructor
             delete($TypeInfo{$Version}{$ClassId}{"Copied"});
         }
@@ -7073,7 +7085,7 @@ sub getDump()
         if($MinGWMode{$Version})
         {
             printMsg("INFO", "Using MinGW compatibility mode");
-            $MHeaderPath = "$TMP_DIR/dump$Version.i";
+            $MHeaderPath = $TMP_DIR."/dump$Version.i";
         }
     }
     if(($COMMON_LANGUAGE{$Version} eq "C" or $CheckHeadersOnly)
@@ -7144,7 +7156,7 @@ sub getDump()
         if($C99Mode{$Version}==1)
         { # try to change C++ "keyword" to "c99_keyword"
             printMsg("INFO", "Using C99 compatibility mode");
-            $MHeaderPath = "$TMP_DIR/dump$Version.i";
+            $MHeaderPath = $TMP_DIR."/dump$Version.i";
         }
     }
     if($C99Mode{$Version}==1
@@ -11091,6 +11103,11 @@ sub detectAdded_H($)
         { # remove symbol version
             my ($SN, $SS, $SV) = separate_symbol($Symbol);
             $Symbol=$SN;
+            
+            if($CompleteSignature{2}{$Symbol}{"Artificial"})
+            { # skip artificial constructors
+                next;
+            }
         }
         if(not $CompleteSignature{2}{$Symbol}{"Header"}
         or not $CompleteSignature{2}{$Symbol}{"MnglName"}) {
@@ -11179,6 +11196,13 @@ sub detectRemoved_H($)
                             }
                         }
                     }
+                }
+            }
+            if(not checkDump(1, "2.15"))
+            {
+                if($Symbol=~/_IT_E\Z/)
+                { # _ZN28QExplicitlySharedDataPointerI22QSslCertificatePrivateEC1IT_EERKS_IT_E
+                    next;
                 }
             }
             $RemovedInt{$Level}{$Symbol} = 1;
@@ -15370,8 +15394,8 @@ sub getReport($)
         {
             $CssStyles .= "\n".readModule("Styles", "Tabs.css");
             $JScripts .= "\n".readModule("Scripts", "Tabs.js");
-            my $Title = "$TargetLibraryFName: ".$Descriptor{1}{"Version"}." to ".$Descriptor{2}{"Version"}." compatibility report";
-            my $Keywords = "$TargetLibraryFName, compatibility, API, report";
+            my $Title = $TargetLibraryFName.": ".$Descriptor{1}{"Version"}." to ".$Descriptor{2}{"Version"}." compatibility report";
+            my $Keywords = $TargetLibraryFName.", compatibility, API, report";
             my $Description = "Compatibility report for the $TargetLibraryFName $TargetComponent between ".$Descriptor{1}{"Version"}." and ".$Descriptor{2}{"Version"}." versions";
             my ($BSummary, $BMetaData) = get_Summary("Binary");
             my ($SSummary, $SMetaData) = get_Summary("Source");
@@ -15390,9 +15414,9 @@ sub getReport($)
         else
         {
             my ($Summary, $MetaData) = get_Summary($Level);
-            my $Title = "$TargetLibraryFName: ".$Descriptor{1}{"Version"}." to ".$Descriptor{2}{"Version"}." ".lc($Level)." compatibility report";
-            my $Keywords = "$TargetLibraryFName, ".lc($Level)." compatibility, API, report";
-            my $Description = "$Level compatibility report for the $TargetLibraryFName $TargetComponent between ".$Descriptor{1}{"Version"}." and ".$Descriptor{2}{"Version"}." versions";
+            my $Title = $TargetLibraryFName.": ".$Descriptor{1}{"Version"}." to ".$Descriptor{2}{"Version"}." ".lc($Level)." compatibility report";
+            my $Keywords = $TargetLibraryFName.", ".lc($Level)." compatibility, API, report";
+            my $Description = "$Level compatibility report for the ".$TargetLibraryFName." ".$TargetComponent." between ".$Descriptor{1}{"Version"}." and ".$Descriptor{2}{"Version"}." versions";
             if($Level eq "Binary")
             {
                 if(getArch(1) eq getArch(2)
@@ -17072,14 +17096,8 @@ sub read_ABI_Dump($$)
                     next;
                 }
             }
-            if(my $MName = $SymbolInfo{$LibVersion}{$InfoId}{"MnglName"})
-            {
-                if($MName=~/_IT_E\Z/)
-                { # _ZN28QExplicitlySharedDataPointerI22QSslCertificatePrivateEC1IT_EERKS_IT_E
-                    delete($SymbolInfo{$LibVersion}{$InfoId});
-                }
-            }
-            elsif($SymbolInfo{$LibVersion}{$InfoId}{"Class"})
+            my $MName = $SymbolInfo{$LibVersion}{$InfoId}{"MnglName"};
+            if(not $MName and $SymbolInfo{$LibVersion}{$InfoId}{"Class"})
             { # templates
                 delete($SymbolInfo{$LibVersion}{$InfoId});
             }
