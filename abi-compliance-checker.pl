@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.97.7
+# ABI Compliance Checker (ACC) 1.97.8
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -55,7 +55,7 @@ use Cwd qw(abs_path cwd);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.97.7";
+my $TOOL_VERSION = "1.97.8";
 my $ABI_DUMP_VERSION = "2.16";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.0";
@@ -788,6 +788,11 @@ my $DescriptorTemplate = "
           #define C D */
 </defines>
 
+<add_namespaces>
+    /* The list of namespaces that should be added to the alanysis
+       if the tool cannot find them automatically, one per line */
+</add_namespaces>
+
 <skip_types>
     /* The list of data types, that
        should not be checked, one per line */
@@ -1326,6 +1331,9 @@ my %SkipSymbols = (
 my %SkipNameSpaces = (
   "1"=>{},
   "2"=>{} );
+my %AddNameSpaces = (
+  "1"=>{},
+  "2"=>{} );
 my %SymbolsList;
 my %SymbolsList_App;
 my %CheckedSymbols;
@@ -1667,7 +1675,7 @@ sub get_CmdPath_Default_I($)
     my $Name = $_[0];
     if($Name=~/find/)
     { # special case: search for "find" utility
-        if(`find . -maxdepth 0 2>$TMP_DIR/null`) {
+        if(`find \"$TMP_DIR\" -maxdepth 0 2>\"$TMP_DIR/null\"`) {
             return "find";
         }
     }
@@ -1679,7 +1687,7 @@ sub get_CmdPath_Default_I($)
     }
     if($OSgroup eq "windows")
     {
-        if(`$Name /? 2>$TMP_DIR/null`) {
+        if(`$Name /? 2>\"$TMP_DIR/null\"`) {
             return $Name;
         }
     }
@@ -1687,7 +1695,7 @@ sub get_CmdPath_Default_I($)
     {
         if(my $WhichCmd = get_CmdPath("which"))
         {
-            if(`$WhichCmd $Name 2>$TMP_DIR/null`) {
+            if(`$WhichCmd $Name 2>\"$TMP_DIR/null\"`) {
                 return $Name;
             }
         }
@@ -1911,6 +1919,9 @@ sub readDescriptor($$)
     }
     foreach my $NameSpace (split(/\s*\n\s*/, parseTag(\$Content, "skip_namespaces"))) {
         $SkipNameSpaces{$LibVersion}{$NameSpace} = 1;
+    }
+    foreach my $NameSpace (split(/\s*\n\s*/, parseTag(\$Content, "add_namespaces"))) {
+        $AddNameSpaces{$LibVersion}{$NameSpace} = 1;
     }
     foreach my $Constant (split(/\s*\n\s*/, parseTag(\$Content, "skip_constants"))) {
         $SkipConstants{$LibVersion}{$Constant} = 1;
@@ -4303,13 +4314,15 @@ sub getSymbolInfo($)
     }
     ($SymbolInfo{$Version}{$InfoId}{"Header"}, $SymbolInfo{$Version}{$InfoId}{"Line"}) = getLocation($InfoId);
     if(not $SymbolInfo{$Version}{$InfoId}{"Header"}
-    or isBuiltIn($SymbolInfo{$Version}{$InfoId}{"Header"})) {
+    or isBuiltIn($SymbolInfo{$Version}{$InfoId}{"Header"}))
+    {
         delete($SymbolInfo{$Version}{$InfoId});
         return;
     }
     setFuncAccess($InfoId);
     setFuncKind($InfoId);
-    if($SymbolInfo{$Version}{$InfoId}{"PseudoTemplate"}) {
+    if($SymbolInfo{$Version}{$InfoId}{"PseudoTemplate"})
+    {
         delete($SymbolInfo{$Version}{$InfoId});
         return;
     }
@@ -4334,15 +4347,19 @@ sub getSymbolInfo($)
     if(not $SymbolInfo{$Version}{$InfoId}{"Return"}) {
         delete($SymbolInfo{$Version}{$InfoId}{"Return"});
     }
-    $SymbolInfo{$Version}{$InfoId}{"ShortName"} = getFuncShortName(getFuncOrig($InfoId));
-    if($SymbolInfo{$Version}{$InfoId}{"ShortName"}=~/\._/) {
+    my $Orig = getFuncOrig($InfoId);
+    $SymbolInfo{$Version}{$InfoId}{"ShortName"} = getFuncShortName($Orig);
+    if($SymbolInfo{$Version}{$InfoId}{"ShortName"}=~/\._/)
+    {
         delete($SymbolInfo{$Version}{$InfoId});
         return;
     }
-    if(defined $TemplateInstance{$Version}{"Func"}{$InfoId})
+    
+    if(defined $TemplateInstance{$Version}{"Func"}{$Orig})
     {
-        my @TParams = getTParams($InfoId, "Func");
-        if(not @TParams) {
+        my @TParams = getTParams($Orig, "Func");
+        if(not @TParams)
+        {
             delete($SymbolInfo{$Version}{$InfoId});
             return;
         }
@@ -4440,7 +4457,7 @@ sub getSymbolInfo($)
         return;
     }
     if(not $SymbolInfo{$Version}{$InfoId}{"Constructor"}
-    and my $Spec = getVirtSpec(getFuncOrig($InfoId)))
+    and my $Spec = getVirtSpec($Orig))
     { # identify virtual and pure virtual functions
       # NOTE: constructors cannot be virtual
       # NOTE: in GCC 4.7 D1 destructors have no virtual spec
@@ -5470,6 +5487,12 @@ sub searchForHeaders($)
     keys(%{$Descriptor{$LibVersion}{"AddIncludePaths"}}))
     {
         my $IPath = $Path;
+        if($SystemRoot)
+        {
+            if(is_abs($Path)) {
+                $Path = $SystemRoot.$Path;
+            }
+        }
         if(not -e $Path) {
             exitStatus("Access_Error", "can't access \'$Path\'");
         }
@@ -5906,10 +5929,10 @@ sub checkRelevance($)
     my ($Path) = @_;
     return 0 if(not $Path);
     if($SystemRoot) {
-        $Path=~s/\A\Q$SystemRoot\E//g;
+        $Path = cut_path_prefix($Path, $SystemRoot);
     }
     my ($Dir, $Name) = separate_path($Path);
-    $Name=~s/\.\w+\Z//g;# remove extension (.h)
+    $Name=~s/\.\w+\Z//g; # remove extension (.h)
     my @Tokens = split(/[_\d\W]+/, $Name);
     foreach (@Tokens)
     {
@@ -6334,7 +6357,7 @@ sub unmangleArray(@)
             exitStatus("Not_Found", "can't find \"undname\"");
         }
         writeFile("$TMP_DIR/unmangle", join("\n", @_));
-        return split(/\n/, `$UndNameCmd 0x8386 $TMP_DIR/unmangle`);
+        return split(/\n/, `$UndNameCmd 0x8386 \"$TMP_DIR/unmangle\"`);
     }
     else
     { # GCC mangling
@@ -6972,7 +6995,7 @@ sub getCompileCmd($$$)
     { # user-defined options
         $GccCall .= " ".$CompilerOptions{$Version};
     }
-    $GccCall .= " \"".$Path."\"";
+    $GccCall .= " \"$Path\"";
     if($Inc)
     { # include paths
         $GccCall .= " ".$Inc;
@@ -7068,7 +7091,7 @@ sub getDump()
     { # modify headers to compile by MinGW
         if(not $MContent)
         { # preprocessing
-            $MContent = `$PreprocessCmd 2>$TMP_DIR/null`;
+            $MContent = `$PreprocessCmd 2>\"$TMP_DIR/null\"`;
         }
         if($MContent=~s/__asm\s*(\{[^{}]*?\}|[^{};]*)//g)
         { # __asm { ... }
@@ -7093,7 +7116,7 @@ sub getDump()
     { # rename C++ keywords in C code
         if(not $MContent)
         { # preprocessing
-            $MContent = `$PreprocessCmd 2>$TMP_DIR/null`;
+            $MContent = `$PreprocessCmd 2>\"$TMP_DIR/null\"`;
         }
         my $RegExp_C = join("|", keys(%CppKeywords_C));
         my $RegExp_F = join("|", keys(%CppKeywords_F));
@@ -7208,6 +7231,10 @@ sub getDump()
                     $ClassVTable_Content{$Version}{$CName} = $VTable;
                 }
             }
+            foreach my $NS (keys(%{$AddNameSpaces{$Version}}))
+            { # add user-defined namespaces
+                $TUnit_NameSpaces{$Version}{$NS} = 1;
+            }
             if($Debug)
             { # debug mode
                 mkpath($DEBUG_PATH{$Version});
@@ -7245,7 +7272,7 @@ sub getDump()
     my $SyntaxTreeCmd = getCompileCmd($MHeaderPath, $TUdump, $IncludeString);
     writeLog($Version, "The GCC parameters:\n  $SyntaxTreeCmd\n\n");
     chdir($TMP_DIR);
-    system($SyntaxTreeCmd." >$TMP_DIR/tu_errors 2>&1");
+    system($SyntaxTreeCmd." >\"$TMP_DIR/tu_errors\" 2>&1");
     if($?)
     { # failed to compile, but the TU dump still can be created
         my $Errors = readFile($TMP_DIR."/tu_errors");
@@ -7348,6 +7375,12 @@ sub getIncPaths(@)
                 if($Skip_Include_Paths{$Version}{$Dir}) {
                     next;
                 }
+                if($SystemRoot)
+                {
+                    if($Skip_Include_Paths{$Version}{$SystemRoot.$Dir}) {
+                        next;
+                    }
+                }
                 $Includes{$Dir}=1;
             }
         }
@@ -7380,7 +7413,7 @@ sub callPreprocessor($$$)
     }
     my $Cmd = getCompileCmd($Path, "-dD -E", $IncludeString);
     my $Out = $TMP_DIR."/preprocessed";
-    system($Cmd." >$Out 2>$TMP_DIR/null");
+    system($Cmd." >\"$Out\" 2>\"$TMP_DIR/null\"");
     return $Out;
 }
 
@@ -7418,7 +7451,7 @@ sub cmd_find($$$$)
             }
         }
         else {
-            @Files = split(/\n/, `$Cmd 2>$TMP_DIR/null`);
+            @Files = split(/\n/, `$Cmd 2>\"$TMP_DIR/null\"`);
         }
         my @AbsPaths = ();
         foreach my $File (@Files)
@@ -7465,7 +7498,7 @@ sub cmd_find($$$$)
                 $Cmd .= " -name \"$Name\"";
             }
         }
-        return split(/\n/, `$Cmd 2>$TMP_DIR/null`);
+        return split(/\n/, `$Cmd 2>\"$TMP_DIR/null\"`);
     }
 }
 
@@ -7486,7 +7519,7 @@ sub unpackDump($)
             exitStatus("Not_Found", "can't find \"unzip\" command");
         }
         chdir($UnpackDir);
-        system("$UnzipCmd \"$Path\" >$UnpackDir/contents.txt");
+        system("$UnzipCmd \"$Path\" >contents.txt");
         if($?) {
             exitStatus("Error", "can't extract \'$Path\'");
         }
@@ -7517,11 +7550,11 @@ sub unpackDump($)
                 exitStatus("Not_Found", "can't find \"gzip\" command");
             }
             chdir($UnpackDir);
-            system("$GzipCmd -k -d -f \"$Path\"");# keep input files (-k)
+            system("$GzipCmd -k -d -f \"$Path\""); # keep input files (-k)
             if($?) {
                 exitStatus("Error", "can't extract \'$Path\'");
             }
-            system("$TarCmd -xvf \"$Dir\\$FileName.tar\" >$UnpackDir/contents.txt");
+            system("$TarCmd -xvf \"$Dir\\$FileName.tar\" >contents.txt");
             if($?) {
                 exitStatus("Error", "can't extract \'$Path\'");
             }
@@ -7540,7 +7573,7 @@ sub unpackDump($)
                 exitStatus("Not_Found", "can't find \"tar\" command");
             }
             chdir($UnpackDir);
-            system("$TarCmd -xvzf \"$Path\" >$UnpackDir/contents.txt");
+            system("$TarCmd -xvzf \"$Path\" >contents.txt");
             if($?) {
                 exitStatus("Error", "can't extract \'$Path\'");
             }
@@ -7573,7 +7606,7 @@ sub createArchive($$)
         my $Pkg = $To."/".$Name.".zip";
         unlink($Pkg);
         chdir($To);
-        system("$ZipCmd -j \"$Name.zip\" \"$Path\" >$TMP_DIR/null");
+        system("$ZipCmd -j \"$Name.zip\" \"$Path\" >\"$TMP_DIR/null\"");
         if($?)
         { # cannot allocate memory (or other problems with "zip")
             unlink($Path);
@@ -10916,11 +10949,12 @@ sub mergeImpl()
         {
             writeFile("$TMP_DIR/impl1", $Impl1);
             writeFile("$TMP_DIR/impl2", $Impl2);
-            my $Diff = `$DiffCmd -rNau $TMP_DIR/impl1 $TMP_DIR/impl2`;
+            my $Diff = `$DiffCmd -rNau \"$TMP_DIR/impl1\" \"$TMP_DIR/impl2\"`;
             $Diff=~s/(---|\+\+\+).+\n//g;
             $Diff=~s/[ ]{3,}/ /g;
             $Diff=~s/\n\@\@/\n \n\@\@/g;
-            unlink("$TMP_DIR/impl1", "$TMP_DIR/impl2");
+            unlink("$TMP_DIR/impl1");
+            unlink("$TMP_DIR/impl2");
             %{$ImplProblems{$Interface}}=(
                 "Diff" => get_CodeView($Diff)  );
         }
@@ -10975,7 +11009,7 @@ sub getImplementations($$)
             exitStatus("Not_Found", "can't find \"otool\"");
         }
         my $CurInterface = "";
-        foreach my $Line (split(/\n/, `$OtoolCmd -tv $Path 2>$TMP_DIR/null`))
+        foreach my $Line (split(/\n/, `$OtoolCmd -tv \"$Path\" 2>\"$TMP_DIR/null\"`))
         {
             if($Line=~/\A\s*_(\w+)\s*:/i) {
                 $CurInterface = $1;
@@ -10992,7 +11026,7 @@ sub getImplementations($$)
             exitStatus("Not_Found", "can't find \"objdump\"");
         }
         my $CurInterface = "";
-        foreach my $Line (split(/\n/, `$ObjdumpCmd -d $Path 2>$TMP_DIR/null`))
+        foreach my $Line (split(/\n/, `$ObjdumpCmd -d \"$Path\" 2>\"$TMP_DIR/null\"`))
         {
             if($Line=~/\A[\da-z]+\s+<(\w+)>/i) {
                 $CurInterface = $1;
@@ -12221,11 +12255,12 @@ sub showVal($$$)
 {
     my ($Value, $TypeId, $LibVersion) = @_;
     my %PureType = get_PureType($TypeId, $LibVersion);
-    if($PureType{"Name"}=~/\A(char(| const)\*|std::string(|&))\Z/)
+    my $TName = uncover_typedefs($PureType{"Name"}, $LibVersion);
+    if($TName=~/\A(char(| const)\*|std::(string|basic_string<char>)(|&))\Z/)
     { # strings
         return "\"$Value\"";
     }
-    elsif($PureType{"Name"}=~/\Achar(| const)\Z/)
+    elsif($TName=~/\Achar(| const)\Z/)
     { # characters
         return "\'$Value\'";
     }
@@ -15070,7 +15105,7 @@ sub getAffectedSymbols($$$$)
             my $Description = $SProblems{$Symbol}{"Descr"};
             my $Signature = $SProblems{$Symbol}{"Signature"};
             my $Pos = $SProblems{$Symbol}{"Position"};
-            $Affected .= "<span class='iname_b'>".highLight_Signature_PPos_Italic($Signature, $Pos, 1, 0, 0)."</span><br/><div class='affect'>".htmlSpecChars($Description)."</div>\n";
+            $Affected .= "<span class='iname_a'>".highLight_Signature_PPos_Italic($Signature, $Pos, 1, 0, 0)."</span><br/><div class='affect'>".htmlSpecChars($Description)."</div>\n";
         }
         if(keys(%SProblems)>$LIMIT) {
             $Affected .= "and others ...<br/>";
@@ -15314,15 +15349,15 @@ sub openReport($)
     my $Cmd = "";
     if($Browse)
     { # user-defined browser
-        $Cmd = $Browse." \"".$Path."\"";
+        $Cmd = $Browse." \"$Path\"";
     }
     if(not $Cmd)
     { # default browser
         if($OSgroup eq "macos") {
-            system("open \"".$Path."\"");
+            system("open \"$Path\"");
         }
         elsif($OSgroup eq "windows") {
-            system("start \"".$Path."\"");
+            system("start \"$Path\"");
         }
         else
         { # linux, freebsd, solaris
@@ -15339,7 +15374,7 @@ sub openReport($)
             {
                 if($Br = get_CmdPath($Br))
                 {
-                    $Cmd = $Br." \"".$Path."\"";
+                    $Cmd = $Br." \"$Path\"";
                     last;
                 }
             }
@@ -15351,7 +15386,7 @@ sub openReport($)
             printMsg("INFO", "running $Cmd");
         }
         if($Cmd!~/lynx|links/) {
-            $Cmd .= "  >/dev/null 2>&1 &";
+            $Cmd .= "  >\"$TMP_DIR/null\" 2>&1 &";
         }
         system($Cmd);
     }
@@ -15568,44 +15603,49 @@ sub insertIDs($)
 sub checkPreprocessedUnit($)
 {
     my $Path = $_[0];
-    my $CurHeader = "";
+    my ($CurHeader, $CurHeaderName) = ("", "");
     open(PREPROC, $Path) || die ("can't open file \'$Path\': $!\n");
-    while(<PREPROC>)
+    while(my $Line = <PREPROC>)
     { # detecting public and private constants
-        next if(not /\A#/);
-        chomp($_);
-        if(/#[ \t]+\d+[ \t]+\"(.+)\"/) {
-            $CurHeader=path_format($1, $OSgroup);
-        }
-        if(not $Include_Neighbors{$Version}{get_filename($CurHeader)}
-        and not $Registered_Headers{$Version}{$CurHeader})
-        { # not a target
-            next;
-        }
-        my $HName = get_filename($CurHeader);
-        if(not is_target_header($HName, 1)
-        and not is_target_header($HName, 2))
-        { # user-defined header
-            next;
-        }
-        if(/\#[ \t]*define[ \t]+([_A-Z0-9]+)[ \t]+(.+)[ \t]*\Z/)
+        
+        if(substr($Line, 0, 1) eq "#")
         {
-            my ($Name, $Value) = ($1, $2);
-            if(not $Constants{$Version}{$Name}{"Access"})
+            chomp($Line);
+            if($Line=~/\A\#\s+\d+\s+\"(.+)\"/)
             {
-                $Constants{$Version}{$Name}{"Access"} = "public";
-                $Constants{$Version}{$Name}{"Value"} = $Value;
-                $Constants{$Version}{$Name}{"Header"} = get_filename($CurHeader);
+                $CurHeader = path_format($1, $OSgroup);
+                $CurHeaderName = get_filename($CurHeader);
             }
-        }
-        elsif(/\#[ \t]*undef[ \t]+([_A-Z]+)[ \t]*/) {
-            $Constants{$Version}{$1}{"Access"} = "private";
+            if(not $Include_Neighbors{$Version}{$CurHeaderName}
+            and not $Registered_Headers{$Version}{$CurHeader})
+            { # not a target
+                next;
+            }
+            if(not is_target_header($CurHeaderName, 1)
+            and not is_target_header($CurHeaderName, 2))
+            { # user-defined header
+                next;
+            }
+            if($Line=~/\A\#\s*define\s+([_A-Z0-9]+)\s+(.+)\s*\Z/)
+            {
+                my ($Name, $Value) = ($1, $2);
+                if(not $Constants{$Version}{$Name}{"Access"})
+                {
+                    $Constants{$Version}{$Name}{"Access"} = "public";
+                    $Constants{$Version}{$Name}{"Value"} = $Value;
+                    $Constants{$Version}{$Name}{"Header"} = $CurHeaderName;
+                }
+            }
+            elsif($Line=~/\A\#[ \t]*undef[ \t]+([_A-Z]+)[ \t]*/) {
+                $Constants{$Version}{$1}{"Access"} = "private";
+            }
         }
     }
     close(PREPROC);
     foreach my $Constant (keys(%{$Constants{$Version}}))
     {
-        if($Constants{$Version}{$Constant}{"Access"} eq "private" or $Constant=~/_h\Z/i
+        if($Constants{$Version}{$Constant}{"Access"} eq "private"
+        or $Constant=~/_h\Z/i
         or isBuiltIn($Constants{$Version}{$Constant}{"Header"}))
         { # skip private constants
             delete($Constants{$Version}{$Constant});
@@ -15613,6 +15653,11 @@ sub checkPreprocessedUnit($)
         else {
             delete($Constants{$Version}{$Constant}{"Access"});
         }
+    }
+    if($Debug)
+    {
+        mkpath($DEBUG_PATH{$Version});
+        copy($Path, $DEBUG_PATH{$Version}."/preprocessor.txt");
     }
 }
 
@@ -15977,7 +16022,7 @@ sub readSymbols_App($)
         if(not $OtoolCmd) {
             exitStatus("Not_Found", "can't find \"otool\"");
         }
-        open(APP, "$OtoolCmd -IV \"".$Path."\" 2>$TMP_DIR/null |");
+        open(APP, "$OtoolCmd -IV \"$Path\" 2>\"$TMP_DIR/null\" |");
         while(<APP>) {
             if(/[^_]+\s+_?([\w\$]+)\s*\Z/) {
                 push(@Imported, $1);
@@ -15991,7 +16036,7 @@ sub readSymbols_App($)
         if(not $DumpBinCmd) {
             exitStatus("Not_Found", "can't find \"dumpbin.exe\"");
         }
-        open(APP, "$DumpBinCmd /IMPORTS \"".$Path."\" 2>$TMP_DIR/null |");
+        open(APP, "$DumpBinCmd /IMPORTS \"$Path\" 2>\"$TMP_DIR/null\" |");
         while(<APP>) {
             if(/\s*\w+\s+\w+\s+\w+\s+([\w\?\@]+)\s*/) {
                 push(@Imported, $1);
@@ -16005,7 +16050,7 @@ sub readSymbols_App($)
         if(not $ReadelfCmd) {
             exitStatus("Not_Found", "can't find \"readelf\"");
         }
-        open(APP, "$ReadelfCmd -WhlSsdA \"".$Path."\" 2>$TMP_DIR/null |");
+        open(APP, "$ReadelfCmd -WhlSsdA \"$Path\" 2>\"$TMP_DIR/null\" |");
         my $symtab=0; # indicates that we are processing 'symtab' section of 'readelf' output
         while(<APP>)
         {
@@ -16060,6 +16105,10 @@ sub readline_ELF($)
             my @Elems = separate_symbol($fullname);
             $fullname = $Elems[0]; # remove internal version, {00020001}[10011235].dll
         }
+        if(index($size, "0x")!=-1)
+        { # 0x3d158
+            $size = hex($size);
+        }
         return ($fullname, $value, $Ndx, $type, $size, $bind);
     }
     return ();
@@ -16077,11 +16126,11 @@ sub read_symlink($)
         return ($Cache{"read_symlink"}{$Path} = $Res);
     }
     elsif(my $ReadlinkCmd = get_CmdPath("readlink")) {
-        return ($Cache{"read_symlink"}{$Path} = `$ReadlinkCmd -n $Path`);
+        return ($Cache{"read_symlink"}{$Path} = `$ReadlinkCmd -n \"$Path\"`);
     }
     elsif(my $FileCmd = get_CmdPath("file"))
     {
-        my $Info = `$FileCmd $Path`;
+        my $Info = `$FileCmd \"$Path\"`;
         if($Info=~/symbolic\s+link\s+to\s+['`"]*([\w\d\.\-\/\\]+)['`"]*/i) {
             return ($Cache{"read_symlink"}{$Path} = $1);
         }
@@ -16205,7 +16254,7 @@ sub readSymbols_Lib($$$$$)
         }
     }
     my $DebugPath = "";
-    if($Debug)
+    if($Debug and not $DumpSystem)
     { # debug mode
         $DebugPath = $DEBUG_PATH{$LibVersion}."/libs/".get_filename($Lib_Path).".txt";
         mkpath(get_dirname($DebugPath));
@@ -16216,11 +16265,11 @@ sub readSymbols_Lib($$$$$)
         if(not $OtoolCmd) {
             exitStatus("Not_Found", "can't find \"otool\"");
         }
-        $OtoolCmd .= " -TV \"".$Lib_Path."\" 2>$TMP_DIR/null";
-        if($Debug)
+        $OtoolCmd .= " -TV \"$Lib_Path\" 2>\"$TMP_DIR/null\"";
+        if($DebugPath)
         { # debug mode
           # write to file
-            system($OtoolCmd." >".$DebugPath);
+            system($OtoolCmd." >\"$DebugPath\"");
             open(LIB, $DebugPath);
         }
         else
@@ -16258,7 +16307,7 @@ sub readSymbols_Lib($$$$$)
         close(LIB);
         if($LIB_TYPE eq "dynamic")
         { # dependencies
-            open(LIB, "$OtoolCmd -L \"".$Lib_Path."\" 2>$TMP_DIR/null |");
+            open(LIB, "$OtoolCmd -L \"$Lib_Path\" 2>\"$TMP_DIR/null\" |");
             while(<LIB>)
             {
                 if(/\s*([\/\\].+\.$LIB_EXT)\s*/
@@ -16276,10 +16325,10 @@ sub readSymbols_Lib($$$$$)
             exitStatus("Not_Found", "can't find \"dumpbin\"");
         }
         $DumpBinCmd .= " /EXPORTS \"".$Lib_Path."\" 2>$TMP_DIR/null";
-        if($Debug)
+        if($DebugPath)
         { # debug mode
           # write to file
-            system($DumpBinCmd." >".$DebugPath);
+            system($DumpBinCmd." >\"$DebugPath\"");
             open(LIB, $DebugPath);
         }
         else
@@ -16321,7 +16370,7 @@ sub readSymbols_Lib($$$$$)
         close(LIB);
         if($LIB_TYPE eq "dynamic")
         { # dependencies
-            open(LIB, "$DumpBinCmd /DEPENDENTS \"".$Lib_Path."\" 2>$TMP_DIR/null |");
+            open(LIB, "$DumpBinCmd /DEPENDENTS \"$Lib_Path\" 2>\"$TMP_DIR/null\" |");
             while(<LIB>)
             {
                 if(/\s*([^\s]+?\.$LIB_EXT)\s*/i
@@ -16339,11 +16388,11 @@ sub readSymbols_Lib($$$$$)
         if(not $ReadelfCmd) {
             exitStatus("Not_Found", "can't find \"readelf\"");
         }
-        $ReadelfCmd .= " -WhlSsdA \"".$Lib_Path."\" 2>$TMP_DIR/null";
-        if($Debug)
+        $ReadelfCmd .= " -WhlSsdA \"$Lib_Path\" 2>\"$TMP_DIR/null\"";
+        if($DebugPath)
         { # debug mode
           # write to file
-            system($ReadelfCmd." >".$DebugPath);
+            system($ReadelfCmd." >\"$DebugPath\"");
             open(LIB, $DebugPath);
         }
         else
@@ -16433,22 +16482,25 @@ sub readSymbols_Lib($$$$$)
         foreach my $Symbol (keys(%{$Symbol_Library{$LibVersion}}))
         {
             next if(index($Symbol,"\@")==-1);
-            my $Interface_SymName = "";
-            foreach my $Symbol_SameValue (keys(%{$Value_Interface{$LibVersion}{$Interface_Value{$LibVersion}{$Symbol}}}))
+            if(my $Value = $Interface_Value{$LibVersion}{$Symbol})
             {
-                if($Symbol_SameValue ne $Symbol
-                and index($Symbol_SameValue,"\@")==-1)
+                my $Interface_SymName = "";
+                foreach my $Symbol_SameValue (keys(%{$Value_Interface{$LibVersion}{$Value}}))
                 {
-                    $SymVer{$LibVersion}{$Symbol_SameValue} = $Symbol;
-                    $Interface_SymName = $Symbol_SameValue;
-                    last;
+                    if($Symbol_SameValue ne $Symbol
+                    and index($Symbol_SameValue,"\@")==-1)
+                    {
+                        $SymVer{$LibVersion}{$Symbol_SameValue} = $Symbol;
+                        $Interface_SymName = $Symbol_SameValue;
+                        last;
+                    }
                 }
-            }
-            if(not $Interface_SymName)
-            {
-                if($Symbol=~/\A([^\@\$\?]*)[\@\$]+([^\@\$]*)\Z/
-                and not $SymVer{$LibVersion}{$1}) {
-                    $SymVer{$LibVersion}{$1} = $Symbol;
+                if(not $Interface_SymName)
+                {
+                    if($Symbol=~/\A([^\@\$\?]*)[\@\$]+([^\@\$]*)\Z/
+                    and not $SymVer{$LibVersion}{$1}) {
+                        $SymVer{$LibVersion}{$1} = $Symbol;
+                    }
                 }
             }
         }
@@ -16720,7 +16772,7 @@ sub detectWordSize()
         return $Cache{"detectWordSize"};
     }
     writeFile("$TMP_DIR/empty.h", "");
-    my $Defines = `$GCC_PATH -E -dD $TMP_DIR/empty.h`;
+    my $Defines = `$GCC_PATH -E -dD \"$TMP_DIR/empty.h\"`;
     unlink("$TMP_DIR/empty.h");
     my $WSize = 0;
     if($Defines=~/ __SIZEOF_POINTER__\s+(\d+)/)
@@ -17255,8 +17307,10 @@ sub detect_lib_default_paths()
     my %LPaths = ();
     if($OSgroup eq "bsd")
     {
-        if(my $LdConfig = get_CmdPath("ldconfig")) {
-            foreach my $Line (split(/\n/, `$LdConfig -r 2>$TMP_DIR/null`)) {
+        if(my $LdConfig = get_CmdPath("ldconfig"))
+        {
+            foreach my $Line (split(/\n/, `$LdConfig -r 2>\"$TMP_DIR/null\"`))
+            {
                 if($Line=~/\A[ \t]*\d+:\-l(.+) \=\> (.+)\Z/) {
                     $LPaths{"lib".$1} = $2;
                 }
@@ -17276,7 +17330,8 @@ sub detect_lib_default_paths()
                     $LdConfig .= " -f ".$SystemRoot."/etc/ld.so.conf";
                 }
             }
-            foreach my $Line (split(/\n/, `$LdConfig -p 2>$TMP_DIR/null`)) {
+            foreach my $Line (split(/\n/, `$LdConfig -p 2>\"$TMP_DIR/null\"`))
+            {
                 if($Line=~/\A[ \t]*([^ \t]+) .* \=\> (.+)\Z/)
                 {
                     my ($Name, $Path) = ($1, $2);
@@ -17318,7 +17373,7 @@ sub detect_inc_default_paths()
     return () if(not $GCC_PATH);
     my %DPaths = ("Cpp"=>{},"Gcc"=>{},"Inc"=>{});
     writeFile("$TMP_DIR/empty.h", "");
-    foreach my $Line (split(/\n/, `$GCC_PATH -v -x c++ -E "$TMP_DIR/empty.h" 2>&1`))
+    foreach my $Line (split(/\n/, `$GCC_PATH -v -x c++ -E \"$TMP_DIR/empty.h\" 2>&1`))
     { # detecting GCC default include paths
         if($Line=~/\A[ \t]*((\/|\w+:\\).+)[ \t]*\Z/)
         {
@@ -17578,7 +17633,7 @@ sub get_dumpversion($)
     if($Cache{"get_dumpversion"}{$Cmd}) {
         return $Cache{"get_dumpversion"}{$Cmd};
     }
-    my $V = `$Cmd -dumpversion 2>$TMP_DIR/null`;
+    my $V = `$Cmd -dumpversion 2>\"$TMP_DIR/null\"`;
     chomp($V);
     return ($Cache{"get_dumpversion"}{$Cmd} = $V);
 }
@@ -17590,7 +17645,7 @@ sub get_dumpmachine($)
     if($Cache{"get_dumpmachine"}{$Cmd}) {
         return $Cache{"get_dumpmachine"}{$Cmd};
     }
-    my $Machine = `$Cmd -dumpmachine 2>$TMP_DIR/null`;
+    my $Machine = `$Cmd -dumpmachine 2>\"$TMP_DIR/null\"`;
     chomp($Machine);
     return ($Cache{"get_dumpmachine"}{$Cmd} = $Machine);
 }
@@ -17605,7 +17660,7 @@ sub check_command($)
     );
     foreach my $Opt (@Options)
     {
-        my $Info = `$Cmd $Opt 2>$TMP_DIR/null`;
+        my $Info = `$Cmd $Opt 2>\"$TMP_DIR/null\"`;
         if($Info) {
             return 1;
         }
@@ -17681,9 +17736,10 @@ sub parse_libname($$$)
         return parse_libname_windows($Name, $Type);
     }
     my $Ext = getLIB_EXT($Target);
-    if($Name=~/((((lib|).+?)([\-\_][\d\-\.\_]+|))\.$Ext)(\.(.+)|)\Z/)
+    if($Name=~/((((lib|).+?)([\-\_][\d\-\.\_]+.*?|))\.$Ext)(\.(.+)|)\Z/)
     { # libSDL-1.2.so.0.7.1
       # libwbxml2.so.0.0.18
+      # libopcodes-2.21.53-system.20110810.so
         if($Type eq "name")
         { # libSDL-1.2
           # libwbxml2
@@ -17696,7 +17752,8 @@ sub parse_libname($$$)
         }
         elsif($Type eq "version")
         {
-            if($7 ne "")
+            if(defined $7
+            and $7 ne "")
             { # 0.7.1
                 return $7;
             }
@@ -17959,6 +18016,9 @@ sub readModule($$)
 sub is_target_lib($)
 {
     my $LName = $_[0];
+    if(not $LName) {
+        return 0;
+    }
     if($TargetLibraryName
     and $LName!~/\Q$TargetLibraryName\E/) {
         return 0;

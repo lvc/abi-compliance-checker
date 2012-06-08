@@ -97,6 +97,11 @@ span.iname_b {
     font-weight:bold;
     font-size:15px;
 }
+span.iname_a {
+    color:#333333;
+    font-weight:bold;
+    font-size:15px;
+}
 span.sym_p {
     font-weight:normal;
     white-space:normal;
@@ -126,7 +131,7 @@ table.ptable {
     width:900px;
 }
 table.ptable td {
-    border:1px solid Gray;
+    border:1px solid gray;
     padding: 3px;
 }
 table.vtable {
@@ -138,15 +143,17 @@ table.vtable {
     width:100px;
 }
 table.vtable td {
-    border:1px solid Gray;
+    border:1px solid gray;
     white-space:nowrap;
     padding: 3px;
 }
 table.ptable th, table.vtable th {
     background-color:#eeeeee;
     font-weight:bold;
+    color:#333333;
+    font-family:Verdana, Arial;
     font-size:13px;
-    border:1px solid Gray;
+    border:1px solid gray;
     text-align:center;
     vertical-align:top;
     white-space:nowrap;
@@ -227,7 +234,7 @@ td.warning {
     background-color:#F4F4AF;
 }
 td.failed {
-    background-color:#FFC3CE;
+    background-color:#FFCCCC;
 }
 td.new {
     background-color:#C6DEFF;

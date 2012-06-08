@@ -352,11 +352,16 @@ sub cmpSystems($$$)
         $SONAME_Title = "Header File";
     }
     my $SYS_REPORT = "<h1>Binary compatibility between <span style='color:Blue;'>$SystemName1</span> and <span style='color:Blue;'>$SystemName2</span> on <span style='color:Blue;'>".showArch($ArchName)."</span></h1>\n";
+    
     # legend
-    $SYS_REPORT .= "<table>
-    <tr><td class='new' width='80px'>Added</td><td class='passed' width='80px'>Compatible</td></tr>
-    <tr><td class='warning'>Warning</td><td class='failed'>Incompatible</td></tr>
-    </table>";
+    $SYS_REPORT .= "<table cellpadding='2'><tr>\n";
+    $SYS_REPORT .= "<td class='new' width='85px' style='text-align:center'>Added</td>\n";
+    $SYS_REPORT .= "<td class='passed' width='85px' style='text-align:center'>Compatible</td>\n";
+    $SYS_REPORT .= "</tr><tr>\n";
+    $SYS_REPORT .= "<td class='warning' style='text-align:center'>Warning</td>\n";
+    $SYS_REPORT .= "<td class='failed' style='text-align:center'>Incompatible</td>\n";
+    $SYS_REPORT .= "</tr></table>\n";
+    
     $SYS_REPORT .= "<table class='wikitable'>
     <tr><th rowspan='2'>$SONAME_Title<sup>".(keys(%TestResults) + keys(%Added) + keys(%Removed) - keys(%SONAME_Changed))."</sup></th>";
     if(not $GroupByHeaders) {
@@ -562,8 +567,8 @@ sub cmpSystems($$$)
     my $Title = "$SystemName1 to $SystemName2 binary compatibility report";
     my $Keywords = "compatibility, $SystemName1, $SystemName2, API, changes";
     my $Description = "Binary compatibility between $SystemName1 and $SystemName2 on ".showArch($ArchName);
-    my $Styles = readStyles("CmpSystems.css");
-    writeFile($SYS_REPORT_PATH."/abi_compat_report.html", "<!-\- ".join(";", @META_DATA)." -\->\n".composeHTML_Head($Title, $Keywords, $Description, $Styles)."\n<body>
+    my $Styles = readModule("Styles", "CmpSystems.css");
+    writeFile($SYS_REPORT_PATH."/abi_compat_report.html", "<!-\- ".join(";", @META_DATA)." -\->\n".composeHTML_Head($Title, $Keywords, $Description, $Styles, "")."\n<body>
     <div>$SYS_REPORT</div>
     <br/><br/><br/><hr/>
     ".getReportFooter($SystemName2)."
@@ -789,7 +794,7 @@ sub read_sys_info($)
         $SysInfo{$LSName} = read_sys_descriptor($DPath);
     }
     # Exceptions
-    if(check_gcc_version($GCC_PATH, "4.4"))
+    if(check_gcc($GCC_PATH, "4.4"))
     { # exception for libstdc++
         $SysInfo{"libstdc++"}{"gcc_options"} = ["-std=c++0x"];
     }
@@ -950,7 +955,8 @@ sub dumpSystem($)
     }
     my (%LibSoname, %SysLibVersion) = ();
     my %DevelPaths = map {$_=>1} @SystemLibs;
-    foreach my $Path (sort keys(%{$SysDescriptor{"SearchLibs"}})) {
+    foreach my $Path (sort keys(%{$SysDescriptor{"SearchLibs"}}))
+    {
         foreach my $LPath (find_libs($Path,"",1)) {
             $DevelPaths{$LPath}=1;
         }
@@ -1000,21 +1006,21 @@ sub dumpSystem($)
         writeFile($SYS_DUMP_PATH."/sonames.txt", $SONAMES);
     }
     foreach my $LPath (sort keys(%DevelPaths))
-    {# register VERSIONs
+    { # register VERSIONs
         my $LName = get_filename($LPath);
         if(not is_target_lib($LName)
         and not is_target_lib($LibSoname{$LName})) {
             next;
         }
-        if(my $V = get_binversion($LPath))
+        if(my $BV = get_binversion($LPath))
         { # binary version
-            $SysLibVersion{$LName} = $V;
+            $SysLibVersion{$LName} = $BV;
         }
-        elsif(my $V = parse_libname($LName, "version", $OStarget))
+        elsif(my $PV = parse_libname($LName, "version", $OStarget))
         { # source version
-            $SysLibVersion{$LName} = $V;
+            $SysLibVersion{$LName} = $PV;
         }
-        elsif($LName=~/([\d\.\-\_]+)\.$LIB_EXT\Z/)
+        elsif($LName=~/(\d[\d\.\-\_]*)\.$LIB_EXT\Z/)
         { # libfreebl3.so
             if($1 ne 32 and $1 ne 64) {
                 $SysLibVersion{$LName} = $1;
@@ -1099,11 +1105,12 @@ sub dumpSystem($)
             printMsg("INFO", "Reading symbols from libraries ...");
         }
     }
+    
     foreach my $LPath (sort keys(%SysLibs))
     {
         my $LRelPath = cut_path_prefix($LPath, $SystemRoot);
         my $LName = get_filename($LPath);
-        my $Library_Symbol = getSymbols_Lib(1, $LPath, 0, (), "-Weak");
+        my $Library_Symbol = readSymbols_Lib(1, $LPath, 0, (), "-Weak");
         my @AllSymbols = keys(%{$Library_Symbol->{$LName}});
         my $tr_name = translateSymbols(@AllSymbols, 1);
         foreach my $Symbol (@AllSymbols)
@@ -1111,7 +1118,7 @@ sub dumpSystem($)
             $Symbol=~s/[\@\$]+(.*)\Z//g;
             if($Symbol=~/\A(_Z|\?)/)
             {
-                if(skipGlobalData($Symbol)) {
+                if(isPrivateData($Symbol)) {
                     next;
                 }
                 if($Symbol=~/(C1|C2|D0|D1|D2)E/)
@@ -1124,9 +1131,10 @@ sub dumpSystem($)
                 if($Unmangled=~/\A([\w:]+)/)
                 { # cut out the parameters
                     my @Elems = split(/::/, $1);
-                    my ($Class, $Short) = ();
+                    my ($Class, $Short) = ("", "");
                     $Short = $Elems[$#Elems];
-                    if($#Elems>=1) {
+                    if($#Elems>=1)
+                    {
                         $Class = $Elems[$#Elems-1];
                         pop(@Elems);
                     }
@@ -1450,7 +1458,7 @@ sub dumpSystem($)
         }
     }
     @SysHeaders = ();# clear memory
-    my (%Skipped, %Failed, %Success) = ();
+    (%Skipped, %Failed, %Success) = ();
     printMsg("INFO", "Generating XML descriptors ...");
     foreach my $LRelPath (keys(%SysLib_SysHeaders))
     {
