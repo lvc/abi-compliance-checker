@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "Library_Descriptor", "wgTitle": "Library Descriptor", "wgCurRevisionId": 7777, "wgArticleId": 2415, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["API Sanity Checker", "ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "Library_Descriptor", "wgTitle": "Library Descriptor", "wgCurRevisionId": 7948, "wgArticleId": 2415, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["API Sanity Checker", "ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -88,6 +88,11 @@
           #define A B
           #define C D */
  <span style="color:Green;">&lt;/defines&gt;</span>
+ 
+ <span style="color:Green;">&lt;add_namespaces&gt;</span>
+     /* The list of namespaces that should be added to the alanysis	
+        if the tool cannot find them automatically, one per line */	
+ <span style="color:Green;">&lt;/add_namespaces&gt;</span>
  
  <span style="color:Green;">&lt;skip_types&gt;</span>
      /* The list of data types, that
@@ -454,11 +459,11 @@
 </pre>
 <!-- 
 NewPP limit report
-Preprocessor node count: 173/1000000
+Preprocessor node count: 175/1000000
 Post-expand include size: 0/2097152 bytes
 Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2415-0!*!*!!*!*!* and timestamp 20120608131706 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2415-0!*!*!!*!*!* and timestamp 20120608132736 -->
 </div></div></div></div></div></body></html>
