@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.97.8
+# ABI Compliance Checker (ACC) 1.98.0
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -55,10 +55,11 @@ use Cwd qw(abs_path cwd);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.97.8";
-my $ABI_DUMP_VERSION = "2.16";
+my $TOOL_VERSION = "1.98.0";
+my $ABI_DUMP_VERSION = "2.17";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.0";
+my $XML_ABI_DUMP_VERSION = "1.0";
 my $OSgroup = get_OSgroup();
 my $ORIG_DIR = cwd();
 my $TMP_DIR = tempdir(CLEANUP=>1);
@@ -81,7 +82,7 @@ $CmpSystems, $TargetLibsPath, $Debug, $CrossPrefix, $UseStaticLibs, $NoStdInc,
 $TargetComponent_Opt, $TargetSysInfo, $TargetHeader, $ExtendedCheck, $Quiet,
 $SkipHeadersPath, $Cpp2003, $LogMode, $StdOut, $ListAffected, $ReportFormat,
 $UserLang, $TargetHeadersPath, $BinaryOnly, $SourceOnly, $BinaryReportPath,
-$SourceReportPath, $UseXML, $Browse, $OpenReport, $SortDump);
+$SourceReportPath, $UseXML, $Browse, $OpenReport, $SortDump, $DumpFormat);
 
 my $CmdName = get_filename($0);
 my %OS_LibExt = (
@@ -222,6 +223,7 @@ GetOptions("h|help!" => \$Help,
   "q|quiet!" => \$Quiet,
   "stdout!" => \$StdOut,
   "report-format=s" => \$ReportFormat,
+  "dump-format=s" => \$DumpFormat,
   "xml!" => \$UseXML,
   "lang=s" => \$UserLang,
   "binary|bin|abi!" => \$BinaryOnly,
@@ -583,8 +585,14 @@ EXTRA OPTIONS:
         htm - HTML format (default)
         xml - XML format
 
+  -dump-format <fmt>
+      Change format of ABI dump.
+      Formats:
+        perl - Data::Dumper format (default)
+        xml - XML format
+
   -xml
-      Alias for: --report-format=xml
+      Alias for: --report-format=xml or --dump-format=xml
 
   -lang <lang>
       Set library language (C or C++). You can use this option if the tool
@@ -642,7 +650,7 @@ OTHER OPTIONS:
       Replace {RELPATH} macros to <path> in the 2nd XML-descriptor (-d2).
 
   -dump-path <path>
-      Specify a file path (*.abi.$AR_EXT) where to generate an ABI dump.
+      Specify a *.abi.$AR_EXT or *.abi file path where to generate an ABI dump.
       Default: 
           abi_dumps/<library>/<library>_<version>.abi.$AR_EXT
 
@@ -1472,6 +1480,10 @@ my $ContentDivStart = "<div id=\"CONTENT_ID\" style=\"display:none;\">\n";
 my $ContentDivEnd = "</div>\n";
 my $Content_Counter = 0;
 
+# XML Dump
+my $TAG_ID = 0;
+my $INDENT = "    ";
+
 # Modes
 my $JoinReport = 1;
 my $DoubleReport = 0;
@@ -1744,7 +1756,7 @@ sub readDescriptor($$)
         exitStatus("Error", "$DName is empty");
     }
     if($Content!~/\</) {
-        exitStatus("Error", "$DName is not a descriptor (see -d1 option)");
+        exitStatus("Error", "incorrect descriptor (see -d1 option)");
     }
     $Content=~s/\/\*(.|\n)+?\*\///g;
     $Content=~s/<\!--(.|\n)+?-->//g;
@@ -1950,6 +1962,72 @@ sub parseTag($$)
     }
     else {
         return "";
+    }
+}
+
+sub addTag($$)
+{
+    my ($Tag, $Val) = @_;
+    my $Content = "";
+    foreach (1 .. $TAG_ID) {
+        $Content .= $INDENT;
+    }
+    $Content .= "<$Tag>";
+    $Content .= xmlSpecChars($Val);
+    $Content .= "</$Tag>\n";
+    
+    return $Content;
+}
+
+sub openTag($)
+{
+    my $Tag = $_[0];
+    my $Content = "";
+    foreach (1 .. $TAG_ID) {
+        $Content .= $INDENT;
+    }
+    $TAG_ID+=1;
+    $Content .= "<".$Tag.">\n";
+    return $Content;
+}
+
+sub openTag_E(@)
+{
+    my $Tag = shift(@_);
+    my @Ext = @_;
+    my $Content = "";
+    foreach (1 .. $TAG_ID) {
+        $Content .= $INDENT;
+    }
+    $TAG_ID+=1;
+    $Content .= "<".$Tag;
+    my $P = 0;
+    while($P<=$#Ext-1)
+    {
+        $Content .= " ".$Ext[$P];
+        $Content .= "=\"".xmlSpecChars($Ext[$P+1])."\"";
+        $P+=2;
+    }
+    $Content .= ">\n";
+    return $Content;
+}
+
+sub closeTag($)
+{
+    my $Tag = $_[0];
+    my $Content = "";
+    $TAG_ID-=1;
+    foreach (1 .. $TAG_ID) {
+        $Content .= $INDENT;
+    }
+    $Content .= "</".$Tag.">\n";
+    return $Content;
+}
+
+sub checkTags()
+{
+    if($TAG_ID!=0) {
+        printMsg("WARNING", "the number of opened tags is not equal to number of closed tags");
     }
 }
 
@@ -3207,6 +3285,21 @@ sub getVarInfo($)
     { # --lang=C option
         $SymbolInfo{$Version}{$InfoId}{"MnglName"} = $ShortName;
     }
+    if(not $CheckHeadersOnly)
+    {
+        if(not $SymbolInfo{$Version}{$InfoId}{"Class"})
+        {
+            if(not $SymbolInfo{$Version}{$InfoId}{"MnglName"}
+            or not link_symbol($SymbolInfo{$Version}{$InfoId}{"MnglName"}, $Version, "-Deps"))
+            {
+                if(link_symbol($ShortName, $Version, "-Deps"))
+                { # "const" global data is mangled as _ZL... in the TU dump
+                  # but not mangled when compiling a C shared library
+                    $SymbolInfo{$Version}{$InfoId}{"MnglName"} = $ShortName;
+                }
+            }
+        }
+    }
     if($COMMON_LANGUAGE{$Version} eq "C++")
     {
         if(not $SymbolInfo{$Version}{$InfoId}{"MnglName"})
@@ -3229,20 +3322,6 @@ sub getVarInfo($)
     }
     if(not $SymbolInfo{$Version}{$InfoId}{"MnglName"}) {
         $SymbolInfo{$Version}{$InfoId}{"MnglName"} = $ShortName;
-    }
-    if(not $CheckHeadersOnly
-    and not link_symbol($SymbolInfo{$Version}{$InfoId}{"MnglName"}, $Version, "-Deps"))
-    {
-        if(link_symbol($ShortName, $Version, "-Deps"))
-        {
-            if(not $SymbolInfo{$Version}{$InfoId}{"Class"}
-            and isConstType($SymbolInfo{$Version}{$InfoId}{"Return"}, $Version)
-            and $SymbolInfo{$Version}{$InfoId}{"MnglName"}=~/L\d+$ShortName/)
-            { # "const" global data is mangled as _ZL... in the TU dump
-              # but not mangled when compiling a C shared library
-                $SymbolInfo{$Version}{$InfoId}{"MnglName"} = $ShortName;
-            }
-        }
     }
     if(my $Symbol = $SymbolInfo{$Version}{$InfoId}{"MnglName"})
     {
@@ -7064,8 +7143,10 @@ sub getDump()
         writeFile($DEBUG_PATH{$Version}."/headers/default-paths.txt", Dumper(\%DefaultIncPaths));
     }
     
-    # Target headers
-    addTargetHeaders($Version);
+    if(not keys(%{$TargetHeaders{$Version}}))
+    { # Target headers
+        addTargetHeaders($Version);
+    }
     
     # clean memory
     %RecursiveIncludes = ();
@@ -7592,6 +7673,9 @@ sub unpackDump($)
 sub createArchive($$)
 {
     my ($Path, $To) = @_;
+    if(not $To) {
+        $To = ".";
+    }
     if(not $Path or not -e $Path
     or not -d $To) {
         return "";
@@ -7910,6 +7994,24 @@ sub prepareSymbols($)
                   # some global data is not mangled in the TU dump: qt_sine_table (Qt 4.8)
                   # and incorrectly mangled by old ACC versions
                     $SRemangle = 1;
+                }
+            }
+        }
+        if(not $CheckHeadersOnly)
+        { # support for old ABI dumps
+            if(not checkDump(1, "2.17")
+            or not checkDump(2, "2.17"))
+            {
+                if($SymbolInfo{$LibVersion}{$InfoId}{"Data"})
+                {
+                    if(not $SymbolInfo{$LibVersion}{$InfoId}{"Class"})
+                    {
+                        if(link_symbol($ShortName, $LibVersion, "-Deps"))
+                        {
+                            $MnglName = $ShortName;
+                            $SymbolInfo{$LibVersion}{$InfoId}{"MnglName"} = $MnglName;
+                        }
+                    }
                 }
             }
         }
@@ -13059,8 +13161,8 @@ sub formatVersion($$)
 sub htmlSpecChars($)
 {
     my $Str = $_[0];
-    if($Str eq "") {
-        return "";
+    if(not $Str) {
+        return $Str;
     }
     $Str=~s/\&([^#]|\Z)/&amp;$1/g;
     $Str=~s/</&lt;/g;
@@ -13072,6 +13174,23 @@ sub htmlSpecChars($)
     $Str=~s/\n/<br\/>/g;
     $Str=~s/\"/&quot;/g;
     $Str=~s/\'/&#39;/g;
+    return $Str;
+}
+
+sub xmlSpecChars($)
+{
+    my $Str = $_[0];
+    if(not $Str) {
+        return $Str;
+    }
+    
+    $Str=~s/\&([^#]|\Z)/&amp;$1/g;
+    $Str=~s/</&lt;/g;
+    $Str=~s/>/&gt;/g;
+    
+    $Str=~s/\"/&quot;/g;
+    $Str=~s/\'/&#39;/g;
+    
     return $Str;
 }
 
@@ -14417,7 +14536,7 @@ sub getXmlParams($$)
     }
     my @PString = ();
     foreach my $P (sort {$b cmp $a} keys(%XMLparams)) {
-        push(@PString, $P."=\"".htmlSpecChars($XMLparams{$P})."\"");
+        push(@PString, $P."=\"".xmlSpecChars($XMLparams{$P})."\"");
     }
     if(@PString) {
         return " ".join(" ", @PString);
@@ -14480,7 +14599,7 @@ sub applyMacroses($$$$)
         or $Value eq "") {
             next;
         }
-        if($Value=~/\s\(/)
+        if($Value=~/\s\(/ and $Value!~/['"]/)
         { # functions
             $Value=~s/\s*\[[\w\-]+\]//g; # remove quals
             $Value=~s/\s\w+(\)|,)/$1/g; # remove parameter names
@@ -14775,7 +14894,7 @@ sub get_Report_TypeProblems($$)
             $TYPE_PROBLEMS .= "  <header name=\"$HeaderName\">\n";
             foreach my $TypeName (keys(%{$ReportMap{$HeaderName}}))
             {
-                $TYPE_PROBLEMS .= "    <type name=\"".htmlSpecChars($TypeName)."\">\n";
+                $TYPE_PROBLEMS .= "    <type name=\"".xmlSpecChars($TypeName)."\">\n";
                 foreach my $Kind (sort {$b=~/Size/ <=> $a=~/Size/} sort keys(%{$TypeChanges{$TypeName}}))
                 {
                     foreach my $Location (sort {cmp_locations($b, $a)} sort keys(%{$TypeChanges{$TypeName}{$Kind}}))
@@ -14917,8 +15036,8 @@ sub showVTables($)
                 foreach my $Index (sort {int($a)<=>int($b)} (keys(%Entries)))
                 {
                     $VTABLES .= "        <entry offset=\"".$Index."\">\n";
-                    $VTABLES .= "          <old>".htmlSpecChars($Entries{$Index}{"E1"})."</old>\n";
-                    $VTABLES .= "          <new>".htmlSpecChars($Entries{$Index}{"E2"})."</new>\n";
+                    $VTABLES .= "          <old>".xmlSpecChars($Entries{$Index}{"E1"})."</old>\n";
+                    $VTABLES .= "          <new>".xmlSpecChars($Entries{$Index}{"E2"})."</new>\n";
                     $VTABLES .= "        </entry>\n";
                 }
                 $VTABLES .= "      </vtable>\n\n";
@@ -15093,7 +15212,7 @@ sub getAffectedSymbols($$$$)
                 $Target = " affected=\"this\"";
             }
             $Affected .= "        <symbol$Target name=\"$Symbol\">\n";
-            $Affected .= "          <comment>".htmlSpecChars($Description)."</comment>\n";
+            $Affected .= "          <comment>".xmlSpecChars($Description)."</comment>\n";
             $Affected .= "        </symbol>\n";
         }
         $Affected .= "      </affected>\n";
@@ -15243,14 +15362,14 @@ sub get_XmlSign($$)
         }
         $Report .= "    <param pos=\"$Pos\">\n";
         $Report .= "      <name>".$Name."</name>\n";
-        $Report .= "      <type>".htmlSpecChars($TypeName)."</type>\n";
+        $Report .= "      <type>".xmlSpecChars($TypeName)."</type>\n";
         $Report .= "    </param>\n";
     }
     if(my $Return = $Info->{"Return"})
     {
         my $RTName = $TypeInfo{$LibVersion}{$Return}{"Name"};
         $Report .= "    <retval>\n";
-        $Report .= "      <type>".htmlSpecChars($RTName)."</type>\n";
+        $Report .= "      <type>".xmlSpecChars($RTName)."</type>\n";
         $Report .= "    </retval>\n";
     }
     return $Report;
@@ -15294,13 +15413,13 @@ sub get_Report_SymbolsInfo($)
         }
         if($S1)
         {
-            $Report .= "    <old signature=\"".htmlSpecChars($S1)."\">\n";
+            $Report .= "    <old signature=\"".xmlSpecChars($S1)."\">\n";
             $Report .= $P1;
             $Report .= "    </old>\n";
         }
         if($S2 and $S2 ne $S1)
         {
-            $Report .= "    <new signature=\"".htmlSpecChars($S2)."\">\n";
+            $Report .= "    <new signature=\"".xmlSpecChars($S2)."\">\n";
             $Report .= $P2;
             $Report .= "    </new>\n";
         }
@@ -16835,12 +16954,17 @@ sub read_ABI_Dump($$)
         exitStatus("Invalid_Dump", "specified ABI dump \'$Path\' is not valid, try to recreate it");
     }
     
+    my $Line = readLineNum($FilePath, 1);
+    if($Line=~/xml/) {
+        exitStatus("Invalid_Dump", "reading of XML-format ABI dumps is not implemented yet");
+    }
+    
     open(DUMP, $FilePath);
     local $/ = undef;
     my $Content = <DUMP>;
     close(DUMP);
     
-    if($Path!~/\.abi\Z/)
+    if(get_dirname($FilePath) eq $TMP_DIR."/unpack")
     { # remove temp file
         unlink($FilePath);
     }
@@ -16884,13 +17008,17 @@ sub read_ABI_Dump($$)
             exitStatus("Dump_Version", $Msg);
         }
     }
-    if($LibraryABI->{"SrcBin"})
-    { # default
-        $UsedDump{$LibVersion}{"SrcBin"} = 1;
+    if(not checkDump($LibVersion, "2.11"))
+    { # old ABI dumps
+        $UsedDump{$LibVersion}{"BinOnly"} = 1;
     }
     elsif($LibraryABI->{"BinOnly"})
     { # ABI dump created with --binary option
         $UsedDump{$LibVersion}{"BinOnly"} = 1;
+    }
+    else
+    { # default
+        $UsedDump{$LibVersion}{"SrcBin"} = 1;
     }
     if(defined $LibraryABI->{"Mode"}
     and $LibraryABI->{"Mode"} eq "Extended")
@@ -17028,7 +17156,8 @@ sub read_ABI_Dump($$)
     }
     read_Headers_DumpInfo($LibraryABI, $LibVersion);
     read_Libs_DumpInfo($LibraryABI, $LibVersion);
-    if(not checkDump($LibVersion, "2.10.1"))
+    if(not checkDump($LibVersion, "2.10.1")
+    or not $TargetHeaders{$LibVersion})
     { # support for old ABI dumps: added target headers
         foreach (keys(%{$Registered_Headers{$LibVersion}})) {
             $TargetHeaders{$LibVersion}{get_filename($_)}=1;
@@ -18381,6 +18510,23 @@ sub check_win32_env()
     }
 }
 
+sub diffSets($$)
+{
+    my ($S1, $S2) = @_;
+    my @SK1 = keys(%{$S1});
+    my @SK2 = keys(%{$S2});
+    if($#SK1!=$#SK2) {
+        return 1;
+    }
+    foreach my $K1 (@SK1)
+    {
+        if(not defined $S2->{$K1}) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 sub create_ABI_Dump()
 {
     if(not -e $DumpAPI) {
@@ -18470,7 +18616,6 @@ sub create_ABI_Dump()
         "SkipSymbols" => $SkipSymbols{1},
         "SkipNameSpaces" => $SkipNameSpaces{1},
         "SkipHeaders" => $SkipHeadersList{1},
-        "TargetHeaders" => $TargetHeaders{1},
         "Headers" => \%HeadersInfo,
         "Constants" => $Constants{1},
         "NameSpaces" => $NestedNameSpaces{1},
@@ -18481,6 +18626,12 @@ sub create_ABI_Dump()
         "ABI_DUMP_VERSION" => $ABI_DUMP_VERSION,
         "ABI_COMPLIANCE_CHECKER_VERSION" => $TOOL_VERSION
     );
+    if(diffSets($TargetHeaders{1}, \%HeadersInfo)) {
+        $LibraryABI{"TargetHeaders"} = $TargetHeaders{1};
+    }
+    if($UseXML) {
+        $LibraryABI{"XML_ABI_DUMP_VERSION"} = $XML_ABI_DUMP_VERSION;
+    }
     if($ExtendedCheck)
     { # --ext option
         $LibraryABI{"Mode"} = "Extended";
@@ -18489,40 +18640,56 @@ sub create_ABI_Dump()
     { # --binary
         $LibraryABI{"BinOnly"} = 1;
     }
+    
+    my $ABI_DUMP = "";
+    if($UseXML)
+    {
+        loadModule("XmlDump");
+        $ABI_DUMP = createXmlDump(\%LibraryABI);
+    }
     else
     { # default
-        $LibraryABI{"SrcBin"} = 1;
+        $ABI_DUMP = Dumper(\%LibraryABI);
     }
-    
     if($StdOut)
     { # --stdout option
-        print STDOUT Dumper(\%LibraryABI);
+        print STDOUT $ABI_DUMP;
         printMsg("INFO", "ABI dump has been generated to stdout");
         return;
     }
     else
     { # write to gzipped file
-        my $DumpPath = "abi_dumps/$TargetLibraryName/".$TargetLibraryName."_".$Descriptor{1}{"Version"}.".abi.".$AR_EXT;
+        my $DumpPath = "abi_dumps/$TargetLibraryName/".$TargetLibraryName."_".$Descriptor{1}{"Version"}.".abi";
+        $DumpPath .= ".".$AR_EXT; # gzipped by default
         if($OutputDumpPath)
         { # user defined path
             $DumpPath = $OutputDumpPath;
         }
-        if(not $DumpPath=~s/\Q.$AR_EXT\E\Z//g) {
-            exitStatus("Error", "the dump path (-dump-path option) should be the path to a *.$AR_EXT file");
-        }
+        my $Archive = ($DumpPath=~s/\Q.$AR_EXT\E\Z//g);
         my ($DDir, $DName) = separate_path($DumpPath);
         my $DPath = $TMP_DIR."/".$DName;
+        if(not $Archive) {
+            $DPath = $DumpPath;
+        }
+        
         mkpath($DDir);
         
         open(DUMP, ">", $DPath) || die ("can't open file \'$DPath\': $!\n");
-        print DUMP Dumper(\%LibraryABI);
+        print DUMP $ABI_DUMP;
         close(DUMP);
         
         if(not -s $DPath) {
             exitStatus("Error", "can't create ABI dump because something is going wrong with the Data::Dumper module");
         }
-        my $Pkg = createArchive($DPath, $DDir);
-        printMsg("INFO", "library ABI has been dumped to:\n  $Pkg");
+        if($Archive)
+        {
+            my $PkgPath = createArchive($DPath, $DDir);
+            printMsg("INFO", "library ABI has been dumped to:\n  $PkgPath");
+        }
+        else {
+            printMsg("INFO", "library ABI has been dumped to:\n  $DumpPath");
+        }
+        
         printMsg("INFO", "you can transfer this dump everywhere and use instead of the ".$Descriptor{1}{"Version"}." version descriptor");
     }
 }
@@ -19125,6 +19292,12 @@ sub scenario()
             $COMMON_LOG_PATH = $LoggingPath;
         }
     }
+    if($OutputDumpPath)
+    { # validate
+        if($OutputDumpPath!~/\.abi(\.\Q$AR_EXT\E|)\Z/) {
+            exitStatus("Error", "the dump path should be a path to *.abi.$AR_EXT or *.abi file");
+        }
+    }
     if($BinaryOnly and $SourceOnly)
     { # both --binary and --source
       # is the default mode
@@ -19146,12 +19319,13 @@ sub scenario()
     if($UseXML)
     { # --xml option
         $ReportFormat = "xml";
+        $DumpFormat = "xml";
     }
     if($ReportFormat)
     { # validate
         $ReportFormat = lc($ReportFormat);
         if($ReportFormat!~/\A(xml|html|htm)\Z/) {
-            exitStatus("Error", "unknown format \'$ReportFormat\'");
+            exitStatus("Error", "unknown report format \'$ReportFormat\'");
         }
         if($ReportFormat eq "htm")
         { # HTM == HTML
@@ -19165,6 +19339,21 @@ sub scenario()
     else
     { # default: HTML
         $ReportFormat = "html";
+    }
+    if($DumpFormat)
+    { # validate
+        $DumpFormat = lc($DumpFormat);
+        if($DumpFormat!~/\A(xml|perl)\Z/) {
+            exitStatus("Error", "unknown ABI dump format \'$DumpFormat\'");
+        }
+        if($DumpFormat eq "xml")
+        { # --dump-format=XML equal to --xml
+            $UseXML = 1;
+        }
+    }
+    else
+    { # default: HTML
+        $DumpFormat = "perl";
     }
     if($Quiet and $LogMode!~/a|n/)
     { # --quiet log

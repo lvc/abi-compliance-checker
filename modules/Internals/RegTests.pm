@@ -2436,6 +2436,11 @@ sub testCpp()
         #define PUBLIC_CONSTANT \"new_value\"";
     
     $HEADER1 .= "
+        #define PUBLIC_VERSION \"1.2 (3.4)\"";
+    $HEADER2 .= "
+        #define PUBLIC_VERSION \"1.2 (3.5)\"";
+    
+    $HEADER1 .= "
         #define PRIVATE_CONSTANT \"old_value\"
         #undef PRIVATE_CONSTANT";
     $HEADER2 .= "
