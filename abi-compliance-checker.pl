@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.98.0
+# ABI Compliance Checker (ACC) 1.98.1
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -55,11 +55,11 @@ use Cwd qw(abs_path cwd);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.98.0";
+my $TOOL_VERSION = "1.98.1";
 my $ABI_DUMP_VERSION = "2.17";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.0";
-my $XML_ABI_DUMP_VERSION = "1.0";
+my $XML_ABI_DUMP_VERSION = "1.1";
 my $OSgroup = get_OSgroup();
 my $ORIG_DIR = cwd();
 my $TMP_DIR = tempdir(CLEANUP=>1);
@@ -1965,33 +1965,21 @@ sub parseTag($$)
     }
 }
 
-sub addTag($$)
+sub addTag(@)
 {
-    my ($Tag, $Val) = @_;
-    my $Content = "";
-    foreach (1 .. $TAG_ID) {
-        $Content .= $INDENT;
-    }
-    $Content .= "<$Tag>";
+    my $Tag = shift(@_);
+    my $Val = shift(@_);
+    my @Ext = @_;
+    my $Content = openTag($Tag, @Ext);
+    chomp($Content);
     $Content .= xmlSpecChars($Val);
     $Content .= "</$Tag>\n";
+    $TAG_ID-=1;
     
     return $Content;
 }
 
-sub openTag($)
-{
-    my $Tag = $_[0];
-    my $Content = "";
-    foreach (1 .. $TAG_ID) {
-        $Content .= $INDENT;
-    }
-    $TAG_ID+=1;
-    $Content .= "<".$Tag.">\n";
-    return $Content;
-}
-
-sub openTag_E(@)
+sub openTag(@)
 {
     my $Tag = shift(@_);
     my @Ext = @_;
@@ -2000,15 +1988,21 @@ sub openTag_E(@)
         $Content .= $INDENT;
     }
     $TAG_ID+=1;
-    $Content .= "<".$Tag;
-    my $P = 0;
-    while($P<=$#Ext-1)
+    if(@Ext)
     {
-        $Content .= " ".$Ext[$P];
-        $Content .= "=\"".xmlSpecChars($Ext[$P+1])."\"";
-        $P+=2;
+        $Content .= "<".$Tag;
+        my $P = 0;
+        while($P<=$#Ext-1)
+        {
+            $Content .= " ".$Ext[$P];
+            $Content .= "=\"".xmlSpecChars($Ext[$P+1])."\"";
+            $P+=2;
+        }
+        $Content .= ">\n";
     }
-    $Content .= ">\n";
+    else {
+        $Content .= "<".$Tag.">\n";
+    }
     return $Content;
 }
 
@@ -3278,8 +3272,10 @@ sub getVarInfo($)
             return;
         }
     }
-    if($LibInfo{$Version}{"info"}{$InfoId}=~/ lang:[ ]*C /i) {
+    if($LibInfo{$Version}{"info"}{$InfoId}=~/ lang:[ ]*C /i)
+    { # extern "C"
         $SymbolInfo{$Version}{$InfoId}{"Lang"} = "C";
+        $SymbolInfo{$Version}{$InfoId}{"MnglName"} = $ShortName;
     }
     if($UserLang and $UserLang eq "C")
     { # --lang=C option
@@ -3727,9 +3723,11 @@ sub mangle_symbol_GCC($$)
     }
     my ($ShortName, $TmplParams) = template_base($SymbolInfo{$LibVersion}{$InfoId}{"ShortName"});
     my @TParams = ();
-    if($Version)
+    if(my @TPos = keys(%{$SymbolInfo{$LibVersion}{$InfoId}{"TParam"}}))
     { # parsing mode
-        @TParams = getTParams($InfoId, "Func");
+        foreach (@TPos) {
+            push(@TParams, $SymbolInfo{$LibVersion}{$InfoId}{"TParam"}{$_}{"name"});
+        }
     }
     elsif($TmplParams)
     { # remangling mode
@@ -3931,9 +3929,11 @@ sub mangle_param($$$)
     elsif($BaseType{"Type"}=~/(Class|Struct|Union|Enum)/)
     {
         my @TParams = ();
-        if($Version)
+        if(my @TPos = keys(%{$BaseType{"TParam"}}))
         { # parsing mode
-            @TParams = getTParams($BaseType{"Tid"}, "Type");
+            foreach (@TPos) {
+                push(@TParams, $BaseType{"TParam"}{$_}{"name"});
+            }
         }
         elsif($TmplParams)
         { # remangling mode
@@ -4347,13 +4347,6 @@ sub linkSymbol($)
 { # link symbols from shared libraries
   # with the symbols from header files
     my $InfoId = $_[0];
-    if(my $Lang = $SymbolInfo{$Version}{$InfoId}{"Lang"})
-    {
-        if($Lang eq "C")
-        { # extern "C"
-            return $SymbolInfo{$Version}{$InfoId}{"ShortName"};
-        }
-    }
     # try to mangle symbol
     if((not check_gcc($GCC_PATH, "4") and $SymbolInfo{$Version}{$InfoId}{"Class"})
     or (check_gcc($GCC_PATH, "4") and not $SymbolInfo{$Version}{$InfoId}{"Class"}))
@@ -4497,8 +4490,10 @@ sub getSymbolInfo($)
             }
         }
     }
-    if($LibInfo{$Version}{"info"}{$InfoId}=~/ lang:[ ]*C /i) {
+    if($LibInfo{$Version}{"info"}{$InfoId}=~/ lang:[ ]*C /i)
+    { # extern "C"
         $SymbolInfo{$Version}{$InfoId}{"Lang"} = "C";
+        $SymbolInfo{$Version}{$InfoId}{"MnglName"} = $SymbolInfo{$Version}{$InfoId}{"ShortName"};
     }
     if($UserLang and $UserLang eq "C")
     { # --lang=C option
@@ -4564,14 +4559,10 @@ sub getSymbolInfo($)
     }
     if(my $Symbol = $SymbolInfo{$Version}{$InfoId}{"MnglName"})
     {
-        if(not $SymbolInfo{$Version}{$InfoId}{"Virt"}
-        and not $SymbolInfo{$Version}{$InfoId}{"PureVirt"})
-        {
-            if(not selectSymbol($Symbol, $SymbolInfo{$Version}{$InfoId}, "Dump", $Version))
-            { # non-target symbols
-                delete($SymbolInfo{$Version}{$InfoId});
-                return;
-            }
+        if(not selectSymbol($Symbol, $SymbolInfo{$Version}{$InfoId}, "Dump", $Version))
+        { # non-target symbols
+            delete($SymbolInfo{$Version}{$InfoId});
+            return;
         }
     }
     if($SymbolInfo{$Version}{$InfoId}{"Type"} eq "Method"
@@ -8257,8 +8248,17 @@ sub register_TypeUsage($$)
 }
 
 sub selectSymbol($$$$)
-{
+{ # select symbol to check or to dump
     my ($Symbol, $SInfo, $Level, $LibVersion) = @_;
+    
+    if($Level eq "Dump")
+    {
+        if($SInfo->{"Virt"} or $SInfo->{"PureVirt"})
+        { # TODO: check if this symbol is from
+          # base classes of other target symbols
+            return 1;
+        }
+    }
     
     if(not $STDCXX_TESTING and $Symbol=~/\A(_ZS|_ZNS|_ZNKS)/)
     { # stdc++ interfaces
@@ -8306,14 +8306,17 @@ sub selectSymbol($$$$)
         }
         if($Level eq "Dump")
         { # dumped
-            if(not $BinaryOnly)
-            { # SrcBin
-                if($Target) {
-                    return 1;
+            if($BinaryOnly)
+            {
+                if($SInfo->{"Data"})
+                {
+                    if($Target) {
+                        return 1;
+                    }
                 }
             }
-            if($SInfo->{"Data"})
-            {
+            else
+            { # SrcBin
                 if($Target) {
                     return 1;
                 }
@@ -8321,8 +8324,11 @@ sub selectSymbol($$$$)
         }
         elsif($Level eq "Source")
         { # checked
-            if($Target) {
-                return 1;
+            if($SInfo->{"PureVirt"} or $SInfo->{"Data"} or $SInfo->{"InLine"})
+            { # skip LOCAL symbols
+                if($Target) {
+                    return 1;
+                }
             }
         }
         elsif($Level eq "Binary")
@@ -18772,12 +18778,11 @@ sub initLogging($)
         mkpath($LOG_DIR);
     }
     $LOG_PATH{$LibVersion} = get_abs_path($LOG_DIR)."/".$LOG_FILE;
-    resetLogging($LibVersion);
     if($Debug)
     { # debug directory
         $DEBUG_PATH{$LibVersion} = "debug/$TargetLibraryName/".$Descriptor{$LibVersion}{"Version"};
-        rmtree($DEBUG_PATH{$LibVersion});
     }
+    resetLogging($LibVersion);
 }
 
 sub writeLog($$)
@@ -18794,6 +18799,9 @@ sub resetLogging($)
     if($LogMode!~/a|n/)
     { # remove old log
         unlink($LOG_PATH{$LibVersion});
+        if($Debug) {
+            rmtree($DEBUG_PATH{$LibVersion});
+        }
     }
 }
 
@@ -19039,14 +19047,9 @@ sub compareInit()
         if($CrossGcc) {
             @CMP_PARAMS = (@CMP_PARAMS, "-cross-gcc", $CrossGcc);
         }
-        if($Quiet)
-        {
+        @CMP_PARAMS = (@CMP_PARAMS, "-logging-mode", "a");
+        if($Quiet) {
             @CMP_PARAMS = (@CMP_PARAMS, "-quiet");
-            @CMP_PARAMS = (@CMP_PARAMS, "-logging-mode", "a");
-        }
-        elsif($LogMode and $LogMode ne "w")
-        { # "w" is default
-            @CMP_PARAMS = (@CMP_PARAMS, "-logging-mode", $LogMode);
         }
         if($ReportFormat and $ReportFormat ne "html")
         { # HTML is default format

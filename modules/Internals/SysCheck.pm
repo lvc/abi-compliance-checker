@@ -719,6 +719,7 @@ sub read_sys_descriptor($)
     my %Tags = (
         "headers" => "mf",
         "skip_headers" => "mf",
+        "skip_including" => "mf",
         "skip_libs" => "mf",
         "include_preamble" => "mf",
         "non_self_compiled" => "mf",
@@ -1384,7 +1385,19 @@ sub dumpSystem($)
                         next;
                     }
                 }
+                if(my $Skip = $SysInfo->{$LSName}{"skip_including"})
+                { # do NOT search for some headers
+                    if(check_list($HRelPath, $Skip)) {
+                        next;
+                    }
+                }
                 if(my $Skip = $SysCInfo->{"skip_headers"})
+                { # do NOT search for some headers
+                    if(check_list($HRelPath, $Skip)) {
+                        next;
+                    }
+                }
+                if(my $Skip = $SysCInfo->{"skip_including"})
                 { # do NOT search for some headers
                     if(check_list($HRelPath, $Skip)) {
                         next;
@@ -1443,6 +1456,12 @@ sub dumpSystem($)
         foreach my $Path (@SysHeaders)
         {
             if(my $Skip = $SysCInfo->{"skip_headers"})
+            { # do NOT search for some headers
+                if(check_list($Path, $Skip)) {
+                    next;
+                }
+            }
+            if(my $Skip = $SysCInfo->{"skip_including"})
             { # do NOT search for some headers
                 if(check_list($Path, $Skip)) {
                     next;
@@ -1562,14 +1581,24 @@ sub dumpSystem($)
             if($SysCInfo->{"skip_headers"}) {
                 @Skip = (@Skip, @{$SysCInfo->{"skip_headers"}});
             }
-            if($SysInfo->{$LSName}{"non_self_compiled"}) {
-                @Skip = (@Skip, @{$SysInfo->{$LSName}{"non_self_compiled"}});
-            }
-            if($SkipDHeaders{$LSName}) {
-                @Skip = (@Skip, @{$SkipDHeaders{$LSName}});
-            }
             if(@Skip) {
                 push(@Content, "<skip_headers>\n    ".join("\n    ", @Skip)."\n</skip_headers>");
+            }
+            my @SkipInc = ();
+            if($SysInfo->{$LSName}{"skip_including"}) {
+                @SkipInc = (@SkipInc, @{$SysInfo->{$LSName}{"skip_including"}});
+            }
+            if($SysCInfo->{"skip_including"}) {
+                @SkipInc = (@SkipInc, @{$SysCInfo->{"skip_including"}});
+            }
+            if($SysInfo->{$LSName}{"non_self_compiled"}) {
+                @SkipInc = (@SkipInc, @{$SysInfo->{$LSName}{"non_self_compiled"}});
+            }
+            if($SkipDHeaders{$LSName}) {
+                @SkipInc = (@SkipInc, @{$SkipDHeaders{$LSName}});
+            }
+            if(@SkipInc) {
+                push(@Content, "<skip_including>\n    ".join("\n    ", @SkipInc)."\n</skip_including>");
             }
             if($SysInfo->{$LSName}{"add_include_paths"}) {
                 push(@Content, "<add_include_paths>\n    ".join("\n    ", @{$SysInfo->{$LSName}{"add_include_paths"}})."\n</add_include_paths>");

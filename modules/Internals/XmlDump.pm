@@ -281,10 +281,17 @@ sub createXmlDump($)
         $ABI_DUMP .= openTag("symbols");
         foreach my $Lib (sort {lc($a) cmp lc($b)} @Libs)
         {
-            $ABI_DUMP .= openTag_E("library", "name", $Lib);
+            $ABI_DUMP .= openTag("library", "name", $Lib);
             foreach my $Symbol (sort {lc($a) cmp lc($b)} keys(%{$ABI->{"Symbols"}{$Lib}}))
             {
-                $ABI_DUMP .= addTag("symbol", $Symbol);
+                if((my $Size = $ABI->{"Symbols"}{$Lib}{$Symbol})<0)
+                { # data
+                    $ABI_DUMP .= addTag("symbol", $Symbol, "size", -$Size);
+                }
+                else
+                { # functions
+                    $ABI_DUMP .= addTag("symbol", $Symbol);
+                }
             }
             $ABI_DUMP .= closeTag("library");
         }
@@ -296,7 +303,7 @@ sub createXmlDump($)
         $ABI_DUMP .= openTag("dep_symbols");
         foreach my $Lib (sort {lc($a) cmp lc($b)} @DepLibs)
         {
-            $ABI_DUMP .= openTag_E("library", "name", $Lib);
+            $ABI_DUMP .= openTag("library", "name", $Lib);
             foreach my $Symbol (sort {lc($a) cmp lc($b)} keys(%{$ABI->{"DepSymbols"}{$Lib}}))
             {
                 $ABI_DUMP .= addTag("symbol", $Symbol);
