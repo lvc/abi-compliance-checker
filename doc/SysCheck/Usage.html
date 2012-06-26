@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "Operating_Systems_Compatibility", "wgTitle": "Operating Systems Compatibility", "wgCurRevisionId": 7913, "wgArticleId": 2655, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "Operating_Systems_Compatibility", "wgTitle": "Operating Systems Compatibility", "wgCurRevisionId": 7974, "wgArticleId": 2655, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -59,18 +59,19 @@
 <h2> <span class="mw-headline" id="Setting_Up_Environment"> Setting Up Environment </span></h2>
 <p>The first step is to setup development environment on target operating systems:
 </p>
-<ul><li> Install G++, Perl
+<ul><li> Install G++, Perl, Binutils and File utility
 </li><li> Install all "devel" packages or SDK.
 </li></ul>
 <h3> <span class="mw-headline" id="Deb-based_OS_.28Ubuntu.2C_Debian.2C_Maemo.29"> Deb-based OS (Ubuntu, Debian, Maemo) </span></h3>
 <p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;apt-get update&#160;</code><br /><br />
 </p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;apt-cache search "\-dev"|awk '{print $1;}'&gt;install.txt&#160;</code><br /><br />
 </p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;for i in `cat install.txt`;do apt-get --force-yes -y install $i;done&#160;</code><br /><br />
+</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;apt-get install gcc perl binutils file&#160;</code><br /><br />
 </p>
 <h3> <span class="mw-headline" id="Rpm-based_OS_.28Fedora.2C_openSUSE.2C_MeeGo.29"> Rpm-based OS (Fedora, openSUSE, MeeGo) </span></h3>
 <p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;zypper search -u dev|awk '{print $2;}'|grep 'dev'&gt;install.txt&#160;</code><br /><br />
 </p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;for i in `cat install.txt`;do zypper -n install $i;done&#160;</code><br /><br />
-</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;zypper install gcc-c++&#160;</code><br /><br />
+</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;zypper install gcc-c++ perl binutils file&#160;</code><br /><br />
 </p>
 <h3> <span class="mw-headline" id="Apk-based_OS_.28Alpine_Linux.29"> Apk-based OS (Alpine Linux) </span></h3>
 <p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;apk update&#160;</code><br /><br />
@@ -82,9 +83,9 @@
 <p>Download and install an SDK.
 </p>
 <h2> <span class="mw-headline" id="Dumping_System_ABI"> Dumping System ABI </span></h2>
-<p>The next step is to create an <a href="http://ispras.linuxbase.org/index.php/Operating_System_Descriptor" title="Operating System Descriptor">XML-descriptor</a> of target OS.
+<p>The next step is to create an <a href="Descriptor.html" title="Operating System Descriptor">XML-descriptor</a> of target OS.
 </p><p>Then enter to the target operating system and dump the system ABI using the following command:<br />
-&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -dump-system <i>&lt;<a href="http://ispras.linuxbase.org/index.php/Operating_System_Descriptor" title="Operating System Descriptor">descriptor.xml</a>&gt;</i>&#160;</code><br /><br />
+&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -dump-system <i>&lt;<a href="Descriptor.html" title="Operating System Descriptor">descriptor.xml</a>&gt;</i>&#160;</code><br /><br />
 </p><p>If you want to analyze libraries from /usr/include and /usr/lib, then you may use the following short command instead:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -dump-system <i>&lt;name&gt;</i> -sysroot /&#160;</code><br /><br />
 </p><p>The system ABI dump will be generated to:<br />
@@ -98,16 +99,16 @@
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;sys_compat_reports/<i>&lt;name1&gt;</i>_to_<i>&lt;name2&gt;</i>/&lt;arch&gt;/<a rel="nofollow" class="external text" href="http://upstream-tracker.org/compatibility/Maemo_4.1.2_to_Maemo_5.0/arm/abi_compat_report.html">abi_compat_report.html</a>&#160;</code><br /><br />
 </p>
 <h2> <span class="mw-headline" id="Examples"> Examples </span></h2>
-<p>See examples for <b>Maemo</b>, <b>MeeGo</b> and <b>Symbian</b> operating systems on <a href="http://ispras.linuxbase.org/index.php/Operating_Systems_Compatibility_Examples" title="Operating Systems Compatibility Examples">this page</a>.
+<p>See examples for <b>Maemo</b>, <b>MeeGo</b> and <b>Symbian</b> operating systems on <a href="Examples.html" title="Operating Systems Compatibility Examples">this page</a>.
 <br /><br />
 </p>
 <!-- 
 NewPP limit report
-Preprocessor node count: 46/1000000
+Preprocessor node count: 47/1000000
 Post-expand include size: 0/2097152 bytes
 Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2655-0!*!0!!en!*!* and timestamp 20120618134626 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2655-0!*!0!!en!*!* and timestamp 20120625154709 -->
 </div></div></div></div></div></body></html>

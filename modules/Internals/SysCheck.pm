@@ -720,6 +720,7 @@ sub read_sys_descriptor($)
         "headers" => "mf",
         "skip_headers" => "mf",
         "skip_including" => "mf",
+        "skip_include_paths" => "mf",
         "skip_libs" => "mf",
         "include_preamble" => "mf",
         "non_self_compiled" => "mf",
@@ -1476,7 +1477,7 @@ sub dumpSystem($)
             writeFile($SYS_DUMP_PATH."/mode.txt", "group-by-headers");
         }
     }
-    @SysHeaders = ();# clear memory
+    @SysHeaders = (); # clear memory
     (%Skipped, %Failed, %Success) = ();
     printMsg("INFO", "Generating XML descriptors ...");
     foreach my $LRelPath (keys(%SysLib_SysHeaders))
@@ -1487,6 +1488,7 @@ sub dumpSystem($)
         if(my @LibHeaders = keys(%{$SysLib_SysHeaders{$LRelPath}}))
         {
             my $LSName = parse_libname($LName, "short", $OStarget);
+            my $SName = parse_libname($LName, "shortest", $OStarget);
             if($GroupByHeaders)
             { # header short name
                 $LSName = $LName;
@@ -1496,36 +1498,43 @@ sub dumpSystem($)
             foreach my $HRelPath (@LibHeaders) {
                 $DirsHeaders{get_dirname($HRelPath)}{$HRelPath}=1;
             }
-            foreach my $Dir (keys(%DirsHeaders))
+            if($#LibHeaders==0)
+            { # one header at all
+                $Includes{$LibHeaders[0]} = 1;
+            }
+            else
             {
-                my $DirPart = 0;
-                my $TotalHeaders = keys(%{$SysHeaderDir_SysHeaders{$Dir}});
-                if($TotalHeaders) {
-                    $DirPart = (keys(%{$DirsHeaders{$Dir}})*100)/$TotalHeaders;
-                }
-                my $Neighbourhoods = keys(%{$SysHeaderDir_SysLibs{$Dir}});
-                if($Neighbourhoods==1)
-                { # one lib in this directory
-                    if(get_filename($Dir) ne "include"
-                    and $DirPart>=5)
-                    { # complete directory
-                        $Includes{$Dir} = 1;
+                foreach my $Dir (keys(%DirsHeaders))
+                {
+                    my $DirPart = 0;
+                    my $TotalHeaders = keys(%{$SysHeaderDir_SysHeaders{$Dir}});
+                    if($TotalHeaders) {
+                        $DirPart = (keys(%{$DirsHeaders{$Dir}})*100)/$TotalHeaders;
                     }
-                    else
-                    { # list of headers
-                        @Includes{keys(%{$DirsHeaders{$Dir}})}=values(%{$DirsHeaders{$Dir}});
+                    my $Neighbourhoods = keys(%{$SysHeaderDir_SysLibs{$Dir}});
+                    if($Neighbourhoods==1)
+                    { # one lib in this directory
+                        if(get_filename($Dir) ne "include"
+                        and $DirPart>=5)
+                        { # complete directory
+                            $Includes{$Dir} = 1;
+                        }
+                        else
+                        { # list of headers
+                            @Includes{keys(%{$DirsHeaders{$Dir}})}=values(%{$DirsHeaders{$Dir}});
+                        }
                     }
-                }
-                elsif((keys(%{$DirsHeaders{$Dir}})*100)/($#LibHeaders+1)>5)
-                {# remove 5% divergence
-                    if(get_filename($Dir) ne "include"
-                    and $DirPart>=50)
-                    { # complete directory
-                        $Includes{$Dir} = 1;
-                    }
-                    else
-                    { # list of headers
-                        @Includes{keys(%{$DirsHeaders{$Dir}})}=values(%{$DirsHeaders{$Dir}});
+                    elsif((keys(%{$DirsHeaders{$Dir}})*100)/($#LibHeaders+1)>5)
+                    { # remove 5% divergence
+                        if(get_filename($Dir) ne "include"
+                        and $DirPart>=50)
+                        { # complete directory
+                            $Includes{$Dir} = 1;
+                        }
+                        else
+                        { # list of headers
+                            @Includes{keys(%{$DirsHeaders{$Dir}})}=values(%{$DirsHeaders{$Dir}});
+                        }
                     }
                 }
             }
@@ -1535,7 +1544,7 @@ sub dumpSystem($)
             }
             my $LVersion = $SysLibVersion{$LName};
             if($LVersion)
-            {# append by system name
+            { # append by system name
                 $LVersion .= "-".$SysDescriptor{"Name"};
             }
             else {
@@ -1602,6 +1611,9 @@ sub dumpSystem($)
             }
             if($SysInfo->{$LSName}{"add_include_paths"}) {
                 push(@Content, "<add_include_paths>\n    ".join("\n    ", @{$SysInfo->{$LSName}{"add_include_paths"}})."\n</add_include_paths>");
+            }
+            if($SysInfo->{$LSName}{"skip_include_paths"}) {
+                push(@Content, "<skip_include_paths>\n    ".join("\n    ", @{$SysInfo->{$LSName}{"skip_include_paths"}})."\n</skip_include_paths>");
             }
             if($SysInfo->{$LSName}{"skip_types"}) {
                 push(@Content, "<skip_types>\n    ".join("\n    ", @{$SysInfo->{$LSName}{"skip_types"}})."\n</skip_types>");

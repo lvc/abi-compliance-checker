@@ -24,13 +24,14 @@
 use strict;
 
 my ($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode, $ReportFormat,
-$LIB_EXT, $GCC_PATH, $Browse, $OpenReport, $SortDump);
+$DumpFormat, $LIB_EXT, $GCC_PATH, $Browse, $OpenReport, $SortDump);
 my $OSgroup = get_OSgroup();
 
 sub testTool($$$$$$$$$$$)
 {
     ($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode, $ReportFormat,
-    $LIB_EXT, $GCC_PATH, $Browse, $OpenReport, $SortDump) = @_;
+    $DumpFormat, $LIB_EXT, $GCC_PATH, $Browse, $OpenReport, $SortDump) = @_;
+    
     testC();
     testCpp();
 }
@@ -4240,6 +4241,10 @@ sub runTests($$$$$$$$)
         if($SortDump) {
             @Cmd = (@Cmd, "-sort");
         }
+    }
+    if($DumpFormat and $DumpFormat ne "perl")
+    { # Perl Data::Dumper is default format
+        @Cmd = (@Cmd, "-dump-format", $DumpFormat);
     }
     if($GCC_PATH ne "gcc") {
         @Cmd = (@Cmd, "-cross-gcc", $GCC_PATH);

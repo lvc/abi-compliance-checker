@@ -101,6 +101,9 @@ sub createXmlDump($)
                     if(my $MTid = $TInfo{"Memb"}{$Pos}{"type"}) {
                         $ABI_DUMP .= addTag("type", $MTid);
                     }
+                    if(my $Access = $TInfo{"Memb"}{$Pos}{"access"}) {
+                        $ABI_DUMP .= addTag("access", $Access);
+                    }
                     my $Val = $TInfo{"Memb"}{$Pos}{"value"};
                     if(defined $Val) {
                         $ABI_DUMP .= addTag("value", $Val);
@@ -108,10 +111,30 @@ sub createXmlDump($)
                     if(my $Align = $TInfo{"Memb"}{$Pos}{"algn"}) {
                         $ABI_DUMP .= addTag("algn", $Align);
                     }
+                    if(my $Bitfield = $TInfo{"Memb"}{$Pos}{"bitfield"}) {
+                        $ABI_DUMP .= addTag("bitfield", $Bitfield);
+                    }
+                    if($TInfo{"Memb"}{$Pos}{"mutable"}) {
+                        $ABI_DUMP .= addTag("spec", "mutable");
+                    }
                     $ABI_DUMP .= addTag("pos", $Pos);
                     $ABI_DUMP .= closeTag("field");
                 }
                 $ABI_DUMP .= closeTag("members");
+            }
+            if(my @Positions = keys(%{$TInfo{"Param"}}))
+            {
+                $ABI_DUMP .= openTag("parameters");
+                foreach my $Pos (sort { $a<=>$b } @Positions)
+                {
+                    $ABI_DUMP .= openTag("param");
+                    if(my $PTid = $TInfo{"Param"}{$Pos}{"type"}) {
+                        $ABI_DUMP .= addTag("type", $PTid);
+                    }
+                    $ABI_DUMP .= addTag("pos", $Pos);
+                    $ABI_DUMP .= closeTag("param");
+                }
+                $ABI_DUMP .= closeTag("parameters");
             }
             if(my @Positions = keys(%{$TInfo{"TParam"}}))
             {
@@ -160,7 +183,10 @@ sub createXmlDump($)
                 $ABI_DUMP .= closeTag("base");
             }
             if($TInfo{"Copied"}) {
-                $ABI_DUMP .= addTag("kind", "copied");
+                $ABI_DUMP .= addTag("note", "copied");
+            }
+            if($TInfo{"Spec"}) {
+                $ABI_DUMP .= addTag("note", "specialization");
             }
             $ABI_DUMP .= closeTag("data_type");
         }
@@ -195,7 +221,7 @@ sub createXmlDump($)
             $ABI_DUMP .= openTag("symbol");
             $ABI_DUMP .= addTag("id", $ID);
             foreach my $Attr ("MnglName", "ShortName", "Class",
-            "Header", "Line", "Return")
+            "Header", "Line", "Return", "NameSpace", "Value")
             {
                 if(defined $SInfo{$Attr})
                 {
@@ -212,6 +238,9 @@ sub createXmlDump($)
             if($SInfo{"Destructor"}) {
                 $ABI_DUMP .= addTag("kind", "destructor");
             }
+            if($SInfo{"Data"}) {
+                $ABI_DUMP .= addTag("kind", "data");
+            }
             if($SInfo{"Virt"}) {
                 $ABI_DUMP .= addTag("spec", "virtual");
             }
@@ -226,6 +255,9 @@ sub createXmlDump($)
             }
             if($SInfo{"Const"}) {
                 $ABI_DUMP .= addTag("spec", "const");
+            }
+            if($SInfo{"Volatile"}) {
+                $ABI_DUMP .= addTag("spec", "volatile");
             }
             if($SInfo{"Private"}) {
                 $ABI_DUMP .= addTag("access", "private");
@@ -245,15 +277,21 @@ sub createXmlDump($)
                 foreach my $Pos (sort { $a<=>$b } @Positions)
                 {
                     $ABI_DUMP .= openTag("param");
-                    $ABI_DUMP .= addTag("name", $SInfo{"Param"}{$Pos}{"name"});
-                    if(my $MTid = $SInfo{"Param"}{$Pos}{"type"}) {
-                        $ABI_DUMP .= addTag("type", $MTid);
+                    if(my $PName = $SInfo{"Param"}{$Pos}{"name"}) {
+                        $ABI_DUMP .= addTag("name", $PName);
                     }
-                    if(my $Default = $SInfo{"Param"}{$Pos}{"default"}) {
+                    if(my $PTid = $SInfo{"Param"}{$Pos}{"type"}) {
+                        $ABI_DUMP .= addTag("type", $PTid);
+                    }
+                    my $Default = $SInfo{"Param"}{$Pos}{"default"};
+                    if(defined $Default) {
                         $ABI_DUMP .= addTag("default", $Default);
                     }
                     if(my $Align = $SInfo{"Param"}{$Pos}{"algn"}) {
                         $ABI_DUMP .= addTag("algn", $Align);
+                    }
+                    if(defined $SInfo{"Param"}{$Pos}{"reg"}) {
+                        $ABI_DUMP .= addTag("call", "register");
                     }
                     $ABI_DUMP .= addTag("pos", $Pos);
                     $ABI_DUMP .= closeTag("param");
@@ -306,7 +344,14 @@ sub createXmlDump($)
             $ABI_DUMP .= openTag("library", "name", $Lib);
             foreach my $Symbol (sort {lc($a) cmp lc($b)} keys(%{$ABI->{"DepSymbols"}{$Lib}}))
             {
-                $ABI_DUMP .= addTag("symbol", $Symbol);
+                if((my $Size = $ABI->{"DepSymbols"}{$Lib}{$Symbol})<0)
+                { # data
+                    $ABI_DUMP .= addTag("symbol", $Symbol, "size", -$Size);
+                }
+                else
+                { # functions
+                    $ABI_DUMP .= addTag("symbol", $Symbol);
+                }
             }
             $ABI_DUMP .= closeTag("library");
         }
@@ -376,6 +421,364 @@ sub createXmlDump($)
     checkTags();
     
     return $ABI_DUMP;
+}
+
+sub readXmlDump($)
+{
+    my $ABI_DUMP = readFile($_[0]);
+    my %ABI = {};
+    
+    $ABI{"LibraryName"} = parseTag(\$ABI_DUMP, "library");
+    $ABI{"LibraryVersion"} = parseTag(\$ABI_DUMP, "library_version");
+    $ABI{"Language"} = parseTag(\$ABI_DUMP, "language");
+    $ABI{"GccVersion"} = parseTag(\$ABI_DUMP, "gcc");
+    $ABI{"Arch"} = parseTag(\$ABI_DUMP, "architecture");
+    $ABI{"Target"} = parseTag(\$ABI_DUMP, "target");
+    $ABI{"WordSize"} = parseTag(\$ABI_DUMP, "word_size");
+    
+    my $Pos = 0;
+    
+    if(my $Headers = parseTag(\$ABI_DUMP, "headers"))
+    {
+        while(my $Name = parseTag(\$Headers, "name")) {
+            $ABI{"Headers"}{$Name} = $Pos++;
+        }
+    }
+    
+    if(my $NameSpaces = parseTag(\$ABI_DUMP, "namespaces"))
+    {
+        while(my $Name = parseTag(\$NameSpaces, "name")) {
+            $ABI{"NameSpaces"}{$Name} = 1;
+        }
+    }
+    
+    if(my $TypeInfo = parseTag(\$ABI_DUMP, "type_info"))
+    {
+        while(my $DataType = parseTag(\$TypeInfo, "data_type"))
+        {
+            my %TInfo = ();
+            my $ID = parseTag(\$DataType, "id");
+            
+            if(my $Members = parseTag(\$DataType, "members"))
+            {
+                $Pos = 0;
+                while(my $Field = parseTag(\$Members, "field"))
+                {
+                    my %MInfo = ();
+                    $MInfo{"name"} = parseTag(\$Field, "name");
+                    if(my $Tid = parseTag(\$Field, "type")) {
+                        $MInfo{"type"} = $Tid;
+                    }
+                    if(my $Access = parseTag(\$Field, "access")) {
+                        $MInfo{"access"} = $Access;
+                    }
+                    my $Val = parseTag(\$Field, "value");
+                    if(defined $Val) {
+                        $MInfo{"value"} = $Val;
+                    }
+                    if(my $Align = parseTag(\$Field, "algn")) {
+                        $MInfo{"algn"} = $Align;
+                    }
+                    if(my $Bitfield = parseTag(\$Field, "bitfield")) {
+                        $MInfo{"bitfield"} = $Bitfield;
+                    }
+                    if(my $Spec = parseTag(\$Field, "spec")) {
+                        $MInfo{$Spec} = 1;
+                    }
+                    $TInfo{"Memb"}{$Pos++} = \%MInfo;
+                }
+            }
+            
+            if(my $Parameters = parseTag(\$DataType, "parameters"))
+            {
+                $Pos = 0;
+                while(my $Parameter = parseTag(\$Parameters, "param"))
+                {
+                    my %PInfo = ();
+                    if(my $Tid = parseTag(\$Parameter, "type")) {
+                        $PInfo{"type"} = $Tid;
+                    }
+                    $TInfo{"Param"}{$Pos++} = \%PInfo;
+                }
+            }
+            if(my $TParams = parseTag(\$DataType, "template_parameters"))
+            {
+                $Pos = 0;
+                while(my $TParam = parseTag(\$TParams, "param")) {
+                    $TInfo{"TParam"}{$Pos++}{"name"} = parseTag(\$TParam, "name");
+                }
+            }
+            if(my $VTable = parseTag(\$DataType, "vtable"))
+            {
+                $Pos = 0;
+                while(my $Entry = parseTag(\$VTable, "entry")) {
+                    $TInfo{"VTable"}{parseTag(\$Entry, "offset")} = parseTag(\$Entry, "value");
+                }
+            }
+            if(my $BTid = parseTag(\$DataType, "base_type")) {
+                $TInfo{"BaseType"}{"Tid"} = $BTid;
+            }
+            if(my $Base = parseTag(\$DataType, "base"))
+            {
+                $Pos = 0;
+                while(my $Class = parseTag(\$Base, "class"))
+                {
+                    my %CInfo = ();
+                    $CInfo{"pos"} = parseTag(\$Class, "pos");
+                    if(my $Access = parseTag(\$Class, "access")) {
+                        $CInfo{"access"} = $Access;
+                    }
+                    if(my $Inherit = parseTag(\$Class, "inherit"))
+                    {
+                        if($Inherit eq "virtual") {
+                            $CInfo{"virtual"} = 1;
+                        }
+                    }
+                    $TInfo{"Base"}{parseTag(\$Class, "id")} = \%CInfo;
+                }
+            }
+            while(my $Note = parseTag(\$DataType, "note"))
+            {
+                if($Note eq "copied") {
+                    $TInfo{"Copied"} = 1;
+                }
+                elsif($Note eq "specialization") {
+                    $TInfo{"Spec"} = 1;
+                }
+            }
+            foreach my $Attr ("Name", "Type", "Class",
+            "Header", "Line", "NameSpace", "Return", "Size")
+            {
+                my $Val = parseTag(\$DataType, lc($Attr));
+                if(defined $Val) {
+                    $TInfo{$Attr} = $Val;
+                }
+            }
+            if(my $Access = parseTag(\$DataType, "access")) {
+                $TInfo{ucfirst($Access)} = 1;
+            }
+            $ABI{"TypeInfo"}{$ID} = \%TInfo;
+        }
+    }
+    
+    if(my $Constants = parseTag(\$ABI_DUMP, "constants"))
+    {
+        while(my $Constant = parseTag(\$Constants, "constant"))
+        {
+            if(my $Name = parseTag(\$Constant, "name"))
+            {
+                my %CInfo = ();
+                $CInfo{"Value"} = parseTag(\$Constant, "value");
+                $CInfo{"Header"} = parseTag(\$Constant, "header");
+                $ABI{"Constants"}{$Name} = \%CInfo;
+            }
+        }
+    }
+    
+    if(my $SymbolInfo = parseTag(\$ABI_DUMP, "symbol_info"))
+    {
+        my %TR = (
+            "MnglName"=>"mangled",
+            "ShortName"=>"short"
+        );
+        while(my $Symbol = parseTag(\$SymbolInfo, "symbol"))
+        {
+            my %SInfo = ();
+            my $ID = parseTag(\$Symbol, "id");
+            
+            if(my $Parameters = parseTag(\$Symbol, "parameters"))
+            {
+                $Pos = 0;
+                while(my $Parameter = parseTag(\$Parameters, "param"))
+                {
+                    my %PInfo = ();
+                    if(my $PName = parseTag(\$Parameter, "name")) {
+                        $PInfo{"name"} = $PName;
+                    }
+                    if(my $PTid = parseTag(\$Parameter, "type")) {
+                        $PInfo{"type"} = $PTid;
+                    }
+                    my $Default = parseTag(\$Parameter, "default", "spaces");
+                    if(defined $Default) {
+                        $PInfo{"default"} = $Default;
+                    }
+                    if(my $Align = parseTag(\$Parameter, "algn")) {
+                        $PInfo{"algn"} = $Align;
+                    }
+                    if(my $Call = parseTag(\$Parameter, "call"))
+                    {
+                        if($Call eq "register") {
+                            $PInfo{"reg"} = 1;
+                        }
+                    }
+                    $SInfo{"Param"}{$Pos++} = \%PInfo;
+                }
+            }
+            if(my $TParams = parseTag(\$Symbol, "template_parameters"))
+            {
+                $Pos = 0;
+                while(my $TParam = parseTag(\$TParams, "param")) {
+                    $SInfo{"TParam"}{$Pos++}{"name"} = parseTag(\$TParam, "name");
+                }
+            }
+            
+            foreach my $Attr ("MnglName", "ShortName", "Class",
+            "Header", "Line", "Return", "NameSpace", "Value")
+            {
+                my $Tag = lc($Attr);
+                if($TR{$Attr}) {
+                    $Tag = $TR{$Attr};
+                }
+                my $Val = parseTag(\$Symbol, $Tag);
+                if(defined $Val) {
+                    $SInfo{$Attr} = $Val;
+                }
+            }
+            if(my $Kind = parseTag(\$Symbol, "kind")) {
+                $SInfo{ucfirst($Kind)} = 1;
+            }
+            while(my $Spec = parseTag(\$Symbol, "spec"))
+            {
+                if($Spec eq "virtual") {
+                    $SInfo{"Virt"} = 1;
+                }
+                elsif($Spec eq "pure virtual") {
+                    $SInfo{"PureVirt"} = 1;
+                }
+                elsif($Spec eq "inline") {
+                    $SInfo{"InLine"} = 1;
+                }
+                else
+                { # const, volatile, static
+                    $SInfo{ucfirst($Spec)} = 1;
+                }
+            }
+            if(my $Access = parseTag(\$Symbol, "access")) {
+                $SInfo{ucfirst($Access)} = 1;
+            }
+            if(my $Note = parseTag(\$Symbol, "note")) {
+                $SInfo{ucfirst($Note)} = 1;
+            }
+            if(my $Lang = parseTag(\$Symbol, "lang")) {
+                $SInfo{"Lang"} = $Lang;
+            }
+            $ABI{"SymbolInfo"}{$ID} = \%SInfo;
+        }
+    }
+    
+    if(my $Symbols = parseTag(\$ABI_DUMP, "symbols"))
+    {
+        my %LInfo = ();
+        while(my $LibSymbols = parseTag_E(\$Symbols, "library", \%LInfo))
+        {
+            my %SInfo = ();
+            while(my $Symbol = parseTag_E(\$LibSymbols, "symbol", \%SInfo))
+            {
+                if(my $Size = $SInfo{"size"}) {
+                    $ABI{"Symbols"}{$LInfo{"name"}}{$Symbol} = -$Size;
+                }
+                else {
+                    $ABI{"Symbols"}{$LInfo{"name"}}{$Symbol} = 1;
+                }
+                %SInfo = ();
+            }
+            %LInfo = ();
+        }
+    }
+    
+    if(my $DepSymbols = parseTag(\$ABI_DUMP, "dep_symbols"))
+    {
+        my %LInfo = ();
+        while(my $LibSymbols = parseTag_E(\$DepSymbols, "library", \%LInfo))
+        {
+            my %SInfo = ();
+            while(my $Symbol = parseTag_E(\$LibSymbols, "symbol", \%SInfo))
+            {
+                if(my $Size = $SInfo{"size"}) {
+                    $ABI{"DepSymbols"}{$LInfo{"name"}}{$Symbol} = -$Size;
+                }
+                else {
+                    $ABI{"DepSymbols"}{$LInfo{"name"}}{$Symbol} = 1;
+                }
+                %SInfo = ();
+            }
+            %LInfo = ();
+        }
+    }
+    
+    $ABI{"SymbolVersion"} = {};
+    
+    if(my $SymbolVersion = parseTag(\$ABI_DUMP, "symbol_version"))
+    {
+        while(my $Symbol = parseTag(\$SymbolVersion, "symbol")) {
+            $ABI{"SymbolVersion"}{parseTag(\$Symbol, "name")} = parseTag(\$Symbol, "version");
+        }
+    }
+    
+    $ABI{"SkipTypes"} = {};
+    
+    if(my $SkipTypes = parseTag(\$ABI_DUMP, "skip_types"))
+    {
+        while(my $Name = parseTag(\$SkipTypes, "name")) {
+            $ABI{"SkipTypes"}{$Name} = 1;
+        }
+    }
+    
+    $ABI{"SkipSymbols"} = {};
+    
+    if(my $SkipSymbols = parseTag(\$ABI_DUMP, "skip_symbols"))
+    {
+        while(my $Name = parseTag(\$SkipSymbols, "name")) {
+            $ABI{"SkipSymbols"}{$Name} = 1;
+        }
+    }
+    
+    $ABI{"SkipNameSpaces"} = {};
+    
+    if(my $SkipNameSpaces = parseTag(\$ABI_DUMP, "skip_namespaces"))
+    {
+        while(my $Name = parseTag(\$SkipNameSpaces, "name")) {
+            $ABI{"SkipNameSpaces"}{$Name} = 1;
+        }
+    }
+    
+    $ABI{"SkipHeaders"} = {};
+    
+    if(my $SkipHeaders = parseTag(\$ABI_DUMP, "skip_headers"))
+    {
+        while(my $Name = parseTag(\$SkipHeaders, "name")) {
+            $ABI{"SkipHeaders"}{$Name} = 1;
+        }
+    }
+    
+    if(my $TargetHeaders = parseTag(\$ABI_DUMP, "target_headers"))
+    {
+        while(my $Name = parseTag(\$TargetHeaders, "name")) {
+            $ABI{"TargetHeaders"}{$Name} = 1;
+        }
+    }
+    
+    if(my $Mode = parseTag(\$ABI_DUMP, "mode")) {
+        $ABI{"Mode"} = $Mode;
+    }
+    if(my $Kind = parseTag(\$ABI_DUMP, "kind"))
+    {
+        if($Kind eq "BinOnly") {
+            $ABI{"BinOnly"} = 1;
+        }
+        elsif($Kind eq "SrcBin") {
+            $ABI{"SrcBin"} = 1;
+        }
+    }
+    
+    my %RInfo = ();
+    parseTag_E(\$ABI_DUMP, "ABI_dump", \%RInfo);
+    
+    $ABI{"ABI_DUMP_VERSION"} = $RInfo{"version"};
+    $ABI{"XML_ABI_DUMP_VERSION"} = $RInfo{"xml_format"};
+    $ABI{"ABI_COMPLIANCE_CHECKER_VERSION"} = $RInfo{"acc"};
+    
+    return \%ABI;
 }
 
 return 1;

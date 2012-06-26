@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.98.1
+# ABI Compliance Checker (ACC) 1.98.2
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -55,8 +55,8 @@ use Cwd qw(abs_path cwd);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.98.1";
-my $ABI_DUMP_VERSION = "2.17";
+my $TOOL_VERSION = "1.98.2";
+my $ABI_DUMP_VERSION = "2.18";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.0";
 my $XML_ABI_DUMP_VERSION = "1.1";
@@ -1397,6 +1397,9 @@ my %AutoPreambleMode = (
 my %MinGWMode = (
   "1"=>0,
   "2"=>0 );
+my %Cpp0xMode = (
+  "1"=>0,
+  "2"=>0 );
 
 # Shared Objects
 my %DyLib_DefaultPath;
@@ -1516,14 +1519,20 @@ sub get_Modules()
     exitStatus("Module_Error", "can't find modules");
 }
 
+my %LoadedModules = ();
+
 sub loadModule($)
 {
     my $Name = $_[0];
+    if(defined $LoadedModules{$Name}) {
+        return;
+    }
     my $Path = $MODULES_DIR."/Internals/$Name.pm";
     if(not -f $Path) {
         exitStatus("Module_Error", "can't access \'$Path\'");
     }
     require $Path;
+    $LoadedModules{$Name} = 1;
 }
 
 sub showPos($)
@@ -1882,7 +1891,6 @@ sub readDescriptor($$)
     foreach my $Path (split(/\s*\n\s*/, parseTag(\$Content, "skip_including")))
     {
         # skip direct including of some headers
-        $SkipHeadersList{$LibVersion}{$Path} = 2;
         my ($CPath, $Type) = classifyPath($Path);
         $SkipHeaders{$LibVersion}{$Type}{$CPath} = 2;
     }
@@ -1950,19 +1958,67 @@ sub readDescriptor($$)
     }
 }
 
-sub parseTag($$)
+sub parseTag(@)
 {
-    my ($CodeRef, $Tag) = @_;
-    return "" if(not $CodeRef or not ${$CodeRef} or not $Tag);
-    if(${$CodeRef}=~s/\<\Q$Tag\E\>((.|\n)+?)\<\/\Q$Tag\E\>//)
+    my $CodeRef = shift(@_);
+    my $Tag = shift(@_);
+    if(not $Tag or not $CodeRef) {
+        return undef;
+    }
+    my $Sp = 0;
+    if(@_) {
+        $Sp = shift(@_);
+    }
+    my $Start = index(${$CodeRef}, "<$Tag>");
+    if($Start!=-1)
     {
-        my $Content = $1;
-        $Content=~s/(\A\s+|\s+\Z)//g;
+        my $End = index(${$CodeRef}, "</$Tag>");
+        if($End!=-1)
+        {
+            my $TS = length($Tag)+3;
+            my $Content = substr(${$CodeRef}, $Start, $End-$Start+$TS, "");
+            substr($Content, 0, $TS-1, ""); # cut start tag
+            substr($Content, -$TS, $TS, ""); # cut end tag
+            if(not $Sp)
+            {
+                $Content=~s/\A\s+//g;
+                $Content=~s/\s+\Z//g;
+            }
+            if(substr($Content, 0, 1) ne "<") {
+                $Content = xmlSpecChars_R($Content);
+            }
+            return $Content;
+        }
+    }
+    return undef;
+}
+
+sub parseTag_E($$$)
+{
+    my ($CodeRef, $Tag, $Info) = @_;
+    if(not $Tag or not $CodeRef
+    or not $Info) {
+        return undef;
+    }
+    if(${$CodeRef}=~s/\<\Q$Tag\E(\s+([^<>]+)|)\>((.|\n)*?)\<\/\Q$Tag\E\>//)
+    {
+        my ($Ext, $Content) = ($2, $3);
+        $Content=~s/\A\s+//g;
+        $Content=~s/\s+\Z//g;
+        if($Ext)
+        {
+            while($Ext=~s/(\w+)\=\"([^\"]*)\"//)
+            {
+                my ($K, $V) = ($1, $2);
+                $Info->{$K} = xmlSpecChars_R($V);
+            }
+        }
+        if(substr($Content, 0, 1) ne "<") {
+            $Content = xmlSpecChars_R($Content);
+        }
         return $Content;
     }
-    else {
-        return "";
-    }
+    return undef;
 }
 
 sub addTag(@)
@@ -2036,8 +2092,8 @@ sub getInfo($)
     setTemplateParams_All();
     getTypeInfo_All();
     simplifyNames();
-    getSymbolInfo_All();
     getVarInfo_All();
+    getSymbolInfo_All();
     
     # clean memory
     %LibInfo = ();
@@ -2257,12 +2313,12 @@ sub getTypeInfo_All()
     }
     
     # add "..." type
-    $TypeInfo{$Version}{-1} = {
+    $TypeInfo{$Version}{"-1"} = {
         "Name" => "...",
         "Type" => "Intrinsic",
-        "Tid" => -1
+        "Tid" => "-1"
     };
-    $TName_Tid{$Version}{"..."} = -1;
+    $TName_Tid{$Version}{"..."} = "-1";
     
     if(not check_gcc($GCC_PATH, "4.5"))
     { # support for GCC < 4.5
@@ -2816,8 +2872,15 @@ sub getNodeStrCst($)
     if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
     {
         if($Info=~/strg[ ]*: (.+) lngt:[ ]*(\d+)/)
-        { # string length is N-1 because of the null terminator
-            return substr($1, 0, $2-1);
+        { 
+            if($LibInfo{$Version}{"info_type"}{$_[0]} eq "string_cst")
+            { # string length is N-1 because of the null terminator
+                return substr($1, 0, $2-1);
+            }
+            else
+            { # identifier_node
+                return substr($1, 0, $2);
+            }
         }
     }
     return "";
@@ -2835,8 +2898,10 @@ sub getMemPtrAttr($$$)
     my %TypeAttr = ("Size"=>$WORD_SIZE{$Version}, "Type"=>$Type, "Tid"=>$TypeId);
     if($Type eq "MethodPtr")
     { # size of "method pointer" may be greater than WORD size
-        if(my $Size = getSize($TypeId)) {
-            $TypeAttr{"Size"} = $Size/$BYTE_SIZE;
+        if(my $Size = getSize($TypeId))
+        {
+            $Size/=$BYTE_SIZE;
+            $TypeAttr{"Size"} = "$Size";
         }
     }
     # Return
@@ -2885,7 +2950,7 @@ sub getMemPtrAttr($$$)
         if($MemInfo=~/prms[ ]*:[ ]*@(\d+) /)
         {
             my $PTypeInfoId = $1;
-            my $Pos = 0;
+            my ($Pos, $PPos) = (0, 0);
             while($PTypeInfoId)
             {
                 my $PTypeInfo = $LibInfo{$Version}{"info"}{$PTypeInfoId};
@@ -2902,7 +2967,7 @@ sub getMemPtrAttr($$$)
                     }
                     if($Pos!=0 or $Type ne "MethodPtr")
                     {
-                        $TypeAttr{"Param"}{$Pos}{"type"} = $PTypeId;
+                        $TypeAttr{"Param"}{$PPos++}{"type"} = $PTypeId;
                         push(@ParamTypeName, $ParamAttr{"Name"});
                     }
                     if($PTypeInfoId = getNextElem($PTypeInfoId)) {
@@ -3209,7 +3274,7 @@ sub isBuiltIn($) {
 sub getVarInfo($)
 {
     my $InfoId = $_[0];
-    if(my $NSid = getNameSpaceId($InfoId))
+    if(my $NSid = getTreeAttr_Scpe($InfoId))
     {
         my $NSInfoType = $LibInfo{$Version}{"info_type"}{$NSid};
         if($NSInfoType and $NSInfoType eq "function_decl") {
@@ -3369,7 +3434,7 @@ sub getTrivialName($$)
     if(isAnon($TypeAttr{"Name"}))
     {
         my $NameSpaceId = $TypeId;
-        while(my $NSId = getNameSpaceId(getTypeDeclId($NameSpaceId)))
+        while(my $NSId = getTreeAttr_Scpe(getTypeDeclId($NameSpaceId)))
         { # searching for a first not anon scope
             if($NSId eq $NameSpaceId) {
                 last;
@@ -3387,7 +3452,7 @@ sub getTrivialName($$)
     }
     else
     {
-        if(my $NameSpaceId = getNameSpaceId($TypeInfoId))
+        if(my $NameSpaceId = getTreeAttr_Scpe($TypeInfoId))
         {
             if($NameSpaceId ne $TypeId) {
                 $TypeAttr{"NameSpace"} = getNameSpace($TypeInfoId);
@@ -3464,8 +3529,10 @@ sub getTrivialTypeAttr($)
             }
         }
     }
-    if(my $Size = getSize($TypeId)) {
-        $TypeAttr{"Size"} = $Size/$BYTE_SIZE;
+    if(my $Size = getSize($TypeId))
+    {
+        $Size = $Size/$BYTE_SIZE;
+        $TypeAttr{"Size"} = "$Size";
     }
     if($TypeAttr{"Type"} eq "Struct"
     and detect_lang($TypeId))
@@ -3556,12 +3623,13 @@ sub setBaseClasses($$)
             {
                 $TypeAttr->{"Base"}{$ClassId}{"access"} = "private";
             }
-            $TypeAttr->{"Base"}{$ClassId}{"pos"} = $Pos++;
+            $TypeAttr->{"Base"}{$ClassId}{"pos"} = "$Pos";
             if($BaseInfo=~/virt/)
             { # virtual base
                 $TypeAttr->{"Base"}{$ClassId}{"virtual"} = 1;
             }
             $Class_SubClasses{$Version}{$ClassId}{$TypeId}=1;
+            $Pos+=1;
         }
     }
     return 0;
@@ -4281,6 +4349,12 @@ sub getInitVal($$)
             elsif($InfoType eq "string_cst") {
                 return getNodeStrCst($InfoId);
             }
+            elsif($InfoType eq "var_decl")
+            {
+                if(my $Name = getNodeStrCst(getTreeAttr_Mngl($InfoId))) {
+                    return $Name;
+                }
+            }
         }
     }
     return undef;
@@ -4673,15 +4747,15 @@ sub setTypeMemb($$)
                 $TypeMembInfoId = getNextElem($TypeMembInfoId);
                 next;
             }
-            my $StructMembName = getStructMembName($TypeMembInfoId);
-            if($StructMembName=~/_vptr\./)
+            my $StructMembName = getTreeStr(getTreeAttr_Name($TypeMembInfoId));
+            if(index($StructMembName, "_vptr.")!=-1)
             { # virtual tables
                 $TypeMembInfoId = getNextElem($TypeMembInfoId);
                 next;
             }
             if(not $StructMembName)
             { # unnamed fields
-                if($TypeAttr->{"Name"}!~/_type_info_pseudo/)
+                if(index($TypeAttr->{"Name"}, "_type_info_pseudo")==-1)
                 {
                     my $UnnamedTid = getTreeAttr_Type($TypeMembInfoId);
                     my $UnnamedTName = getNameByInfo(getTypeDeclId($UnnamedTid));
@@ -4800,7 +4874,7 @@ sub setFuncParams($)
         $Pos += 1;
     }
     if(setFuncArgs($InfoId, $Vtt_Pos)) {
-        $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"type"} = -1;
+        $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"type"} = "-1";
     }
     return 0;
 }
@@ -4845,8 +4919,12 @@ sub setFuncArgs($$)
         }
         if(my $PurpId = getTreeAttr_Purp($ParamListElemId))
         { # default arguments
-            if(my $PurpType = $LibInfo{$Version}{"info_type"}{$PurpId}) {
-                $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"default"} = getInitVal($PurpId, $ParamTypeId);
+            if(my $PurpType = $LibInfo{$Version}{"info_type"}{$PurpId})
+            {
+                my $Val = getInitVal($PurpId, $ParamTypeId);
+                if(defined $Val) {
+                    $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"default"} = $Val;
+                }
             }
         }
         $ParamListElemId = getNextElem($ParamListElemId);
@@ -5186,28 +5264,6 @@ sub getNameSpace($)
                 my ($Name, $NameNS) = getTrivialName(getTypeDeclId($NSInfoId), $NSInfoId);
                 return $Name;
             }
-        }
-    }
-    return "";
-}
-
-sub getNameSpaceId($)
-{
-    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
-    {
-        if($Info=~/scpe[ ]*:[ ]*\@(\d+)/) {
-            return $1;
-        }
-    }
-    return "";
-}
-
-sub getStructMembName($)
-{
-    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
-    {
-        if($Info=~/name[ ]*:[ ]*\@(\d+)/) {
-            return getTreeStr($1);
         }
     }
     return "";
@@ -7025,7 +7081,8 @@ my %C_Structure = map {$_=>1} (
     "itimerspec",
     "_pthread_cleanup_buffer",
     "fd_set",
-    "siginfo"
+    "siginfo",
+    "mallinfo"
 );
 
 sub getCompileCmd($$$)
@@ -7055,7 +7112,8 @@ sub getCompileCmd($$$)
     }
     # allow extra qualifications
     # and other nonconformant code
-    $GccCall .= " -fpermissive -w";
+    $GccCall .= " -fpermissive";
+    $GccCall .= " -w";
     if($NoStdInc)
     {
         $GccCall .= " -nostdinc";
@@ -7073,11 +7131,9 @@ sub getCompileCmd($$$)
     return $GccCall;
 }
 
-sub getDump()
+sub detectPreamble($$)
 {
-    if(not $GCC_PATH) {
-        exitStatus("Error", "internal error - GCC path is not set");
-    }
+    my ($Content, $LibVersion) = @_;
     my %HeaderElems = (
         # Types
         "stdio.h" => ["FILE", "va_list"],
@@ -7102,6 +7158,35 @@ sub getDump()
         foreach my $Elem (@{$HeaderElems{$_}}) {
             $AutoPreamble{$Elem}=$_;
         }
+    }
+    my %Types = ();
+    while($Content=~s/error\:\s*(field\s*|)\W+(.+?)\W+//)
+    { # error: 'FILE' has not been declared
+        $Types{$2}=1;
+    }
+    if(keys(%Types))
+    {
+        my %AddHeaders = ();
+        foreach my $Type (keys(%Types))
+        {
+            if(my $Header = $AutoPreamble{$Type})
+            {
+                if(my $Path = identifyHeader($Header, $LibVersion)) {
+                    $AddHeaders{path_format($Path, $OSgroup)}=$Type;
+                }
+            }
+        }
+        if(keys(%AddHeaders)) {
+            return %AddHeaders;
+        }
+    }
+    return ();
+}
+
+sub getDump()
+{
+    if(not $GCC_PATH) {
+        exitStatus("Error", "internal error - GCC path is not set");
     }
     my $TmpHeaderPath = $TMP_DIR."/dump".$Version.".h";
     my $MHeaderPath = $TmpHeaderPath;
@@ -7347,61 +7432,61 @@ sub getDump()
     system($SyntaxTreeCmd." >\"$TMP_DIR/tu_errors\" 2>&1");
     if($?)
     { # failed to compile, but the TU dump still can be created
-        my $Errors = readFile($TMP_DIR."/tu_errors");
-        if($Errors=~/c99_/)
-        { # disable c99 mode
-            $C99Mode{$Version}=-1;
-            printMsg("INFO", "Disabling C99 compatibility mode");
-            resetLogging($Version);
-            $TMP_DIR = tempdir(CLEANUP=>1);
-            return getDump();
-        }
-        elsif($AutoPreambleMode{$Version}!=-1
-        and my $TErrors = $Errors)
-        {
-            my %Types = ();
-            while($TErrors=~s/error\:\s*(field\s*|)\W+(.+?)\W+//)
-            { # error: 'FILE' has not been declared
-                $Types{$2}=1;
-            }
-            my %AddHeaders = ();
-            foreach my $Type (keys(%Types))
-            {
-                if(my $Header = $AutoPreamble{$Type}) {
-                    $AddHeaders{path_format($Header, $OSgroup)}=$Type;
-                }
-            }
-            if(my @Headers = sort {$b cmp $a} keys(%AddHeaders))
-            { # sys/types.h should be the first
-                foreach my $Num (0 .. $#Headers)
-                {
-                    my $Name = $Headers[$Num];
-                    if(my $Path = identifyHeader($Name, $Version))
-                    { # add automatic preamble headers
-                        if(defined $Include_Preamble{$Version}{$Path})
-                        { # already added
-                            next;
-                        }
-                        $Include_Preamble{$Version}{$Path}{"Position"} = keys(%{$Include_Preamble{$Version}});
-                        my $Type = $AddHeaders{$Name};
-                        printMsg("INFO", "Add \'$Name\' preamble header for \'$Type\'");
-                    }
-                }
-                $AutoPreambleMode{$Version}=-1;
+        if(my $Errors = readFile($TMP_DIR."/tu_errors"))
+        { # try to recompile
+          # FIXME: handle other errors and try to recompile
+            if($C99Mode{$Version}==1
+            and $Errors=~/c99_/)
+            { # disable c99 mode and try again
+                $C99Mode{$Version}=-1;
+                printMsg("INFO", "Disabling C99 compatibility mode");
                 resetLogging($Version);
                 $TMP_DIR = tempdir(CLEANUP=>1);
                 return getDump();
             }
+            elsif($AutoPreambleMode{$Version}!=-1
+            and my %AddHeaders = detectPreamble($Errors, $Version))
+            { # add auto preamble headers and try again
+                $AutoPreambleMode{$Version}=-1;
+                my @Headers = sort {$b cmp $a} keys(%AddHeaders); # sys/types.h should be the first
+                foreach my $Num (0 .. $#Headers)
+                {
+                    my $Path = $Headers[$Num];
+                    if(defined $Include_Preamble{$Version}{$Path})
+                    { # already added
+                        next;
+                    }
+                    $Include_Preamble{$Version}{$Path}{"Position"} = keys(%{$Include_Preamble{$Version}});
+                    my $Type = $AddHeaders{$Path};
+                    printMsg("INFO", "Add \'".get_filename($Path)."\' preamble header for \'$Type\'");
+                }
+                resetLogging($Version);
+                $TMP_DIR = tempdir(CLEANUP=>1);
+                return getDump();
+            }
+            elsif($Cpp0xMode{$Version}!=-1
+            and ($Errors=~/\Q-std=c++0x\E/
+            or $Errors=~/is not a class or namespace/))
+            { # c++0x: enum class
+                $Cpp0xMode{$Version}=-1;
+                printMsg("INFO", "Enabling c++0x mode");
+                resetLogging($Version);
+                $TMP_DIR = tempdir(CLEANUP=>1);
+                $CompilerOptions{$Version} .= " -std=c++0x";
+                return getDump();
+            }
+            elsif($MinGWMode{$Version}==1)
+            { # disable MinGW mode and try again
+                $MinGWMode{$Version}=-1;
+                resetLogging($Version);
+                $TMP_DIR = tempdir(CLEANUP=>1);
+                return getDump();
+            }
+            writeLog($Version, $Errors);
         }
-        elsif($MinGWMode{$Version}!=-1)
-        {
-            $MinGWMode{$Version}=-1;
-            resetLogging($Version);
-            $TMP_DIR = tempdir(CLEANUP=>1);
-            return getDump();
+        else {
+            writeLog($Version, "$!: $?\n");
         }
-        # FIXME: handle other errors and try to recompile
-        writeLog($Version, $Errors);
         printMsg("ERROR", "some errors occurred when compiling headers");
         printErrorLog($Version);
         $COMPILE_ERRORS = $ERROR_CODE{"Compile_Error"};
@@ -7848,10 +7933,11 @@ sub prepareTypes($)
             my %Type = get_PureType($TypeId, $LibVersion);
             if($Type{"Type"} eq "Array")
             {
-                if($Type{"Size"})
+                if(my $Size = $Type{"Size"})
                 { # array[N]
                     my %Base = get_OneStep_BaseType($Type{"Tid"}, $LibVersion);
-                    $TypeInfo{$LibVersion}{$TypeId}{"Size"} = $Type{"Size"}*$Base{"Size"};
+                    $Size *= $Base{"Size"};
+                    $TypeInfo{$LibVersion}{$TypeId}{"Size"} = "$Size";
                 }
                 else
                 { # array[] is a pointer
@@ -7959,12 +8045,6 @@ sub prepareSymbols($)
         my $ShortName = $SymbolInfo{$LibVersion}{$InfoId}{"ShortName"};
         my $ClassID = $SymbolInfo{$LibVersion}{$InfoId}{"Class"};
         my $Return = $SymbolInfo{$LibVersion}{$InfoId}{"Return"};
-        
-        if(not $MnglName)
-        { # ABI dumps have no mangled names for C-functions
-            $MnglName = $ShortName;
-            $SymbolInfo{$LibVersion}{$InfoId}{"MnglName"} = $MnglName;
-        }
         
         my $SRemangle = 0;
         if(not checkDump(1, "2.12")
@@ -8324,7 +8404,8 @@ sub selectSymbol($$$$)
         }
         elsif($Level eq "Source")
         { # checked
-            if($SInfo->{"PureVirt"} or $SInfo->{"Data"} or $SInfo->{"InLine"})
+            if($SInfo->{"PureVirt"} or $SInfo->{"Data"} or $SInfo->{"InLine"}
+            or isInLineInst($Symbol, $SInfo, $LibVersion))
             { # skip LOCAL symbols
                 if($Target) {
                     return 1;
@@ -8366,14 +8447,21 @@ sub cleanDump($)
         if(not keys(%{$SymbolInfo{$LibVersion}{$InfoId}{"Param"}})) {
             delete($SymbolInfo{$LibVersion}{$InfoId}{"Param"});
         }
+        if(not keys(%{$SymbolInfo{$LibVersion}{$InfoId}{"TParam"}})) {
+            delete($SymbolInfo{$LibVersion}{$InfoId}{"TParam"});
+        }
     }
     foreach my $Tid (keys(%{$TypeInfo{$LibVersion}}))
     {
+        delete($TypeInfo{$LibVersion}{$Tid}{"Tid"});
         foreach my $Attr ("Header", "Line", "Size", "NameSpace")
         {
             if(not $TypeInfo{$LibVersion}{$Tid}{$Attr}) {
                 delete($TypeInfo{$LibVersion}{$Tid}{$Attr});
             }
+        }
+        if(not keys(%{$TypeInfo{$LibVersion}{$Tid}{"TParam"}})) {
+            delete($TypeInfo{$LibVersion}{$Tid}{"TParam"});
         }
     }
 }
@@ -10863,9 +10951,13 @@ sub isPrivateData($)
     return ($Symbol=~/\A(_ZGV|_ZTI|_ZTS|_ZTT|_ZTV|_ZTC|_ZThn|_ZTv0_n)/);
 }
 
-sub isTemplateInstance($$)
+sub isInLineInst($$$) {
+    return (isTemplateInstance(@_) and not isTemplateSpec(@_));
+}
+
+sub isTemplateInstance($$$)
 {
-    my ($Symbol, $LibVersion) = @_;
+    my ($Symbol, $SInfo, $LibVersion) = @_;
     if($CheckObjectsOnly)
     {
         if($Symbol!~/\A(_Z|\?)/) {
@@ -10878,7 +10970,8 @@ sub isTemplateInstance($$)
             }
             if(my $ShortName = substr($Signature, 0, find_center($Signature, "(")))
             {
-                if($ShortName=~/<.+>/) {
+                if(index($ShortName,"<")!=-1
+                and index($ShortName,">")!=-1) {
                     return 1;
                 }
             }
@@ -10886,7 +10979,7 @@ sub isTemplateInstance($$)
     }
     else
     {
-        if(my $ClassId = $CompleteSignature{$LibVersion}{$Symbol}{"Class"})
+        if(my $ClassId = $SInfo->{"Class"})
         {
             if(my $ClassName = $TypeInfo{$LibVersion}{$ClassId}{"Name"})
             {
@@ -10895,9 +10988,10 @@ sub isTemplateInstance($$)
                 }
             }
         }
-        if(my $ShortName = $CompleteSignature{$LibVersion}{$Symbol}{"ShortName"})
+        if(my $ShortName = $SInfo->{"ShortName"})
         {
-            if($ShortName=~/<.+>/) {
+            if(index($ShortName,"<")!=-1
+            and index($ShortName,">")!=-1) {
                 return 1;
             }
         }
@@ -10905,16 +10999,16 @@ sub isTemplateInstance($$)
     return 0;
 }
 
-sub isTemplateSpec($$)
+sub isTemplateSpec($$$)
 {
-    my ($Symbol, $LibVersion) = @_;
-    if(my $ClassId = $CompleteSignature{$LibVersion}{$Symbol}{"Class"})
+    my ($Symbol, $SInfo, $LibVersion) = @_;
+    if(my $ClassId = $SInfo->{"Class"})
     {
         if($TypeInfo{$LibVersion}{$ClassId}{"Spec"})
         { # class specialization
             return 1;
         }
-        elsif($CompleteSignature{$LibVersion}{$Symbol}{"Spec"})
+        elsif($SInfo->{"Spec"})
         { # method specialization
             return 1;
         }
@@ -10994,14 +11088,14 @@ sub symbolFilter($$$$)
         {
             if($CheckObjectsOnly)
             {
-                if(isTemplateInstance($Symbol, $LibVersion)) {
+                if(isTemplateInstance($Symbol, $CompleteSignature{$LibVersion}{$Symbol}, $LibVersion)) {
                     return 0;
                 }
             }
             else
             {
                 if($CompleteSignature{$LibVersion}{$Symbol}{"InLine"}
-                or (isTemplateInstance($Symbol, $LibVersion) and not isTemplateSpec($Symbol, $LibVersion)))
+                or isInLineInst($Symbol, $CompleteSignature{$LibVersion}{$Symbol}, $LibVersion))
                 {
                     if($ClassId and $CompleteSignature{$LibVersion}{$Symbol}{"Virt"})
                     { # inline virtual methods
@@ -12364,7 +12458,13 @@ sub showVal($$$)
     my ($Value, $TypeId, $LibVersion) = @_;
     my %PureType = get_PureType($TypeId, $LibVersion);
     my $TName = uncover_typedefs($PureType{"Name"}, $LibVersion);
-    if($TName=~/\A(char(| const)\*|std::(string|basic_string<char>)(|&))\Z/)
+    if(substr($Value, 0, 2) eq "_Z")
+    {
+        if(my $Unmangled = $tr_name{$Value}) {
+            return $Unmangled;
+        }
+    }
+    elsif($TName=~/\A(char(| const)\*|std::(string|basic_string<char>)(|&))\Z/)
     { # strings
         return "\"$Value\"";
     }
@@ -12430,6 +12530,14 @@ sub mergeParameters($$$$$)
                   # new ABI dumps: "0"
                     $Value_Old = "0";
                 }
+            }
+        }
+        if(not checkDump(1, "2.18")
+        and checkDump(2, "2.18"))
+        { # support for old ABI dumps
+            if(not defined $Value_Old
+            and substr($Value_New, 0, 2) eq "_Z") {
+                $Value_Old = $Value_New;
             }
         }
         if(defined $Value_Old)
@@ -13196,6 +13304,23 @@ sub xmlSpecChars($)
     
     $Str=~s/\"/&quot;/g;
     $Str=~s/\'/&#39;/g;
+    
+    return $Str;
+}
+
+sub xmlSpecChars_R($)
+{
+    my $Str = $_[0];
+    if(not $Str) {
+        return $Str;
+    }
+    
+    $Str=~s/&amp;/&/g;
+    $Str=~s/&lt;/</g;
+    $Str=~s/&gt;/>/g;
+    
+    $Str=~s/&quot;/"/g;
+    $Str=~s/&#39;/'/g;
     
     return $Str;
 }
@@ -16914,7 +17039,7 @@ sub detectWordSize()
             $WSize = "4";
         }
     }
-    if(not int($WSize)) {
+    if(not $WSize) {
         exitStatus("Error", "can't check WORD size");
     }
     return ($Cache{"detectWordSize"} = $WSize);
@@ -16960,30 +17085,36 @@ sub read_ABI_Dump($$)
         exitStatus("Invalid_Dump", "specified ABI dump \'$Path\' is not valid, try to recreate it");
     }
     
-    my $Line = readLineNum($FilePath, 1);
-    if($Line=~/xml/) {
-        exitStatus("Invalid_Dump", "reading of XML-format ABI dumps is not implemented yet");
-    }
+    my $ABI = {};
     
-    open(DUMP, $FilePath);
-    local $/ = undef;
-    my $Content = <DUMP>;
-    close(DUMP);
-    
-    if(get_dirname($FilePath) eq $TMP_DIR."/unpack")
-    { # remove temp file
-        unlink($FilePath);
+    my $Line = readLineNum($FilePath, 0);
+    if($Line=~/xml/)
+    { # XML format
+        loadModule("XmlDump");
+        $ABI = readXmlDump($FilePath);
     }
-    if($Content!~/};\s*\Z/) {
-        exitStatus("Invalid_Dump", "specified ABI dump \'$Path\' is not valid, try to recreate it");
-    }
-    my $LibraryABI = eval($Content);
-    if(not $LibraryABI) {
-        exitStatus("Error", "internal error - eval() procedure seem to not working correctly, try to remove 'use strict' and try again");
+    else
+    { # Perl Data::Dumper format (default)
+        open(DUMP, $FilePath);
+        local $/ = undef;
+        my $Content = <DUMP>;
+        close(DUMP);
+        
+        if(get_dirname($FilePath) eq $TMP_DIR."/unpack")
+        { # remove temp file
+            unlink($FilePath);
+        }
+        if($Content!~/};\s*\Z/) {
+            exitStatus("Invalid_Dump", "specified ABI dump \'$Path\' is not valid, try to recreate it");
+        }
+        $ABI = eval($Content);
+        if(not $ABI) {
+            exitStatus("Error", "internal error - eval() procedure seem to not working correctly, try to remove 'use strict' and try again");
+        }
     }
     # new dumps (>=1.22) have a personal versioning
-    my $DumpVersion = $LibraryABI->{"ABI_DUMP_VERSION"};
-    my $ToolVersion = $LibraryABI->{"ABI_COMPLIANCE_CHECKER_VERSION"};
+    my $DumpVersion = $ABI->{"ABI_DUMP_VERSION"};
+    my $ToolVersion = $ABI->{"ABI_COMPLIANCE_CHECKER_VERSION"};
     if(not $DumpVersion)
     { # old dumps (<=1.21.6) have been marked by the tool version
         $DumpVersion = $ToolVersion;
@@ -16993,21 +17124,21 @@ sub read_ABI_Dump($$)
     { # should be compatible with dumps of the same major version
         if(cmpVersions($DumpVersion, $ABI_DUMP_VERSION)>0)
         { # Don't know how to parse future dump formats
-            exitStatus("Dump_Version", "incompatible version $DumpVersion of specified ABI dump (newer than $ABI_DUMP_VERSION)");
+            exitStatus("Dump_Version", "incompatible version \'$DumpVersion\' of specified ABI dump (newer than $ABI_DUMP_VERSION)");
         }
-        elsif(cmpVersions($DumpVersion, $TOOL_VERSION)>0 and not $LibraryABI->{"ABI_DUMP_VERSION"})
+        elsif(cmpVersions($DumpVersion, $TOOL_VERSION)>0 and not $ABI->{"ABI_DUMP_VERSION"})
         { # Don't know how to parse future dump formats
-            exitStatus("Dump_Version", "incompatible version $DumpVersion of specified ABI dump (newer than $TOOL_VERSION)");
+            exitStatus("Dump_Version", "incompatible version \'$DumpVersion\' of specified ABI dump (newer than $TOOL_VERSION)");
         }
         if($UseOldDumps)
         {
             if(cmpVersions($DumpVersion, $OLDEST_SUPPORTED_VERSION)<0) {
-                exitStatus("Dump_Version", "incompatible version $DumpVersion of specified ABI dump (older than $OLDEST_SUPPORTED_VERSION)");
+                exitStatus("Dump_Version", "incompatible version \'$DumpVersion\' of specified ABI dump (older than $OLDEST_SUPPORTED_VERSION)");
             }
         }
         else
         {
-            my $Msg = "incompatible version $DumpVersion of specified ABI dump (allowed only ".majorVersion($ABI_DUMP_VERSION).".0<=V<=$ABI_DUMP_VERSION)";
+            my $Msg = "incompatible version \'$DumpVersion\' of specified ABI dump (allowed only ".majorVersion($ABI_DUMP_VERSION).".0<=V<=$ABI_DUMP_VERSION)";
             if(cmpVersions($DumpVersion, $OLDEST_SUPPORTED_VERSION)>=0) {
                 $Msg .= "\nUse -old-dumps option to use old-version dumps ($OLDEST_SUPPORTED_VERSION<=V<".majorVersion($ABI_DUMP_VERSION).".0)";
             }
@@ -17018,7 +17149,7 @@ sub read_ABI_Dump($$)
     { # old ABI dumps
         $UsedDump{$LibVersion}{"BinOnly"} = 1;
     }
-    elsif($LibraryABI->{"BinOnly"})
+    elsif($ABI->{"BinOnly"})
     { # ABI dump created with --binary option
         $UsedDump{$LibVersion}{"BinOnly"} = 1;
     }
@@ -17026,25 +17157,25 @@ sub read_ABI_Dump($$)
     { # default
         $UsedDump{$LibVersion}{"SrcBin"} = 1;
     }
-    if(defined $LibraryABI->{"Mode"}
-    and $LibraryABI->{"Mode"} eq "Extended")
+    if(defined $ABI->{"Mode"}
+    and $ABI->{"Mode"} eq "Extended")
     { # --ext option
         $ExtendedCheck = 1;
     }
-    if(my $Lang = $LibraryABI->{"Language"})
+    if(my $Lang = $ABI->{"Language"})
     {
         $UsedDump{$LibVersion}{"L"} = $Lang;
         setLanguage($LibVersion, $Lang);
     }
     if(checkDump($LibVersion, "2.15")) {
-        $TypeInfo{$LibVersion} = $LibraryABI->{"TypeInfo"};
+        $TypeInfo{$LibVersion} = $ABI->{"TypeInfo"};
     }
     else
     { # support for old ABI dumps
-        my $TInfo = $LibraryABI->{"TypeInfo"};
+        my $TInfo = $ABI->{"TypeInfo"};
         if(not $TInfo)
         { # support for older ABI dumps
-            $TInfo = $LibraryABI->{"TypeDescr"};
+            $TInfo = $ABI->{"TypeDescr"};
         }
         my %Tid_TDid = ();
         foreach my $TDid (keys(%{$TInfo}))
@@ -17100,11 +17231,11 @@ sub read_ABI_Dump($$)
             delete($TypeInfo{$LibVersion}{$Tid}{"TDid"});
         }
     }
-    read_Machine_DumpInfo($LibraryABI, $LibVersion);
-    $SymbolInfo{$LibVersion} = $LibraryABI->{"SymbolInfo"};
+    read_Machine_DumpInfo($ABI, $LibVersion);
+    $SymbolInfo{$LibVersion} = $ABI->{"SymbolInfo"};
     if(not $SymbolInfo{$LibVersion})
     { # support for old dumps
-        $SymbolInfo{$LibVersion} = $LibraryABI->{"FuncDescr"};
+        $SymbolInfo{$LibVersion} = $ABI->{"FuncDescr"};
     }
     if(not keys(%{$SymbolInfo{$LibVersion}}))
     { # validation of old-version dumps
@@ -17112,19 +17243,19 @@ sub read_ABI_Dump($$)
             exitStatus("Invalid_Dump", "the input dump d$LibVersion is invalid");
         }
     }
-    $Library_Symbol{$LibVersion} = $LibraryABI->{"Symbols"};
+    $Library_Symbol{$LibVersion} = $ABI->{"Symbols"};
     if(not $Library_Symbol{$LibVersion})
     { # support for old dumps
-        $Library_Symbol{$LibVersion} = $LibraryABI->{"Interfaces"};
+        $Library_Symbol{$LibVersion} = $ABI->{"Interfaces"};
     }
     if(checkDump($LibVersion, "2.15")) {
-        $DepLibrary_Symbol{$LibVersion} = $LibraryABI->{"DepSymbols"};
+        $DepLibrary_Symbol{$LibVersion} = $ABI->{"DepSymbols"};
     }
     else
     { # support for old ABI dumps
-        my $DepSymbols = $LibraryABI->{"DepSymbols"};
+        my $DepSymbols = $ABI->{"DepSymbols"};
         if(not $DepSymbols) {
-            $DepSymbols = $LibraryABI->{"DepInterfaces"};
+            $DepSymbols = $ABI->{"DepInterfaces"};
         }
         if(not $DepSymbols)
         { # Cannot reconstruct DepSymbols. This may result in false
@@ -17136,32 +17267,32 @@ sub read_ABI_Dump($$)
             $DepSymbol_Library{$LibVersion}{$Symbol} = 1;
         }
     }
-    $SymVer{$LibVersion} = $LibraryABI->{"SymbolVersion"};
-    $Descriptor{$LibVersion}{"Version"} = $LibraryABI->{"LibraryVersion"};
-    $SkipTypes{$LibVersion} = $LibraryABI->{"SkipTypes"};
+    $SymVer{$LibVersion} = $ABI->{"SymbolVersion"};
+    $Descriptor{$LibVersion}{"Version"} = $ABI->{"LibraryVersion"};
+    $SkipTypes{$LibVersion} = $ABI->{"SkipTypes"};
     if(not $SkipTypes{$LibVersion})
     { # support for old dumps
-        $SkipTypes{$LibVersion} = $LibraryABI->{"OpaqueTypes"};
+        $SkipTypes{$LibVersion} = $ABI->{"OpaqueTypes"};
     }
-    $SkipSymbols{$LibVersion} = $LibraryABI->{"SkipSymbols"};
+    $SkipSymbols{$LibVersion} = $ABI->{"SkipSymbols"};
     if(not $SkipSymbols{$LibVersion})
     { # support for old dumps
-        $SkipSymbols{$LibVersion} = $LibraryABI->{"SkipInterfaces"};
+        $SkipSymbols{$LibVersion} = $ABI->{"SkipInterfaces"};
     }
     if(not $SkipSymbols{$LibVersion})
     { # support for old dumps
-        $SkipSymbols{$LibVersion} = $LibraryABI->{"InternalInterfaces"};
+        $SkipSymbols{$LibVersion} = $ABI->{"InternalInterfaces"};
     }
-    $SkipNameSpaces{$LibVersion} = $LibraryABI->{"SkipNameSpaces"};
-    $TargetHeaders{$LibVersion} = $LibraryABI->{"TargetHeaders"};
-    foreach my $Path (keys(%{$LibraryABI->{"SkipHeaders"}}))
+    $SkipNameSpaces{$LibVersion} = $ABI->{"SkipNameSpaces"};
+    $TargetHeaders{$LibVersion} = $ABI->{"TargetHeaders"};
+    foreach my $Path (keys(%{$ABI->{"SkipHeaders"}}))
     {
-        $SkipHeadersList{$LibVersion}{$Path} = $LibraryABI->{"SkipHeaders"}{$Path};
+        $SkipHeadersList{$LibVersion}{$Path} = $ABI->{"SkipHeaders"}{$Path};
         my ($CPath, $Type) = classifyPath($Path);
-        $SkipHeaders{$LibVersion}{$Type}{$CPath} = $LibraryABI->{"SkipHeaders"}{$Path};
+        $SkipHeaders{$LibVersion}{$Type}{$CPath} = $ABI->{"SkipHeaders"}{$Path};
     }
-    read_Headers_DumpInfo($LibraryABI, $LibVersion);
-    read_Libs_DumpInfo($LibraryABI, $LibVersion);
+    read_Headers_DumpInfo($ABI, $LibVersion);
+    read_Libs_DumpInfo($ABI, $LibVersion);
     if(not checkDump($LibVersion, "2.10.1")
     or not $TargetHeaders{$LibVersion})
     { # support for old ABI dumps: added target headers
@@ -17169,8 +17300,8 @@ sub read_ABI_Dump($$)
             $TargetHeaders{$LibVersion}{get_filename($_)}=1;
         }
     }
-    $Constants{$LibVersion} = $LibraryABI->{"Constants"};
-    $NestedNameSpaces{$LibVersion} = $LibraryABI->{"NameSpaces"};
+    $Constants{$LibVersion} = $ABI->{"Constants"};
+    $NestedNameSpaces{$LibVersion} = $ABI->{"NameSpaces"};
     if(not $NestedNameSpaces{$LibVersion})
     { # support for old dumps
       # Cannot reconstruct NameSpaces. This may affect design
@@ -17181,7 +17312,7 @@ sub read_ABI_Dump($$)
     # needed to adopt HTML report
     if(not $DumpSystem)
     { # to use in createSymbolsList(...)
-        $OStarget = $LibraryABI->{"Target"};
+        $OStarget = $ABI->{"Target"};
     }
     # recreate environment
     foreach my $Lib_Name (keys(%{$Library_Symbol{$LibVersion}}))
@@ -17217,6 +17348,10 @@ sub read_ABI_Dump($$)
                 push(@VFunc, $MnglName);
             }
         }
+        else
+        { # ABI dumps have no mangled names for C-functions
+            $SymbolInfo{$LibVersion}{$InfoId}{"MnglName"} = $SymbolInfo{$LibVersion}{$InfoId}{"ShortName"};
+        }
     }
     translateSymbols(@VFunc, $LibVersion);
     translateSymbols(keys(%{$Symbol_Library{$LibVersion}}), $LibVersion);
@@ -17238,11 +17373,29 @@ sub read_ABI_Dump($$)
             }
             delete($TypeInfo{$LibVersion}{$TypeId}{"BaseClass"});
         }
+        if(not defined $TypeInfo{$LibVersion}{$TypeId}{"Tid"}) {
+            $TypeInfo{$LibVersion}{$TypeId}{"Tid"} = $TypeId;
+        }
         my %TInfo = %{$TypeInfo{$LibVersion}{$TypeId}};
         if(defined $TInfo{"Base"})
         {
             foreach (keys(%{$TInfo{"Base"}})) {
                 $Class_SubClasses{$LibVersion}{$_}{$TypeId}=1;
+            }
+        }
+        if($TInfo{"Type"} eq "MethodPtr")
+        {
+            if(defined $TInfo{"Param"})
+            { # support for old ABI dumps <= 1.17
+                if(not defined $TInfo{"Param"}{"0"})
+                {
+                    my $Max = keys(%{$TInfo{"Param"}});
+                    foreach my $Pos (1 .. $Max) {
+                        $TInfo{"Param"}{$Pos-1} = $TInfo{"Param"}{$Pos};
+                    }
+                    delete($TInfo{"Param"}{$Max});
+                    %{$TypeInfo{$LibVersion}{$TypeId}} = %TInfo;
+                }
             }
         }
         if($TInfo{"Type"} eq "Typedef" and defined $TInfo{"BaseType"})
@@ -17296,16 +17449,16 @@ sub read_ABI_Dump($$)
 
 sub read_Machine_DumpInfo($$)
 {
-    my ($LibraryABI, $LibVersion) = @_;
-    if($LibraryABI->{"Arch"}) {
-        $CPU_ARCH{$LibVersion} = $LibraryABI->{"Arch"};
+    my ($ABI, $LibVersion) = @_;
+    if($ABI->{"Arch"}) {
+        $CPU_ARCH{$LibVersion} = $ABI->{"Arch"};
     }
-    if($LibraryABI->{"WordSize"}) {
-        $WORD_SIZE{$LibVersion} = $LibraryABI->{"WordSize"};
+    if($ABI->{"WordSize"}) {
+        $WORD_SIZE{$LibVersion} = $ABI->{"WordSize"};
     }
     else
     { # support for old dumps
-        $WORD_SIZE{$LibVersion} = $LibraryABI->{"SizeOfPointer"};
+        $WORD_SIZE{$LibVersion} = $ABI->{"SizeOfPointer"};
     }
     if(not $WORD_SIZE{$LibVersion})
     { # support for old dumps (<1.23)
@@ -17333,14 +17486,14 @@ sub read_Machine_DumpInfo($$)
             }
         }
     }
-    if($LibraryABI->{"GccVersion"}) {
-        $GCC_VERSION{$LibVersion} = $LibraryABI->{"GccVersion"};
+    if($ABI->{"GccVersion"}) {
+        $GCC_VERSION{$LibVersion} = $ABI->{"GccVersion"};
     }
 }
 
 sub read_Libs_DumpInfo($$)
 {
-    my ($LibraryABI, $LibVersion) = @_;
+    my ($ABI, $LibVersion) = @_;
     if(keys(%{$Library_Symbol{$LibVersion}})
     and not $DumpAPI) {
         $Descriptor{$LibVersion}{"Libs"} = "OK";
@@ -17349,19 +17502,20 @@ sub read_Libs_DumpInfo($$)
 
 sub read_Headers_DumpInfo($$)
 {
-    my ($LibraryABI, $LibVersion) = @_;
-    if(keys(%{$LibraryABI->{"Headers"}})
+    my ($ABI, $LibVersion) = @_;
+    if(keys(%{$ABI->{"Headers"}})
     and not $DumpAPI) {
         $Descriptor{$LibVersion}{"Headers"} = "OK";
     }
-    foreach my $Identity (keys(%{$LibraryABI->{"Headers"}}))
+    foreach my $Identity (sort {$ABI->{"Headers"}{$a}<=>$ABI->{"Headers"}{$b}} keys(%{$ABI->{"Headers"}}))
     { # headers info is stored in the old dumps in the different way
         if($UseOldDumps
-        and my $Name = $LibraryABI->{"Headers"}{$Identity}{"Name"})
+        and my $Name = $ABI->{"Headers"}{$Identity}{"Name"})
         { # support for old dumps: headers info corrected in 1.22
             $Identity = $Name;
         }
         $Registered_Headers{$LibVersion}{$Identity}{"Identity"} = $Identity;
+        $Registered_Headers{$LibVersion}{$Identity}{"Pos"} = $ABI->{"Headers"}{$Identity};
     }
 }
 
@@ -17700,6 +17854,22 @@ sub detect_default_paths($)
     { # GCC path and default include dirs
         if(not $CrossGcc) {
             $GCC_PATH = get_CmdPath("gcc");
+        }
+        if(not $GCC_PATH)
+        { # try to find gcc-X.Y
+            foreach my $Path (sort {$b=~/\/usr\/bin/ cmp $a=~/\/usr\/bin/}
+            keys(%{$SystemPaths{"bin"}}))
+            {
+                if(my @GCCs = cmd_find($Path, "", ".*/gcc-[0-9.]*", 1))
+                { # select the latest version
+                    @GCCs = sort {$b cmp $a} @GCCs;
+                    if(check_gcc($GCCs[0], "3"))
+                    {
+                        $GCC_PATH = $GCCs[0];
+                        last;
+                    }
+                }
+            }
         }
         if(not $GCC_PATH) {
             exitStatus("Not_Found", "can't find GCC>=3.0 in PATH");
@@ -18576,19 +18746,24 @@ sub create_ABI_Dump()
     }
     initLogging(1);
     detect_default_paths("inc|lib|bin|gcc"); # complete analysis
-    if(not $CheckHeadersOnly) {
-        readLibs(1);
+    if(not $Descriptor{1}{"Dump"})
+    {
+        if(not $CheckHeadersOnly) {
+            readLibs(1);
+        }
+        if($CheckHeadersOnly) {
+            setLanguage(1, "C++");
+        }
+        if(not $CheckObjectsOnly) {
+            searchForHeaders(1);
+        }
+        $WORD_SIZE{1} = detectWordSize();
     }
-    if($CheckHeadersOnly) {
-        setLanguage(1, "C++");
-    }
-    if(not $CheckObjectsOnly) {
-        searchForHeaders(1);
-    }
-    $WORD_SIZE{1} = detectWordSize();
-    if($Descriptor{1}{"Headers"}
-    and not $Descriptor{1}{"Dump"}) {
-        readHeaders(1);
+    if(not $Descriptor{1}{"Dump"})
+    {
+        if($Descriptor{1}{"Headers"}) {
+            readHeaders(1);
+        }
     }
     cleanDump(1);
     if(not keys(%{$SymbolInfo{1}}))
@@ -18609,7 +18784,7 @@ sub create_ABI_Dump()
         $HeadersInfo{$Registered_Headers{1}{$HPath}{"Identity"}} = $Registered_Headers{1}{$HPath}{"Pos"};
     }
     printMsg("INFO", "creating library ABI dump ...");
-    my %LibraryABI = (
+    my %ABI = (
         "TypeInfo" => $TypeInfo{1},
         "SymbolInfo" => $SymbolInfo{1},
         "Symbols" => $Library_Symbol{1},
@@ -18633,29 +18808,29 @@ sub create_ABI_Dump()
         "ABI_COMPLIANCE_CHECKER_VERSION" => $TOOL_VERSION
     );
     if(diffSets($TargetHeaders{1}, \%HeadersInfo)) {
-        $LibraryABI{"TargetHeaders"} = $TargetHeaders{1};
+        $ABI{"TargetHeaders"} = $TargetHeaders{1};
     }
     if($UseXML) {
-        $LibraryABI{"XML_ABI_DUMP_VERSION"} = $XML_ABI_DUMP_VERSION;
+        $ABI{"XML_ABI_DUMP_VERSION"} = $XML_ABI_DUMP_VERSION;
     }
     if($ExtendedCheck)
     { # --ext option
-        $LibraryABI{"Mode"} = "Extended";
+        $ABI{"Mode"} = "Extended";
     }
     if($BinaryOnly)
     { # --binary
-        $LibraryABI{"BinOnly"} = 1;
+        $ABI{"BinOnly"} = 1;
     }
     
     my $ABI_DUMP = "";
     if($UseXML)
     {
         loadModule("XmlDump");
-        $ABI_DUMP = createXmlDump(\%LibraryABI);
+        $ABI_DUMP = createXmlDump(\%ABI);
     }
     else
     { # default
-        $ABI_DUMP = Dumper(\%LibraryABI);
+        $ABI_DUMP = Dumper(\%ABI);
     }
     if($StdOut)
     { # --stdout option
@@ -18714,6 +18889,13 @@ sub quickEmptyReports()
         my $FilePath2 = unpackDump($Descriptor{2}{"Path"});
         if($FilePath1 and $FilePath2)
         {
+            my $Line = readLineNum($FilePath1, 0);
+            if($Line=~/xml/)
+            { # XML format
+                # is not supported yet
+                return;
+            }
+            
             local $/ = undef;
             
             open(DUMP1, $FilePath1);
@@ -18972,6 +19154,9 @@ sub compareInit()
             if($SortDump) {
                 @PARAMS = (@PARAMS, "-sort");
             }
+            if($DumpFormat and $DumpFormat ne "perl") {
+                @PARAMS = (@PARAMS, "-dump-format", $DumpFormat);
+            }
             if($Debug)
             {
                 @PARAMS = (@PARAMS, "-debug");
@@ -19020,6 +19205,9 @@ sub compareInit()
             }
             if($SortDump) {
                 @PARAMS = (@PARAMS, "-sort");
+            }
+            if($DumpFormat and $DumpFormat ne "perl") {
+                @PARAMS = (@PARAMS, "-dump-format", $DumpFormat);
             }
             if($Debug)
             {
@@ -19355,7 +19543,7 @@ sub scenario()
         }
     }
     else
-    { # default: HTML
+    { # default: Perl Data::Dumper
         $DumpFormat = "perl";
     }
     if($Quiet and $LogMode!~/a|n/)
@@ -19437,7 +19625,7 @@ sub scenario()
         detect_default_paths("bin|gcc"); # to compile libs
         loadModule("RegTests");
         testTool($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode,
-        $ReportFormat, $LIB_EXT, $GCC_PATH, $Browse, $OpenReport, $SortDump);
+        $ReportFormat, $DumpFormat, $LIB_EXT, $GCC_PATH, $Browse, $OpenReport, $SortDump);
         exit(0);
     }
     if($DumpSystem)

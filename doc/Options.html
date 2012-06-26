@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker_Options", "wgTitle": "ABI Compliance Checker Options", "wgCurRevisionId": 7955, "wgArticleId": 2442, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker_Options", "wgTitle": "ABI Compliance Checker Options", "wgCurRevisionId": 8011, "wgArticleId": 2442, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -66,10 +66,10 @@
 <div style="padding-left:40px;">Library name (without version). It affects only on the path and the title of the report.</div><br />
 <ul><li><b>-d1|-old|-o &lt;path&gt;</b>
 </li></ul>
-<div style="padding-left:40px;">Path to the <a href="http://ispras.linuxbase.org/index.php/Library_Descriptor" title="Library Descriptor">descriptor</a> of 1st (old) library version.</div><br />
+<div style="padding-left:40px;">Path to the <a href="Descriptor.html" title="Library Descriptor">descriptor</a> of 1st (old) library version.</div><br />
 <ul><li><b>-d2|-new|-n &lt;path&gt;</b>
 </li></ul>
-<div style="padding-left:40px;">Path to the <a href="http://ispras.linuxbase.org/index.php/Library_Descriptor" title="Library Descriptor">descriptor</a> of 2nd (new) library version.</div><br />
+<div style="padding-left:40px;">Path to the <a href="Descriptor.html" title="Library Descriptor">descriptor</a> of 2nd (new) library version.</div><br />
 <ul><li><b>-dump|-dump-abi &lt;descriptor.xml&gt;</b>
 </li></ul>
 <div style="padding-left:40px;">Dump library ABI to gzipped TXT format file. You can transfer it anywhere and pass instead of the XML-descriptor. Also it may be used for debugging the tool.</div><br />
@@ -86,10 +86,10 @@
 <ul><li><b>-static-libs</b>
 </li></ul>
 <div style="padding-left:40px;">Check static libraries instead of the shared ones. The &lt;libs&gt; section of the XML-descriptor should point to static libraries location.</div><br />
-<ul><li><b>-cross-gcc &lt;path&gt;</b>
+<ul><li><b>-cross-gcc|-gcc-path &lt;path&gt;</b>
 </li></ul>
 <div style="padding-left:40px;">Path to the cross GCC compiler to use instead of the usual (host) GCC.</div><br />
-<ul><li><b>-cross-prefix &lt;path&gt;</b>
+<ul><li><b>-cross-prefix|-gcc-prefix &lt;prefix&gt;</b>
 </li></ul>
 <div style="padding-left:40px;">GCC toolchain prefix.</div><br />
 <ul><li><b>-sysroot &lt;dirpath&gt;</b>
@@ -130,7 +130,7 @@
 <div style="padding-left:40px;">Find all the shared libraries and header files in &lt;dirpath&gt; directory, create XML descriptors and make ABI dumps for each library. The result set of ABI dumps can be compared (--cmp-systems) with the other one created for other version of operating system in order to check them for compatibility. Do not forget to specify -cross-gcc option if your target system requires some specific version of GCC compiler (different from the host GCC). The system ABI dump will be generated to: sys_dumps/&lt;name&gt;/&lt;arch&gt;.</div><br />
 <ul><li><b>-dump-system &lt;descriptor.xml&gt;</b>
 </li></ul>
-<div style="padding-left:40px;">The same as the previous option but takes an <a href="http://ispras.linuxbase.org/index.php/Operating_System_Descriptor" title="Operating System Descriptor">XML descriptor</a> of the target system.</div><br />
+<div style="padding-left:40px;">The same as the previous option but takes an <a href="Descriptor.html" title="Operating System Descriptor">XML descriptor</a> of the target system.</div><br />
 <ul><li><b>-sysinfo &lt;dir&gt;</b>
 </li></ul>
 <div style="padding-left:40px;">This option may be used with -dump-system to dump ABI of operating systems and configure the dumping process. Default: modules/SysInfo/&lt;target&gt; {unix, symbian, windows}</div><br />
@@ -174,6 +174,7 @@
 </li></ul>
 <div style="padding-left:40px;">Show source-compatibility problems only. Generate report to: compat_reports/&lt;library name&gt;/&lt;v1&gt;_to_&lt;v2&gt;/src_compat_report.html</div><br />
 <p>library name&gt;/
+div style='padding-left:40px;'&gt;Show the symbol's return type in the report.
 </p>
 <h2> <span class="mw-headline" id="Other_Options"> Other Options </span></h2>
 <ul><li><b>-test</b>
@@ -255,5 +256,5 @@ Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2442-0!*!0!!en!*!* and timestamp 20120618134625 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2442-0!*!0!!en!*!* and timestamp 20120626081154 -->
 </div></div></div></div></div></body></html>
