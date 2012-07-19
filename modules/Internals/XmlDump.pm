@@ -79,7 +79,7 @@ sub createXmlDump($)
             $ABI_DUMP .= openTag("data_type");
             $ABI_DUMP .= addTag("id", $ID);
             foreach my $Attr ("Name", "Type", "Size",
-            "Header", "Line", "NameSpace", "Class", "Return")
+            "Header", "Line", "NameSpace", "Class", "Return", "Algn")
             {
                 if(defined $TInfo{$Attr}) {
                     $ABI_DUMP .= addTag(lc($Attr), $TInfo{$Attr});
@@ -546,8 +546,8 @@ sub readXmlDump($)
                     $TInfo{"Spec"} = 1;
                 }
             }
-            foreach my $Attr ("Name", "Type", "Class",
-            "Header", "Line", "NameSpace", "Return", "Size")
+            foreach my $Attr ("Name", "Type", "Size",
+            "Header", "Line", "NameSpace", "Class", "Return", "Algn")
             {
                 my $Val = parseTag(\$DataType, lc($Attr));
                 if(defined $Val) {

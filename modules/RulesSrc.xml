@@ -639,6 +639,24 @@
 
 <rule>
     <id>
+        Return_Type_From_Void
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Type of return value has been changed from void to @new_value.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
         Global_Data_Type
     </id>
     <severity>

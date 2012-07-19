@@ -9,8 +9,8 @@ All rights reserved.
 RELEASE INFORMATION
 
 Project:           ABI Compliance Checker (ACC)
-Version:           1.98.2
-Date:              2012-06-26
+Version:           1.98.3
+Date:              2012-07-19
 
 
 This INSTALL.txt file explains how to install and setup environment
@@ -32,13 +32,15 @@ Content:
    1. G++ (3.0-4.7, recommended 4.5 or newer)
    2. GNU Binutils (c++filt, readelf, objdump)
    3. Perl 5 (5.8 or newer)
+   4. Ctags (5.8 or newer)
 
 
 
 2. REQUIREMENTS FOR MAC OS X
 ============================
 
-   Xcode (g++, c++filt, otool)
+   1. Xcode (g++, c++filt, otool)
+   2. Ctags (5.8 or newer)
 
 
 
@@ -50,6 +52,7 @@ Content:
    3. Active Perl 5 (5.8 or newer)
    4. Sigcheck v1.71 or newer
    5. Info-ZIP 3.0 (zip, unzip)
+   6. Ctags (5.8 or newer)
 
 3.1 Setup environment
 

@@ -1627,6 +1627,24 @@
 
 <rule>
     <id>
+        Parameter_Type_And_Register
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Type of @param_pos parameter @target has been changed from @old_value (@old_size) to @new_value (@new_size).
+    </change>
+    <effect>
+        The parameter became passed in different register. Applications will read the wrong memory block instead of the parameter value. Also, distribution of other parameters on the available registers and stack may be changed.
+    </effect>
+</rule>
+
+<rule>
+    <id>
         Parameter_Type_And_Stack
     </id>
     <severity>
@@ -1663,7 +1681,7 @@
 
 <rule>
     <id>
-        Parameter_Type_And_Pass_Through_Register
+        Parameter_Type_From_Stack_To_Register
     </id>
     <severity>
         High
@@ -1675,13 +1693,13 @@
         Type of @param_pos parameter @target has been changed from @old_value (@old_size) to @new_value (@new_size).
     </change>
     <effect>
-        The parameter became passed through the @new_register register instead of the stack. This may result in crash or incorrect behavior of applications.
+        The parameter became passed in the register instead of the stack. This may result in crash or incorrect behavior of applications.
     </effect>
 </rule>
 
 <rule>
     <id>
-        Parameter_Type_And_Pass_Through_Stack
+        Parameter_Type_From_Register_To_Stack
     </id>
     <severity>
         High
@@ -1693,7 +1711,7 @@
         Type of @param_pos parameter @target has been changed from @old_value (@old_size) to @new_value (@new_size).
     </change>
     <effect>
-        The parameter became passed through the stack instead of the @old_register register. This may result in crash or incorrect behavior of applications.
+        The parameter became passed through the stack instead of the register. This may result in crash or incorrect behavior of applications.
     </effect>
 </rule>
 
@@ -2036,8 +2054,27 @@
         Type of return value has been changed from @old_value (@old_size) to void.
     </change>
     <effect>
-        1) Applications will not obtain a return value and execution may change.
-        2) Layout of parameter's stack has been shifted by @word_size bytes because the hidden first parameter (return value) has been removed. All the parameters will be incorrectly initialized by applications.
+        1) Applications will read the wrong memory block instead of the return value.
+        2) Layout of parameter's stack has been shifted by @word_size bytes because the hidden first argument, that is used to pass the return value, has been removed. All the parameters will be incorrectly initialized by applications.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Return_Type_Became_Void_And_Register
+    </id>
+    <severity>
+        High
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Type of return value has been changed from @old_value (@old_size) to void.
+    </change>
+    <effect>
+        1) Applications will read the wrong memory block instead of the return value.
+        2) Distribution of parameters on the available registers and stack has been changed because the hidden first argument, that is used to pass the return value, has been removed. All the parameters will be incorrectly initialized by applications.
     </effect>
 </rule>
 
@@ -2055,7 +2092,43 @@
         Type of return value has been changed from void to @new_value (@new_size).
     </change>
     <effect>
-        Layout of parameter's stack has been shifted by @word_size bytes because the return value became passed in memory as the hidden first parameter. All the parameters will be incorrectly initialized by applications.
+        Layout of parameter's stack has been shifted by @word_size bytes because the return value became passed in memory as the hidden first argument, that was used to pass the return value. All the parameters will be incorrectly initialized by applications.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Return_Type_From_Void_And_Register
+    </id>
+    <severity>
+        High
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Type of return value has been changed from void to @new_value (@new_size).
+    </change>
+    <effect>
+        Distribution of parameters on the available registers and stack has been changed because the return value became passed in memory as the hidden first argument, that is used to pass the return value. All the parameters will be incorrectly initialized by applications.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Return_Type_From_Void
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Type of return value has been changed from void to @new_value (@new_size).
+    </change>
+    <effect>
+        Replacement of return type may indicate a change in its semantic meaning.
     </effect>
 </rule>
 
@@ -2073,8 +2146,27 @@
         Type of return value has been changed from @old_value (@old_size) to @new_value (@new_size).
     </change>
     <effect>
-        1) The return value became passed in memory as the hidden first parameter instead of the register and therefore the layout of parameter's stack has been shifted by @word_size bytes. All the parameters will be incorrectly initialized by applications.
-        2) Applications will obtain a different return value and execution may change.
+        1) The return value became passed in memory as the hidden first argument (address of the space on the stack provided by the caller) instead of the register and therefore the layout of parameter's stack has been shifted by @word_size bytes. All the parameters will be incorrectly initialized by applications.
+        2) Applications will read the wrong memory block instead of the return value.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Return_Type_And_Register_Became_Hidden_Parameter
+    </id>
+    <severity>
+        High
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Type of return value has been changed from @old_value (@old_size) to @new_value (@new_size).
+    </change>
+    <effect>
+        1) The return value became passed in different register as the hidden first argument (address of the space on the stack provided by the caller) and therefore distribution of parameters on the available registers and stack will be changed. All the parameters will be incorrectly initialized by applications.
+        2) Applications will read the wrong memory block instead of the return value.
     </effect>
 </rule>
 
@@ -2092,8 +2184,27 @@
         Type of return value has been changed from @old_value (@old_size) to @new_value (@new_size).
     </change>
     <effect>
-        1) The return value became passed in register instead of the hidden first parameter and therefore the layout of parameter's stack has been shifted by @word_size bytes. All the parameters will be incorrectly initialized by applications.
-        2) Applications will obtain a different return value and execution may change.
+        1) The return value became passed in register instead of the hidden first argument (address of the space on the stack provided by the caller) and therefore the layout of parameter's stack has been shifted by @word_size bytes. All the parameters will be incorrectly initialized by applications.
+        2) Applications will read the wrong memory block instead of the return value.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Return_Type_And_Register_Was_Hidden_Parameter
+    </id>
+    <severity>
+        High
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Type of return value has been changed from @old_value (@old_size) to @new_value (@new_size).
+    </change>
+    <effect>
+        1) The return value became passed in register instead of the hidden first argument, that is passed in different register, and therefore distribution of parameters on the available registers and stack will be changed. All the parameters will be incorrectly initialized by applications.
+        2) Applications will read the wrong memory block instead of the return value.
     </effect>
 </rule>
 
@@ -2723,7 +2834,7 @@
         Type of return value has been changed from @old_value to @new_value.
     </change>
     <effect>
-        The scalar and floating-point values are passed in different registers. Applications will read a garbage instead of the return value and may change the behaviour.
+        The return value became passed in different register. Applications will read the wrong memory block instead of the return value. Also, distribution of parameters on the available registers and stack may be changed.
     </effect>
 </rule>
 
@@ -2975,7 +3086,7 @@
         Field @target became **const**.
     </change>
     <effect>
-        The value of this field expected to be **const** in new library version, but can be modified by old applications.
+        The value of this field is expected to be **const** in new library version, but can be modified by old applications.
     </effect>
 </rule>
 
@@ -3011,7 +3122,7 @@
         Added **const** qualifier to field @target.
     </change>
     <effect>
-        The value of this field expected to be **const** in new library version, but can be modified by old applications.
+        The value of this field is expected to be **const** in new library version, but can be modified by old applications.
     </effect>
 </rule>
 

@@ -1,5 +1,5 @@
 ###########################################################################
-# Internal Regression Tests for ABI Compliance Checker
+# Module for ABI Compliance Checker with regression test suite
 #
 # Copyright (C) 2009-2010 The Linux Foundation
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -24,13 +24,15 @@
 use strict;
 
 my ($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode, $ReportFormat,
-$DumpFormat, $LIB_EXT, $GCC_PATH, $Browse, $OpenReport, $SortDump);
+$DumpFormat, $LIB_EXT, $GCC_PATH, $Browse, $OpenReport, $SortDump,
+$CheckHeadersOnly, $CheckObjectsOnly);
 my $OSgroup = get_OSgroup();
 
 sub testTool($$$$$$$$$$$)
 {
     ($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode, $ReportFormat,
-    $DumpFormat, $LIB_EXT, $GCC_PATH, $Browse, $OpenReport, $SortDump) = @_;
+    $DumpFormat, $LIB_EXT, $GCC_PATH, $Browse, $OpenReport, $SortDump,
+    $CheckHeadersOnly, $CheckObjectsOnly) = @_;
     
     testC();
     testCpp();
@@ -41,7 +43,7 @@ sub testCpp()
     printMsg("INFO", "verifying detectable C++ library changes");
     my ($HEADER1, $SOURCE1, $HEADER2, $SOURCE2) = ();
     my $DECL_SPEC = ($OSgroup eq "windows")?"__declspec( dllexport )":"";
-    my $EXTERN = ($OSgroup eq "windows")?"extern ":"";# add "extern" for CL compiler
+    my $EXTERN = ($OSgroup eq "windows")?"extern ":""; # add "extern" for CL compiler
     
     # Begin namespace
     $HEADER1 .= "namespace TestNS {\n";
@@ -247,7 +249,7 @@ sub testCpp()
         int globalDataBecameConst = 10;";
     
     $HEADER2 .= "
-        $DECL_SPEC const int globalDataBecameConst = 15;";
+        $EXTERN $DECL_SPEC const int globalDataBecameConst = 15;";
 
     # Global_Data_Became_Const
     # Class Member
@@ -283,18 +285,18 @@ sub testCpp()
     # Global_Data_Value_Changed
     # Integer
     $HEADER1 .= "
-        $DECL_SPEC const int globalDataValue_Integer = 10;";
+        $EXTERN $DECL_SPEC const int globalDataValue_Integer = 10;";
     
     $HEADER2 .= "
-        $DECL_SPEC const int globalDataValue_Integer = 15;";
+        $EXTERN $DECL_SPEC const int globalDataValue_Integer = 15;";
 
     # Global_Data_Value_Changed
     # Character
     $HEADER1 .= "
-        $DECL_SPEC const char globalDataValue_Char = \'o\';";
+        $EXTERN $DECL_SPEC const char globalDataValue_Char = \'o\';";
     
     $HEADER2 .= "
-        $DECL_SPEC const char globalDataValue_Char = \'N\';";
+        $EXTERN $DECL_SPEC const char globalDataValue_Char = \'N\';";
     
     # Parameter_Became_Restrict
     $HEADER1 .= "
@@ -2659,7 +2661,108 @@ sub testC()
     printMsg("INFO", "\nverifying detectable C library changes");
     my ($HEADER1, $SOURCE1, $HEADER2, $SOURCE2) = ();
     my $DECL_SPEC = ($OSgroup eq "windows")?"__declspec( dllexport )":"";
-    my $EXTERN = ($OSgroup eq "windows")?"extern ":"";
+    my $EXTERN = ($OSgroup eq "windows")?"extern ":""; # add "extern" for CL compiler
+    
+    # Parameter_Type_And_Register
+    $HEADER1 .= "
+        typedef struct {
+            int a[4];
+        } ARRAY;
+        $DECL_SPEC void callConv5 (ARRAY i, int j);";
+    $SOURCE1 .= "
+        void callConv5 (ARRAY i, int j) { }";
+    
+    $HEADER2 .= "
+        typedef struct {
+            int a[4];
+        } ARRAY;
+        $DECL_SPEC void callConv5 (ARRAY i, double j);";
+    $SOURCE2 .= "
+        void callConv5 (ARRAY i, double j) { }";
+    
+    # Parameter_Type_And_Register
+    $HEADER1 .= "
+        typedef union {
+            int a;
+            double b;
+        } UNION;
+        $DECL_SPEC void callConv4 (UNION i, int j);";
+    $SOURCE1 .= "
+        void callConv4 (UNION i, int j) { }";
+    
+    $HEADER2 .= "
+        typedef union {
+            int a;
+            double b;
+        } UNION;
+        $DECL_SPEC void callConv4 (UNION i, double j);";
+    $SOURCE2 .= "
+        void callConv4 (UNION i, double j) { }";
+    
+    # Parameter_Type_And_Register
+    $HEADER1 .= "
+        typedef struct {
+            long a:4;
+            long b:16;
+        } POD2;
+        $DECL_SPEC void callConv3 (POD2 i, int j);";
+    $SOURCE1 .= "
+        void callConv3 (POD2 i, int j) { }";
+    
+    $HEADER2 .= "
+        typedef struct {
+            long a:4;
+            long b:16;
+        } POD2;
+        $DECL_SPEC void callConv3 (POD2 i, double j);";
+    $SOURCE2 .= "
+        void callConv3 (POD2 i, double j) { }";
+    
+    # Parameter_Type_And_Register
+    $HEADER1 .= "
+        typedef struct {
+            short s:9;
+            int j:9;
+            char c;
+            short t:9;
+            short u:9;
+            char d;
+        } POD;
+        $DECL_SPEC void callConv2 (POD i, int j);";
+    $SOURCE1 .= "
+        void callConv2 (POD i, int j) { }";
+    
+    $HEADER2 .= "
+        typedef struct {
+            short s:9;
+            int j:9;
+            char c;
+            short t:9;
+            short u:9;
+            char d;
+        } POD;
+        $DECL_SPEC void callConv2 (POD i, double j);";
+    $SOURCE2 .= "
+        void callConv2 (POD i, double j) { }";
+    
+    # Parameter_Type_And_Register
+    $HEADER1 .= "
+        typedef struct {
+            int a, b;
+            double d;
+        } POD1;
+        $DECL_SPEC void callConv (int e, int f, POD1 s, int g, int h, long double ld, double m, double n, int i, int j, int k);";
+    $SOURCE1 .= "
+        void callConv(int e, int f, POD1 s, int g, int h, long double ld, double m, double n, int i, int j, int k) { }";
+    
+    $HEADER2 .= "
+        typedef struct {
+            int a, b;
+            double d;
+        } POD1;
+        $DECL_SPEC void callConv (int e, int f, POD1 s, int g, int h, long double ld, double m, double n, int i, int j, double k);";
+    $SOURCE2 .= "
+        void callConv(int e, int f, POD1 s, int g, int h, long double ld, double m, double n, int i, int j, double k) { }";
     
     # Parameter_Type (int to "int const")
     $HEADER1 .= "
@@ -2914,22 +3017,22 @@ sub testC()
     # Global_Data_Value_Changed
     # Integer
     $HEADER1 .= "
-        $DECL_SPEC const int globalDataValue_Integer = 10;";
+        $EXTERN $DECL_SPEC const int globalDataValue_Integer = 10;";
     
     $HEADER2 .= "
-        $DECL_SPEC const int globalDataValue_Integer = 15;";
+        $EXTERN $DECL_SPEC const int globalDataValue_Integer = 15;";
 
     # Global_Data_Value_Changed
     # Character
     $HEADER1 .= "
-        $DECL_SPEC const char globalDataValue_Char = \'o\';";
+        $EXTERN $DECL_SPEC const char globalDataValue_Char = \'o\';";
     
     $HEADER2 .= "
-        $DECL_SPEC const char globalDataValue_Char = \'N\';";
+        $EXTERN $DECL_SPEC const char globalDataValue_Char = \'N\';";
     
     # Global_Data_Became_Non_Const
     $HEADER1 .= "
-        $DECL_SPEC const int globalDataBecameNonConst = 10;";
+        $EXTERN $DECL_SPEC const int globalDataBecameNonConst = 10;";
     
     $HEADER2 .= "
         extern $DECL_SPEC int globalDataBecameNonConst;";
@@ -2940,7 +3043,7 @@ sub testC()
     # Typedef
     $HEADER1 .= "
         typedef const int CONST_INT;
-        $DECL_SPEC CONST_INT globalDataBecameNonConst_Typedef = 10;";
+        $EXTERN $DECL_SPEC CONST_INT globalDataBecameNonConst_Typedef = 10;";
     
     $HEADER2 .= "
         extern $DECL_SPEC int globalDataBecameNonConst_Typedef;";
@@ -2954,7 +3057,7 @@ sub testC()
         int globalDataBecameConst = 10;";
     
     $HEADER2 .= "
-        $DECL_SPEC const int globalDataBecameConst = 15;";
+        $EXTERN $DECL_SPEC const int globalDataBecameConst = 15;";
     
     # Global_Data_Became_Non_Const
     $HEADER1 .= "
@@ -3438,12 +3541,12 @@ sub testC()
         int parameterTypeAndSize(long long param, int other_param) { return other_param; }";
 
     # Parameter_Type_And_Size (test calling conventions)
-    $HEADER1 .= "\n
+    $HEADER1 .= "
         $DECL_SPEC int parameterCallingConvention(int p1, int p2, int p3);";
     $SOURCE1 .= "
         int parameterCallingConvention(int p1, int p2, int p3) { return 0; }";
     
-    $HEADER2 .= "\n
+    $HEADER2 .= "
         $DECL_SPEC float parameterCallingConvention(char p1, int p2, int p3);";
     $SOURCE2 .= "
         float parameterCallingConvention(char p1, int p2, int p3) { return 7.0f; }";
@@ -3554,13 +3657,19 @@ sub testC()
 
     # Return_Type ("struct" to "void*")
     $HEADER1 .= "
-        struct SomeStruct {int A;long B;};
+        struct SomeStruct {
+            int a;
+            double b, c, d;
+        };
         $DECL_SPEC struct SomeStruct* returnTypeChangeToVoidPtr(int param);";
     $SOURCE1 .= "
         struct SomeStruct* returnTypeChangeToVoidPtr(int param) { return (struct SomeStruct*)0; }";
     
     $HEADER2 .= "
-        struct SomeStruct {int A;int B;};
+        struct SomeStruct {
+            int a;
+            double b, c, d;
+        };
         $DECL_SPEC void* returnTypeChangeToVoidPtr(int param);";
     $SOURCE2 .= "
         void* returnTypeChangeToVoidPtr(int param) { return (void*)0; }";
@@ -3603,6 +3712,17 @@ sub testC()
         $DECL_SPEC long returnTypeChangeFromVoidToLong(int param);";
     $SOURCE2 .= "
         long returnTypeChangeFromVoidToLong(int param) { return 0; }";
+
+    # Return_Type_From_Void_And_Stack_Layout (safe, "void" to "void*")
+    $HEADER1 .= "
+        $DECL_SPEC void returnTypeChangeFromVoidToVoidPtr(int param);";
+    $SOURCE1 .= "
+        void returnTypeChangeFromVoidToVoidPtr(int param) { return; }";
+    
+    $HEADER2 .= "
+        $DECL_SPEC void* returnTypeChangeFromVoidToVoidPtr(int param);";
+    $SOURCE2 .= "
+        void* returnTypeChangeFromVoidToVoidPtr(int param) { return 0; }";
     
     # Return_Type_From_Register_To_Stack ("int" to "struct")
     $HEADER1 .= "
@@ -4268,6 +4388,12 @@ sub runTests($$$$$$$$)
     if($ReportFormat and $ReportFormat ne "html")
     { # HTML is default format
         @Cmd = (@Cmd, "-report-format", $ReportFormat);
+    }
+    if($CheckHeadersOnly) {
+        @Cmd = (@Cmd, "-headers-only");
+    }
+    if($CheckObjectsOnly) {
+        @Cmd = (@Cmd, "-objects-only");
     }
     if($Browse) {
         @Cmd = (@Cmd, "-browse", $Browse);
