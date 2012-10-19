@@ -1,0 +1,7 @@
+<skip_including>
+    /detail/
+</skip_including>
+
+<include_preamble>
+    boost/thread.hpp
+</include_preamble>

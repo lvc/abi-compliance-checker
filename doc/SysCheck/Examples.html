@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "Operating_Systems_Compatibility_Examples", "wgTitle": "Operating Systems Compatibility Examples", "wgCurRevisionId": 7916, "wgArticleId": 2656, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "Operating_Systems_Compatibility_Examples", "wgTitle": "Operating Systems Compatibility Examples", "wgCurRevisionId": 8059, "wgArticleId": 2656, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -43,35 +43,35 @@
 <ul>
 <li class="toclevel-1 tocsection-1"><a href="#Compatibility_of_Maemo_4.1.2_and_Maemo_5.0"><span class="tocnumber">1</span> <span class="toctext">Compatibility of Maemo 4.1.2 and Maemo 5.0</span></a>
 <ul>
-<li class="toclevel-2 tocsection-2"><a href="#Setting_Up_Maemo_4.1.2"><span class="tocnumber">1.1</span> <span class="toctext">Setting Up Maemo 4.1.2</span></a></li>
-<li class="toclevel-2 tocsection-3"><a href="#Dumping_Maemo_4.1.2_ABI"><span class="tocnumber">1.2</span> <span class="toctext">Dumping Maemo 4.1.2 ABI</span></a></li>
-<li class="toclevel-2 tocsection-4"><a href="#Setting_Up_Maemo_5.0"><span class="tocnumber">1.3</span> <span class="toctext">Setting Up Maemo 5.0</span></a></li>
-<li class="toclevel-2 tocsection-5"><a href="#Dumping_Maemo_5.0_ABI"><span class="tocnumber">1.4</span> <span class="toctext">Dumping Maemo 5.0 ABI</span></a></li>
+<li class="toclevel-2 tocsection-2"><a href="#Setup_Maemo_4.1.2"><span class="tocnumber">1.1</span> <span class="toctext">Setup Maemo 4.1.2</span></a></li>
+<li class="toclevel-2 tocsection-3"><a href="#Dump_Maemo_4.1.2_ABI"><span class="tocnumber">1.2</span> <span class="toctext">Dump Maemo 4.1.2 ABI</span></a></li>
+<li class="toclevel-2 tocsection-4"><a href="#Setup_Maemo_5.0"><span class="tocnumber">1.3</span> <span class="toctext">Setup Maemo 5.0</span></a></li>
+<li class="toclevel-2 tocsection-5"><a href="#Dump_Maemo_5.0_ABI"><span class="tocnumber">1.4</span> <span class="toctext">Dump Maemo 5.0 ABI</span></a></li>
 <li class="toclevel-2 tocsection-6"><a href="#Compare_ABI_Dumps"><span class="tocnumber">1.5</span> <span class="toctext">Compare ABI Dumps</span></a></li>
 </ul>
 </li>
 <li class="toclevel-1 tocsection-7"><a href="#Compatibility_of_MeeGo_1.2_Core_and_MeeGo_1.2_Harmattan"><span class="tocnumber">2</span> <span class="toctext">Compatibility of MeeGo 1.2 Core and MeeGo 1.2 Harmattan</span></a>
 <ul>
-<li class="toclevel-2 tocsection-8"><a href="#Setting_Up_MeeGo_1.2_Core"><span class="tocnumber">2.1</span> <span class="toctext">Setting Up MeeGo 1.2 Core</span></a></li>
-<li class="toclevel-2 tocsection-9"><a href="#Dumping_MeeGo_1.2_Core_ABI"><span class="tocnumber">2.2</span> <span class="toctext">Dumping MeeGo 1.2 Core ABI</span></a></li>
-<li class="toclevel-2 tocsection-10"><a href="#Setting_Up_MeeGo_1.2_Harmattan"><span class="tocnumber">2.3</span> <span class="toctext">Setting Up MeeGo 1.2 Harmattan</span></a></li>
-<li class="toclevel-2 tocsection-11"><a href="#Dumping_MeeGo_1.2_Harmattan_ABI"><span class="tocnumber">2.4</span> <span class="toctext">Dumping MeeGo 1.2 Harmattan ABI</span></a></li>
+<li class="toclevel-2 tocsection-8"><a href="#Setup_MeeGo_1.2_Core"><span class="tocnumber">2.1</span> <span class="toctext">Setup MeeGo 1.2 Core</span></a></li>
+<li class="toclevel-2 tocsection-9"><a href="#Dump_MeeGo_1.2_Core_ABI"><span class="tocnumber">2.2</span> <span class="toctext">Dump MeeGo 1.2 Core ABI</span></a></li>
+<li class="toclevel-2 tocsection-10"><a href="#Setup_MeeGo_1.2_Harmattan"><span class="tocnumber">2.3</span> <span class="toctext">Setup MeeGo 1.2 Harmattan</span></a></li>
+<li class="toclevel-2 tocsection-11"><a href="#Dump_MeeGo_1.2_Harmattan_ABI"><span class="tocnumber">2.4</span> <span class="toctext">Dump MeeGo 1.2 Harmattan ABI</span></a></li>
 <li class="toclevel-2 tocsection-12"><a href="#Compare_ABI_Dumps_2"><span class="tocnumber">2.5</span> <span class="toctext">Compare ABI Dumps</span></a></li>
 </ul>
 </li>
 <li class="toclevel-1 tocsection-13"><a href="#Compatibility_of_S60_5th_Edition_and_Symbian.5E3"><span class="tocnumber">3</span> <span class="toctext">Compatibility of S60 5th Edition and Symbian^3</span></a>
 <ul>
-<li class="toclevel-2 tocsection-14"><a href="#Setting_Up_S60_5th_Edition_SDK"><span class="tocnumber">3.1</span> <span class="toctext">Setting Up S60 5th Edition SDK</span></a></li>
-<li class="toclevel-2 tocsection-15"><a href="#Dumping_S60_5th_Edition_ABI"><span class="tocnumber">3.2</span> <span class="toctext">Dumping S60 5th Edition ABI</span></a></li>
-<li class="toclevel-2 tocsection-16"><a href="#Setting_Up_Symbian.5E3_SDK"><span class="tocnumber">3.3</span> <span class="toctext">Setting Up Symbian^3 SDK</span></a></li>
-<li class="toclevel-2 tocsection-17"><a href="#Dumping_Symbian.5E3_ABI"><span class="tocnumber">3.4</span> <span class="toctext">Dumping Symbian^3 ABI</span></a></li>
+<li class="toclevel-2 tocsection-14"><a href="#Setup_S60_5th_Edition_SDK"><span class="tocnumber">3.1</span> <span class="toctext">Setup S60 5th Edition SDK</span></a></li>
+<li class="toclevel-2 tocsection-15"><a href="#Dump_S60_5th_Edition_ABI"><span class="tocnumber">3.2</span> <span class="toctext">Dump S60 5th Edition ABI</span></a></li>
+<li class="toclevel-2 tocsection-16"><a href="#Setup_Symbian.5E3_SDK"><span class="tocnumber">3.3</span> <span class="toctext">Setup Symbian^3 SDK</span></a></li>
+<li class="toclevel-2 tocsection-17"><a href="#Dump_Symbian.5E3_ABI"><span class="tocnumber">3.4</span> <span class="toctext">Dump Symbian^3 ABI</span></a></li>
 <li class="toclevel-2 tocsection-18"><a href="#Compare_ABI_Dumps_3"><span class="tocnumber">3.5</span> <span class="toctext">Compare ABI Dumps</span></a></li>
 </ul>
 </li>
 </ul>
 </td></tr></table>
 <h2> <span class="mw-headline" id="Compatibility_of_Maemo_4.1.2_and_Maemo_5.0"> Compatibility of Maemo 4.1.2 and Maemo 5.0 </span></h2>
-<h3> <span class="mw-headline" id="Setting_Up_Maemo_4.1.2"> Setting Up Maemo 4.1.2 </span></h3>
+<h3> <span class="mw-headline" id="Setup_Maemo_4.1.2"> Setup Maemo 4.1.2 </span></h3>
 <p>Follow <a rel="nofollow" class="external text" href="http://maemo.org/development/sdks/maemo_4-1-2_diablo/">this tutorial</a> to install Maemo 4.1.2 SDK.
 </p><p>Setup scratchbox for Maemo 4.1.2:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;sudo /home/maemo/4.1.2/scratchbox/sbin/sbox_ctl start&#160;</code><br /><br />
@@ -84,7 +84,7 @@
 </p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;apt-cache search "\-dev"|awk '{print $1;}'&gt;install.txt&#160;</code><br /><br />
 </p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;for i in `cat install.txt`;do apt-get --force-yes -y install $i;done&#160;</code><br /><br />
 </p>
-<h3> <span class="mw-headline" id="Dumping_Maemo_4.1.2_ABI"> Dumping Maemo 4.1.2 ABI </span></h3>
+<h3> <span class="mw-headline" id="Dump_Maemo_4.1.2_ABI"> Dump Maemo 4.1.2 ABI </span></h3>
 <p>Command to dump system ABI:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -dump-system "Maemo-4.1.2" -sysroot /&#160;</code><br /><br />
 </p><p>The system ABI dump will be generated to:<br />
@@ -93,7 +93,7 @@
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;exit&#160;</code><br /><br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;sudo /home/maemo/4.1.2/scratchbox/sbin/sbox_ctl stop&#160;</code><br /><br />
 </p>
-<h3> <span class="mw-headline" id="Setting_Up_Maemo_5.0"> Setting Up Maemo 5.0 </span></h3>
+<h3> <span class="mw-headline" id="Setup_Maemo_5.0"> Setup Maemo 5.0 </span></h3>
 <p>Follow <a rel="nofollow" class="external text" href="http://wiki.maemo.org/Documentation/Maemo5_Final_Installation">this tutorial</a> to install Maemo 5.0 SDK.
 </p><p>Login to the Maemo 5.0:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;/home/maemo/5.0/scratchbox/login&#160;</code><br /><br />
@@ -104,7 +104,7 @@
 </p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;apt-cache search "\-dev"|awk '{print $1;}'&gt;install.txt&#160;</code><br /><br />
 </p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;for i in `cat install.txt`;do apt-get --force-yes -y install $i;done&#160;</code><br /><br />
 </p>
-<h3> <span class="mw-headline" id="Dumping_Maemo_5.0_ABI"> Dumping Maemo 5.0 ABI </span></h3>
+<h3> <span class="mw-headline" id="Dump_Maemo_5.0_ABI"> Dump Maemo 5.0 ABI </span></h3>
 <p>Command to dump the Maemo 5.0 ABI:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -dump-system "Maemo-5.0" -sysroot /&#160;</code><br /><br />
 </p><p>The system ABI dump will be generated to:<br />
@@ -120,7 +120,7 @@
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;sys_compat_reports/Maemo-4.1.2_to_Maemo-5.0/arm/<a rel="nofollow" class="external text" href="http://upstream-tracker.org/compatibility/Maemo_4.1.2_to_Maemo_5.0/arm/abi_compat_report.html">abi_compat_report.html</a>&#160;</code><br /><br />
 </p>
 <h2> <span class="mw-headline" id="Compatibility_of_MeeGo_1.2_Core_and_MeeGo_1.2_Harmattan"> Compatibility of MeeGo 1.2 Core and MeeGo 1.2 Harmattan </span></h2>
-<h3> <span class="mw-headline" id="Setting_Up_MeeGo_1.2_Core"> Setting Up MeeGo 1.2 Core </span></h3>
+<h3> <span class="mw-headline" id="Setup_MeeGo_1.2_Core"> Setup MeeGo 1.2 Core </span></h3>
 <p>Follow <a rel="nofollow" class="external text" href="http://wiki.meego.com/MeeGo_1.0_Netbook_VirtualBox">this tutorial</a> to install Intel's MeeGo 1.2 on VirtualBox and enter to the system terminal.
 </p><p>Install all devel packages:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;zypper search -u dev|awk '{print $2;}'|grep 'dev'&gt;install.txt&#160;</code><br /><br />
@@ -128,13 +128,13 @@
 </p><p>Install G++ compiler:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;zypper install gcc-c++&#160;</code><br /><br />
 </p>
-<h3> <span class="mw-headline" id="Dumping_MeeGo_1.2_Core_ABI"> Dumping MeeGo 1.2 Core ABI </span></h3>
+<h3> <span class="mw-headline" id="Dump_MeeGo_1.2_Core_ABI"> Dump MeeGo 1.2 Core ABI </span></h3>
 <p>Dump the MeeGo 1.2 ABI:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -dump-system "MeeGo-1.2-Core" -sysroot /&#160;</code><br /><br />
 </p><p>The system ABI dump will be generated to:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;sys_dumps/MeeGo-1.2-Core/x86/&#160;</code><br /><br />
 </p>
-<h3> <span class="mw-headline" id="Setting_Up_MeeGo_1.2_Harmattan"> Setting Up MeeGo 1.2 Harmattan </span></h3>
+<h3> <span class="mw-headline" id="Setup_MeeGo_1.2_Harmattan"> Setup MeeGo 1.2 Harmattan </span></h3>
 <p>Follow <a rel="nofollow" class="external text" href="http://harmattan-dev.nokia.com/">this tutorial</a> to install MeeGo 1.2 Harmattan SDK.
 </p><p>Setup scratchbox for MeeGo 1.2 Harmattan:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;sudo /home/meego/1.2-harmattan/scratchbox/sbin/sbox_ctl start&#160;</code><br /><br />
@@ -147,7 +147,7 @@
 </p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;apt-cache search '\-dev'|awk '{print $1;}'&gt;install.txt&#160;</code><br /><br />
 </p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;for i in `cat install.txt`;do apt-get --force-yes -y install $i;done&#160;</code><br /><br />
 </p>
-<h3> <span class="mw-headline" id="Dumping_MeeGo_1.2_Harmattan_ABI"> Dumping MeeGo 1.2 Harmattan ABI </span></h3>
+<h3> <span class="mw-headline" id="Dump_MeeGo_1.2_Harmattan_ABI"> Dump MeeGo 1.2 Harmattan ABI </span></h3>
 <p>Dump the MeeGo 1.2 Harmattan ABI:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -dump-system "MeeGo-1.2-Harmattan" -sysroot /&#160;</code><br /><br />
 </p><p>The system ABI dump will be generated to:<br />
@@ -163,10 +163,10 @@
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;sys_compat_reports/MeeGo-1.2-Core_to_MeeGo-1.2-Harmattan/x86/<a rel="nofollow" class="external text" href="http://upstream-tracker.org/compatibility/MeeGo_1.2_Core_to_MeeGo_1.2_Harmattan/x86/abi_compat_report.html">abi_compat_report.html</a>&#160;</code><br /><br />
 </p>
 <h2> <span class="mw-headline" id="Compatibility_of_S60_5th_Edition_and_Symbian.5E3"> Compatibility of S60 5th Edition and Symbian^3 </span></h2>
-<h3> <span class="mw-headline" id="Setting_Up_S60_5th_Edition_SDK"> Setting Up S60 5th Edition SDK </span></h3>
+<h3> <span class="mw-headline" id="Setup_S60_5th_Edition_SDK"> Setup S60 5th Edition SDK </span></h3>
 <p>Follow <a rel="nofollow" class="external text" href="https://www.developer.nokia.com/Resources/Tools_and_downloads/Other/Symbian_SDKs/">this page</a> to install S60 5th Edition SDK.
 </p>
-<h3> <span class="mw-headline" id="Dumping_S60_5th_Edition_ABI"> Dumping S60 5th Edition ABI </span></h3>
+<h3> <span class="mw-headline" id="Dump_S60_5th_Edition_ABI"> Dump S60 5th Edition ABI </span></h3>
 <p>Create XML-descriptor for S60 5th Edition (S60-5th.xml):
 </p>
 <pre>   &lt;name&gt;
@@ -194,10 +194,10 @@
 </p><p>The system ABI dump will be generated to:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;sys_dumps/S60 5th Edition/arm/&#160;</code><br /><br />
 </p>
-<h3> <span class="mw-headline" id="Setting_Up_Symbian.5E3_SDK"> Setting Up Symbian^3 SDK </span></h3>
+<h3> <span class="mw-headline" id="Setup_Symbian.5E3_SDK"> Setup Symbian^3 SDK </span></h3>
 <p>Follow <a rel="nofollow" class="external text" href="https://www.developer.nokia.com/Resources/Tools_and_downloads/Other/Symbian_SDKs/">this page</a> to install Symbian^3 SDK.
 </p>
-<h3> <span class="mw-headline" id="Dumping_Symbian.5E3_ABI"> Dumping Symbian^3 ABI </span></h3>
+<h3> <span class="mw-headline" id="Dump_Symbian.5E3_ABI"> Dump Symbian^3 ABI </span></h3>
 <p>Create XML-descriptor for Symbian^3 (Symbian^3.xml):
 </p>
 <pre>   &lt;name&gt;
@@ -239,5 +239,5 @@ Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2656-0!*!*!!en!*!* and timestamp 20120719144107 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2656-0!*!*!!en!*!* and timestamp 20121018090131 -->
 </div></div></div></div></div></body></html>

@@ -1,0 +1,8 @@
+<headers>
+    modprobe.h
+</headers>
+
+<include_preamble>
+    logging.h
+    list.h
+</include_preamble>

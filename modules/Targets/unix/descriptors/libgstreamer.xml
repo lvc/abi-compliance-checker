@@ -2,13 +2,13 @@
     gstbasemcsrc.h
 </skip_headers>
 
-<non_self_compiled>
+<skip_including>
     gstcheck.h
     gstbytereader.h
     gstbufferstraw.h
     gstbytewriter.h
     gstconsistencychecker.h
-</non_self_compiled>
+</skip_including>
 
 <gcc_options>
     -DGST_USE_UNSTABLE_API

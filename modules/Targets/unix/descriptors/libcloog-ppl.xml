@@ -1,0 +1,3 @@
+<defines>
+    #define CLOOG_INT_INT
+</defines>

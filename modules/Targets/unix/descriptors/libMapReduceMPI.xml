@@ -1,0 +1,3 @@
+<skip_include_paths>
+    /usr/include/vtk/vtksys/ios
+</skip_include_paths>

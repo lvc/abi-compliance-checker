@@ -1,0 +1,3 @@
+<skip_including>
+    win32.h
+</skip_including>

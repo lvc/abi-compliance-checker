@@ -1,0 +1,4 @@
+<skip_including>
+    new_gc_alloc.h
+    gc_version.h
+</skip_including>

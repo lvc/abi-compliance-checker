@@ -1,0 +1,7 @@
+<defines>
+    #define USE_SERIAL_COSMO
+</defines>
+
+<skip_including>
+    winDirent.h
+</skip_including>

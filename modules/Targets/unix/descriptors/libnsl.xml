@@ -1,6 +1,6 @@
-<non_self_compiled>
+<skip_including>
     nislib.h
     nfs_prot.h
     yp_prot.h
     yp_prot.h
-</non_self_compiled>
+</skip_including>

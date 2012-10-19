@@ -1,0 +1,8 @@
+<include_preamble>
+    string.h
+</include_preamble>
+
+<skip_include_paths>
+    /usr/include/vtk/vtkstd
+    /usr/include/vtk/vtksys/ios
+</skip_include_paths>

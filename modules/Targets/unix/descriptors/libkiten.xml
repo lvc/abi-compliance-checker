@@ -1,0 +1,4 @@
+<skip_including>
+    dictfileedict.h
+    dictfilekanjidic.h
+</skip_including>

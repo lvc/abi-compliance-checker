@@ -1,3 +1,4 @@
 <skip_headers>
     mingw32.h
+    win32lib.h
 </skip_headers>

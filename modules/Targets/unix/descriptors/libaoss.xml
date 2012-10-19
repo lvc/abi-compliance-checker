@@ -1,0 +1,4 @@
+<skip_headers>
+    /c++/
+    /bcc/
+</skip_headers>

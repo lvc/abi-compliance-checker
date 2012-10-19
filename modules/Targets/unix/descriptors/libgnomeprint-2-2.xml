@@ -1,0 +1,4 @@
+<skip_headers>
+    /private/
+    /gtk-3.0/
+</skip_headers>

@@ -1,0 +1,3 @@
+<skip_headers>
+    /libusb-1.0/
+</skip_headers>

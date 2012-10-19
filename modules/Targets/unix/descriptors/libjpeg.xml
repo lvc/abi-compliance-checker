@@ -1,7 +1,7 @@
-<non_self_compiled>
+<skip_including>
     jmorecfg.h
     jpegint.h
-</non_self_compiled>
+</skip_including>
 
 <include_preamble>
     stdio.h

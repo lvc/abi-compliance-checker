@@ -26,7 +26,9 @@ use File::Temp qw(tempdir);
 use Cwd qw(abs_path cwd);
 
 my ($Debug, $Quiet, $LogMode, $CheckHeadersOnly, $SystemRoot, $MODULES_DIR, $GCC_PATH,
-$CrossPrefix, $TargetSysInfo, $TargetLibraryName, $CrossGcc, $UseStaticLibs, $NoStdInc, $OStarget);
+$CrossPrefix, $TargetSysInfo, $TargetLibraryName, $CrossGcc, $UseStaticLibs, $NoStdInc,
+$OStarget, $BinaryOnly, $SourceOnly);
+
 my $OSgroup = get_OSgroup();
 my $TMP_DIR = tempdir(CLEANUP=>1);
 my $ORIG_DIR = cwd();
@@ -34,12 +36,13 @@ my $LIB_EXT = getLIB_EXT($OSgroup);
 
 my %SysDescriptor;
 my %Cache;
+my %NonPrefix;
 
 sub cmpSystems($$$)
 { # -cmp-systems option handler
   # should be used with -d1 and -d2 options
     my ($SPath1, $SPath2, $Opts) = @_;
-    readOpts($Opts);
+    initModule($Opts);
     if(not $SPath1) {
         exitStatus("Error", "the option -d1 should be specified");
     }
@@ -86,7 +89,8 @@ sub cmpSystems($$$)
     my $SYS_REPORT_PATH = "sys_compat_reports/".$SystemName1."_to_".$SystemName2."/$ArchName";
     rmtree($SYS_REPORT_PATH);
     my (%LibSoname1, %LibSoname2) = ();
-    foreach (split(/\n/, readFile($SPath1."/sonames.txt"))) {
+    foreach (split(/\n/, readFile($SPath1."/sonames.txt")))
+    {
         if(my ($LFName, $Soname) = split(/;/, $_))
         {
             if($OStarget eq "symbian") {
@@ -95,7 +99,8 @@ sub cmpSystems($$$)
             $LibSoname1{$LFName} = $Soname;
         }
     }
-    foreach (split(/\n/, readFile($SPath2."/sonames.txt"))) {
+    foreach (split(/\n/, readFile($SPath2."/sonames.txt")))
+    {
         if(my ($LFName, $Soname) = split(/;/, $_))
         {
             if($OStarget eq "symbian") {
@@ -105,12 +110,14 @@ sub cmpSystems($$$)
         }
     }
     my (%LibV1, %LibV2) = ();
-    foreach (split(/\n/, readFile($SPath1."/versions.txt"))) {
+    foreach (split(/\n/, readFile($SPath1."/versions.txt")))
+    {
         if(my ($LFName, $V) = split(/;/, $_)) {
             $LibV1{$LFName} = $V;
         }
     }
-    foreach (split(/\n/, readFile($SPath2."/versions.txt"))) {
+    foreach (split(/\n/, readFile($SPath2."/versions.txt")))
+    {
         if(my ($LFName, $V) = split(/;/, $_)) {
             $LibV2{$LFName} = $V;
         }
@@ -126,6 +133,7 @@ sub cmpSystems($$$)
         @Dumps2 = cmd_find($SPath2."/abi_dumps","f","*.zip",1);
     }
     my (%LibVers1, %LibVers2) = ();
+    my (%ShortNames1, %ShortNames2) = ();
     foreach my $DPath (@Dumps1)
     {
         if(my $Name = isDump($DPath))
@@ -138,6 +146,7 @@ sub cmpSystems($$$)
                 $Soname = $Name;
             }
             $LibVers1{$Soname}{$V} = $DPath;
+            $ShortNames1{parse_libname($Soname, "short", $OStarget)}{$Soname} = 1;
         }
     }
     foreach my $DPath (@Dumps2)
@@ -152,10 +161,12 @@ sub cmpSystems($$$)
                 $Soname = $Name;
             }
             $LibVers2{$Soname}{$V} = $DPath;
+            $ShortNames2{parse_libname($Soname, "short", $OStarget)}{$Soname} = 1;
         }
     }
     my (%Added, %Removed) = ();
-    my (%ChangedSoname, %TestResults, %SONAME_Changed);
+    my (%ChangedSoname, %TestResults) = ();
+    my (%AddedShort, %RemovedShort) = ();
     if(not $GroupByHeaders)
     {
         my %ChangedSoname_Safe = ();
@@ -187,7 +198,6 @@ sub cmpSystems($$$)
                 $LibVers1{$LName} = $LibVers1{$Soname};
             }
         }
-        my (%AddedShort, %RemovedShort) = ();
         if(not $GroupByHeaders) {
             printMsg("INFO", "Checking added/removed libs");
         }
@@ -209,11 +219,18 @@ sub cmpSystems($$$)
             { # removed library
                 if(not $LibSoname2{$LName})
                 {
-                    $RemovedShort{parse_libname($LName, "name+ext", $OStarget)}{$LName}=1;
-                    $Removed{$LName}{"version"}=$Versions1[0];
+                    my $LSName = parse_libname($LName, "short", $OStarget);
+                    $RemovedShort{$LSName}{$LName} = 1;
+                    my $V = $Versions1[0];
+                    $Removed{$LName}{"version"} = $V;
+                    
                     my $ListPath = "info/$LName/symbols.html";
-                    createSymbolsList($LibVers1{$LName}{$Versions1[0]},
-                    $SYS_REPORT_PATH."/".$ListPath, $LName, $Versions1[0]."-".$SystemName1, $ArchName);
+                    my $FV = $SystemName1;
+                    if($V) {
+                        $FV = $V."-".$FV;
+                    }
+                    createSymbolsList($LibVers1{$LName}{$V},
+                    $SYS_REPORT_PATH."/".$ListPath, $LName, $FV, $ArchName);
                     $Removed{$LName}{"list"} = $ListPath;
                 }
             }
@@ -240,11 +257,18 @@ sub cmpSystems($$$)
             { # added library
                 if(not $LibSoname1{$LName})
                 {
-                    $AddedShort{parse_libname($LName, "name+ext", $OStarget)}{$LName}=1;
-                    $Added{$LName}{"version"}=$Versions2[0];
+                    my $LSName = parse_libname($LName, "short", $OStarget);
+                    $AddedShort{$LSName}{$LName} = 1;
+                    my $V = $Versions2[0];
+                    $Added{$LName}{"version"} = $V;
+                    
                     my $ListPath = "info/$LName/symbols.html";
-                    createSymbolsList($LibVers2{$LName}{$Versions2[0]},
-                    $SYS_REPORT_PATH."/".$ListPath, $LName, $Versions2[0]."-".$SystemName2, $ArchName);
+                    my $FV = $SystemName2;
+                    if($V) {
+                        $FV = $V."-".$FV;
+                    }
+                    createSymbolsList($LibVers2{$LName}{$V},
+                    $SYS_REPORT_PATH."/".$ListPath, $LName, $FV, $ArchName);
                     $Added{$LName}{"list"} = $ListPath;
                 }
             }
@@ -252,13 +276,26 @@ sub cmpSystems($$$)
         foreach my $LSName (keys(%AddedShort))
         { # changed SONAME
             my @AddedSonames = keys(%{$AddedShort{$LSName}});
-            next if(length(@AddedSonames)!=1);
-            my @RemovedSonames = keys(%{$RemovedShort{$LSName}});
-            next if(length(@RemovedSonames)!=1);
-            $ChangedSoname{$AddedSonames[0]}=$RemovedSonames[0];
-            $ChangedSoname{$RemovedSonames[0]}=$AddedSonames[0];
+            next if($#AddedSonames!=0);
+            
+            if(defined $RemovedShort{$LSName})
+            { # removed old soname
+                my @RemovedSonames = keys(%{$RemovedShort{$LSName}});
+                $ChangedSoname{$AddedSonames[0]} = $RemovedSonames[0];
+                $ChangedSoname{$RemovedSonames[0]} = $AddedSonames[0];
+            }
+            elsif(defined $ShortNames1{$LSName})
+            { # saved old soname
+                my @Sonames = keys(%{$ShortNames1{$LSName}});
+                $ChangedSoname{$AddedSonames[0]} = $Sonames[0];
+                $ChangedSoname{$Sonames[0]} = $AddedSonames[0];
+            }
         }
     }
+    
+    my %SONAME_Changed = ();
+    my %SONAME_Added = ();
+    
     foreach my $LName (sort {lc($a) cmp lc($b)} keys(%LibVers1))
     {
         if(not is_target_lib($LName)) {
@@ -277,12 +314,8 @@ sub cmpSystems($$$)
             next;
         }
         my ($LV2, $LName2, $DPath2) = ();
-        if(@Versions2)
-        {
-            $LV2 = $Versions2[0];
-            $DPath2 = $LibVers2{$LName}{$LV2};
-        }
-        elsif($LName2 = $ChangedSoname{$LName})
+        my $LName_Short = parse_libname($LName, "name+ext", $OStarget);
+        if($LName2 = $ChangedSoname{$LName})
         { # changed SONAME
             @Versions2 = keys(%{$LibVers2{$LName2}});
             if(not @Versions2 or $#Versions2>=1) {
@@ -290,18 +323,47 @@ sub cmpSystems($$$)
             }
             $LV2 = $Versions2[0];
             $DPath2 = $LibVers2{$LName2}{$LV2};
-            $LName = parse_libname($LName, "name+ext", $OStarget);
-            $SONAME_Changed{$LName} = 1;
+            
+            if(defined $LibVers2{$LName})
+            { # show old soname in the table
+                $TestResults{$LName}{"v1"} = $LV1;
+                $TestResults{$LName}{"v2"} = $LV1;
+            }
+            
+            if(defined $LibVers2{$LName})
+            { # do not count results
+                $SONAME_Added{$LName_Short} = 1;
+            }
+            $SONAME_Changed{$LName_Short} = 1;
+            $LName = $LName_Short;
+        }
+        elsif(@Versions2)
+        {
+            $LV2 = $Versions2[0];
+            $DPath2 = $LibVers2{$LName}{$LV2};
         }
         else
         { # removed
             next;
         }
-        my ($FV1, $FV2) = ($LV1."-".$SystemName1, $LV2."-".$SystemName2);
-        my $ACC_compare = "perl $0 -binary -l $LName -d1 \"$DPath1\" -d2 \"$DPath2\"";
-        my $LReportPath = "compat_reports/$LName/abi_compat_report.html";
-        my $LReportPath_Full = $SYS_REPORT_PATH."/".$LReportPath;
-        $ACC_compare .= " -report-path \"$LReportPath_Full\"";
+        my $ACC_compare = "perl $0 -l $LName -d1 \"$DPath1\" -d2 \"$DPath2\"";
+        
+        my $BinReportPath = "compat_reports/$LName/abi_compat_report.html";
+        my $SrcReportPath = "compat_reports/$LName/src_compat_report.html";
+        my $BinReportPath_Full = $SYS_REPORT_PATH."/".$BinReportPath;
+        my $SrcReportPath_Full = $SYS_REPORT_PATH."/".$SrcReportPath;
+        
+        if($BinaryOnly)
+        {
+            $ACC_compare .= " -binary";
+            $ACC_compare .= " -bin-report-path \"$BinReportPath_Full\"";
+        }
+        if($SourceOnly)
+        {
+            $ACC_compare .= " -source";
+            $ACC_compare .= " -src-report-path \"$SrcReportPath_Full\"";
+        }
+        
         if($CheckHeadersOnly) {
             $ACC_compare .= " -headers-only";
         }
@@ -334,12 +396,83 @@ sub cmpSystems($$$)
         else
         {
             printMsg("INFO", "Ok");
-            $TestResults{$LName} = readAttributes($LReportPath_Full, 0);
+            if($BinaryOnly)
+            {
+                $TestResults{$LName}{"Binary"} = readAttributes($BinReportPath_Full, 0);
+                $TestResults{$LName}{"Binary"}{"path"} = $BinReportPath;
+            }
+            if($SourceOnly)
+            {
+                $TestResults{$LName}{"Source"} = readAttributes($SrcReportPath_Full, 0);
+                $TestResults{$LName}{"Source"}{"path"} = $SrcReportPath;
+            }
             $TestResults{$LName}{"v1"} = $LV1;
             $TestResults{$LName}{"v2"} = $LV2;
-            $TestResults{$LName}{"path"} = $LReportPath;
         }
     }
+    
+    my %META_DATA = ();
+    my %STAT = ();
+    foreach my $Comp ("Binary", "Source")
+    {
+        $STAT{$Comp}{"total"} = keys(%TestResults) - keys(%SONAME_Changed);
+        $STAT{$Comp}{"added"} = keys(%Added);
+        $STAT{$Comp}{"removed"} = keys(%Removed);
+        
+        foreach ("added", "removed")
+        {
+            my $Kind = $_."_interfaces";
+            foreach my $LName (keys(%TestResults))
+            {
+                next if($SONAME_Changed{$LName});
+                $STAT{$Comp}{$Kind} += $TestResults{$LName}{$Comp}{$_};
+            }
+            push(@{$META_DATA{$Comp}}, $Kind.":".$STAT{$Comp}{$Kind});
+        }
+        foreach my $T ("type", "interface")
+        {
+            foreach my $S ("high", "medium", "low")
+            {
+                my $Kind = $T."_problems_".$S;
+                foreach my $LName (keys(%TestResults))
+                {
+                    next if($SONAME_Changed{$LName});
+                    $STAT{$Comp}{$Kind} += $TestResults{$LName}{$Comp}{$Kind};
+                }
+                push(@{$META_DATA{$Comp}}, $Kind.":".$STAT{$Comp}{$Kind});
+            }
+        }
+        foreach my $LName (keys(%TestResults))
+        {
+            next if($SONAME_Changed{$LName});
+            foreach ("affected", "changed_constants") {
+                $STAT{$Comp}{$_} += $TestResults{$LName}{$Comp}{$_};
+            }
+            if(not defined $STAT{$Comp}{"verdict"}
+            and $TestResults{$LName}{$Comp}{"verdict"} eq "incompatible") {
+                $STAT{$Comp}{"verdict"} = "incompatible";
+            }
+        }
+        if(not defined $STAT{$Comp}{"verdict"}) {
+            $STAT{$Comp}{"verdict"} = "compatible";
+        }
+        if($STAT{$Comp}{"total"}) {
+            $STAT{$Comp}{"affected"} /= $STAT{$Comp}{"total"};
+        }
+        else {
+            $STAT{$Comp}{"affected"} = 0;
+        }
+        $STAT{$Comp}{"affected"} = show_number($STAT{$Comp}{"affected"});
+        if($STAT{$Comp}{"verdict"}>1) {
+            $STAT{$Comp}{"verdict"} = 1;
+        }
+        push(@{$META_DATA{$Comp}}, "changed_constants:".$STAT{$Comp}{"changed_constants"});
+        push(@{$META_DATA{$Comp}}, "tool_version:".get_dumpversion("perl $0"));
+        foreach ("removed", "added", "total", "affected", "verdict") {
+            @{$META_DATA{$Comp}} = ($_.":".$STAT{$Comp}{$_}, @{$META_DATA{$Comp}});
+        }
+    }
+    
     my $SONAME_Title = "SONAME";
     if($OStarget eq "windows") {
         $SONAME_Title = "DLL";
@@ -351,62 +484,267 @@ sub cmpSystems($$$)
     { # show the list of headers
         $SONAME_Title = "Header File";
     }
-    my $SYS_REPORT = "<h1>Binary compatibility between <span style='color:Blue;'>$SystemName1</span> and <span style='color:Blue;'>$SystemName2</span> on <span style='color:Blue;'>".showArch($ArchName)."</span></h1>\n";
+    
+    my $SYS_REPORT = "<h1>";
+    
+    if($BinaryOnly and $SourceOnly) {
+        $SYS_REPORT .= "API compatibility";
+    }
+    elsif($BinaryOnly) {
+        $SYS_REPORT .= "Binary compatibility";
+    }
+    elsif($SourceOnly) {
+        $SYS_REPORT .= "Source compatibility";
+    }
+    
+    $SYS_REPORT .= " report between <span style='color:Blue;'>$SystemName1</span> and <span style='color:Blue;'>$SystemName2</span>";
+    $SYS_REPORT .= " on <span style='color:Blue;'>".showArch($ArchName)."</span>\n";
+    
+    $SYS_REPORT .= "</h1>";
     
     # legend
-    $SYS_REPORT .= "<table cellpadding='2'><tr>\n";
-    $SYS_REPORT .= "<td class='new' width='85px' style='text-align:center'>Added</td>\n";
-    $SYS_REPORT .= "<td class='passed' width='85px' style='text-align:center'>Compatible</td>\n";
-    $SYS_REPORT .= "</tr><tr>\n";
-    $SYS_REPORT .= "<td class='warning' style='text-align:center'>Warning</td>\n";
-    $SYS_REPORT .= "<td class='failed' style='text-align:center'>Incompatible</td>\n";
-    $SYS_REPORT .= "</tr></table>\n";
+    my $LEGEND = "<table cellspacing='2' cellpadding='3'><tr>\n";
+    $LEGEND .= "<td class='new' width='70px' style='text-align:left'>Added</td>\n";
+    $LEGEND .= "<td class='passed' width='70px' style='text-align:left'>Compatible</td>\n";
+    $LEGEND .= "</tr><tr>\n";
+    $LEGEND .= "<td class='warning' style='text-align:left'>Warning</td>\n";
+    $LEGEND .= "<td class='failed' style='text-align:left'>Incompatible</td>\n";
+    $LEGEND .= "</tr></table>\n";
     
-    $SYS_REPORT .= "<table class='wikitable'>
-    <tr><th rowspan='2'>$SONAME_Title<sup>".(keys(%TestResults) + keys(%Added) + keys(%Removed) - keys(%SONAME_Changed))."</sup></th>";
-    if(not $GroupByHeaders) {
-        $SYS_REPORT .= "<th colspan='2'>VERSION</th>";
+    $SYS_REPORT .= $LEGEND;
+    
+    # test info
+    my $TEST_INFO = "<h2>Test Info</h2><hr/>\n";
+    $TEST_INFO .= "<table class='summary'>\n";
+    $TEST_INFO .= "<tr><th>System #1</th><td>$SystemName1</td></tr>\n";
+    $TEST_INFO .= "<tr><th>System #2</th><td>$SystemName2</td></tr>\n";
+    $TEST_INFO .= "<tr><th>CPU Type</th><td>".showArch($ArchName)."</td></tr>\n";
+    $TEST_INFO .= "</table>\n";
+    
+    # $SYS_REPORT .= $TEST_INFO;
+    
+    my $Total = (keys(%TestResults) + keys(%Added) + keys(%Removed) - keys(%SONAME_Changed));
+    
+    # test results
+    my $TEST_RES = "<h2>Test Results</h2><hr/>\n";
+    $TEST_RES .= "<table class='summary'>\n";
+    $TEST_RES .= "<tr><th>Total Libraries</th><td><a href='#Report'>$Total</a></td></tr>\n";
+    if($BinaryOnly and $SourceOnly)
+    {
+        if(my $Affected = $STAT{"Binary"}{"affected"}) {
+            $TEST_RES .= "<tr><th>Binary Compatibility</th><td class='failed'>".cut_off_number(100 - $Affected, 3, 1)."%</td></tr>\n";
+        }
+        else {
+            $TEST_RES .= "<tr><th>Binary Compatibility</th><td class='passed'>100%</td></tr>\n";
+        }
+        if(my $Affected = $STAT{"Source"}{"affected"}) {
+            $TEST_RES .= "<tr><th>Source Compatibility</th><td class='failed'>".cut_off_number(100 - $Affected, 3, 1)."%</td></tr>\n";
+        }
+        else {
+            $TEST_RES .= "<tr><th>Source Compatibility</th><td class='passed'>100%</td></tr>\n";
+        }
     }
-    $SYS_REPORT .= "<th rowspan='2'>Compatibility</th>
-    <th rowspan='2'>Added<br/>Symbols</th>
-    <th rowspan='2'>Removed<br/>Symbols</th>
-    <th colspan='3' style='white-space:nowrap;'>API Changes / Compatibility Problems</th></tr>";
-    if(not $GroupByHeaders) {
-        $SYS_REPORT .= "<tr><th>$SystemName1</th><th>$SystemName2</th>";
+    elsif($BinaryOnly)
+    {
+        if(my $Affected = $STAT{"Binary"}{"affected"}) {
+            $TEST_RES .= "<tr><th>Compatibility</th><td class='failed'>".cut_off_number(100 - $Affected, 3, 1)."%</td></tr>\n";
+        }
+        else {
+            $TEST_RES .= "<tr><th>Compatibility</th><td class='passed'>100%</td></tr>\n";
+        }
     }
-    $SYS_REPORT .= "<th class='severity'>High</th><th class='severity'>Medium</th><th class='severity'>Low</th></tr>\n";
+    elsif($SourceOnly)
+    {
+        if(my $Affected = $STAT{"Source"}{"affected"}) {
+            $TEST_RES .= "<tr><th>Compatibility</th><td class='failed'>".cut_off_number(100 - $Affected, 3, 1)."%</td></tr>\n";
+        }
+        else {
+            $TEST_RES .= "<tr><th>Compatibility</th><td class='passed'>100%</td></tr>\n";
+        }
+    }
+    $TEST_RES .= "</table>\n";
+    
+    $SYS_REPORT .= $TEST_RES;
+    
+    # problem summary
+    foreach my $Comp ("Binary", "Source")
+    {
+        my $PSUMMARY = "<h2>Problem Summary";
+        if(not $BinaryOnly or not $SourceOnly)
+        {
+            next if($BinaryOnly and $Comp eq "Source");
+            next if($SourceOnly and $Comp eq "Binary");
+        }
+        else {
+            $PSUMMARY .= " ($Comp Compatibility)\n";
+        }
+        $PSUMMARY .= "</h2><hr/>\n";
+        
+        $PSUMMARY .= "<table class='summary'>\n";
+        $PSUMMARY .= "<tr><th></th><th style='text-align:center;font-weight:bold;'>Severity</th><th style='text-align:center;font-weight:bold;'>Count</th></tr>\n";
+        if(my $Added = $STAT{$Comp}{"added_interfaces"}) {
+            $PSUMMARY .= "<tr><th>Added Symbols</th><td>-</td><td class='new'>$Added</td></tr>\n";
+        }
+        else {
+            $PSUMMARY .= "<tr><th>Added Symbols</th><td>-</td><td>0</td></tr>\n";
+        }
+        if(my $Removed = $STAT{$Comp}{"removed_interfaces"}) {
+            $PSUMMARY .= "<tr><th>Removed Symbols</th><td>High</td><td class='failed'>$Removed</td></tr>\n";
+        }
+        else {
+            $PSUMMARY .= "<tr><th>Removed Symbols</th><td>High</td><td>0</td></tr>\n";
+        }
+        $PSUMMARY .= "<tr>";
+        
+        if($BinaryOnly and $SourceOnly) {
+            $PSUMMARY .= "<th rowspan='3'>$Comp Compatibility<br/>Problems</th>";
+        }
+        else {
+            $PSUMMARY .= "<th rowspan='3'>Compatibility<br/>Problems</th>";
+        }
+        if(my $High = $STAT{$Comp}{"interface_problems_high"}+$STAT{$Comp}{"type_problems_high"}) {
+            $PSUMMARY .= "<td>High</td><td class='failed'>$High</td>\n";
+        }
+        else {
+            $PSUMMARY .= "<td>High</td><td>0</td>\n";
+        }
+        $PSUMMARY .= "</tr>";
+        $PSUMMARY .= "<tr>";
+        if(my $Medium = $STAT{$Comp}{"interface_problems_medium"}+$STAT{$Comp}{"type_problems_medium"}) {
+            $PSUMMARY .= "<td>Medium</td><td class='failed'>$Medium</td>\n";
+        }
+        else {
+            $PSUMMARY .= "<td>Medium</td><td>0</td>\n";
+        }
+        $PSUMMARY .= "</tr>";
+        $PSUMMARY .= "<tr>";
+        if(my $Low = $STAT{$Comp}{"interface_problems_low"}+$STAT{$Comp}{"type_problems_low"}+$STAT{$Comp}{"changed_constants"}) {
+            $PSUMMARY .= "<td>Low</td><td class='warning'>$Low</td>\n";
+        }
+        else {
+            $PSUMMARY .= "<td>Low</td><td>0</td>\n";
+        }
+        $PSUMMARY .= "</tr>";
+        $PSUMMARY .= "</table>\n";
+        
+        $SYS_REPORT .= $PSUMMARY;
+    }
+    
+    # added/removed libraries
+    my $LIB_PROBLEMS = "<h2>Added/Removed Libraries</h2><hr/>\n";
+    $LIB_PROBLEMS .= "<table class='summary'>\n";
+    $LIB_PROBLEMS .= "<tr><th></th><th style='text-align:center;font-weight:bold;'>Severity</th><th style='text-align:center;font-weight:bold;'>Count</th></tr>\n";
+    if(my $Added = keys(%Added)) {
+        $LIB_PROBLEMS .= "<tr><th>Added</th><td>-</td><td class='new'>$Added</td></tr>\n";
+    }
+    else {
+        $LIB_PROBLEMS .= "<tr><th>Added</th><td>-</td><td>0</td></tr>\n";
+    }
+    if(my $Removed = keys(%Removed)) {
+        $LIB_PROBLEMS .= "<tr><th>Removed</th><td>High</td><td class='failed'>$Removed</td></tr>\n";
+    }
+    else {
+        $LIB_PROBLEMS .= "<tr><th>Removed</th><td>High</td><td>0</td></tr>\n";
+    }
+    $LIB_PROBLEMS .= "</table>\n";
+    $SYS_REPORT .= $LIB_PROBLEMS;
+    
+    # report table
+    $SYS_REPORT .= "<a name='Report'></a>\n";
+    $SYS_REPORT .= "<h2>Report</h2><hr/>\n";
+    
+    # $SYS_REPORT .= "<br/>";
+    
+    $SYS_REPORT .= "<table class='wikitable'>";
+    
+    $SYS_REPORT .= "<tr>";
+    $SYS_REPORT .= "<th rowspan='2'>$SONAME_Title<sup>$Total</sup></th>";
+    if(not $GroupByHeaders) {
+        $SYS_REPORT .= "<th colspan='2'>Version</th>";
+    }
+    if($BinaryOnly and $SourceOnly) {
+        $SYS_REPORT .= "<th colspan='2'>Compatible</th>";
+    }
+    else {
+        $SYS_REPORT .= "<th rowspan='2'>Compatible</th>";
+    }
+    $SYS_REPORT .= "<th rowspan='2'>Added<br/>Symbols</th><th rowspan='2'>Removed<br/>Symbols</th>";
+    if($BinaryOnly and $SourceOnly)
+    {
+        $SYS_REPORT .= "<th colspan='3' style='white-space:nowrap;'>API Changes / Binary Compatibility</th>";
+        $SYS_REPORT .= "<th colspan='3' style='white-space:nowrap;'>API Changes / Source Compatibility</th>";
+    }
+    else {
+        $SYS_REPORT .= "<th colspan='3' style='white-space:nowrap;'>API Changes / Compatibility</th>";
+    }
+    $SYS_REPORT .= "</tr>";
+    
+    $SYS_REPORT .= "<tr>";
+    if(not $GroupByHeaders) {
+        $SYS_REPORT .= "<th>$SystemName1</th><th>$SystemName2</th>";
+    }
+    if($BinaryOnly and $SourceOnly) {
+        $SYS_REPORT .= "<th>Binary</th><th>Source</th>";
+    }
+    $SYS_REPORT .= "<th class='severity'>High</th><th class='severity'>Medium</th><th class='severity'>Low</th>\n" if($BinaryOnly);
+    $SYS_REPORT .= "<th class='severity'>High</th><th class='severity'>Medium</th><th class='severity'>Low</th>\n" if($SourceOnly);
+    $SYS_REPORT .= "</tr>";
     my %RegisteredPairs = ();
+    
+    my $Columns = 2;
+    if($BinaryOnly) {
+        $Columns += 3;
+    }
+    if($SourceOnly) {
+        $Columns += 3;
+    }
+    
     foreach my $LName (sort {lc($a) cmp lc($b)} (keys(%TestResults), keys(%Added), keys(%Removed)))
     {
         next if($SONAME_Changed{$LName});
-        my $CompatReport = $TestResults{$LName}{"path"};
+        my $LName_Short = parse_libname($LName, "name+ext", $OStarget);
         my $Anchor = $LName;
-        $Anchor=~s/\+/p/g;# anchors to libFLAC++ is libFLACpp
-        $Anchor=~s/\~//g;# libqttracker.so.1~6
+        $Anchor=~s/\+/p/g; # anchor for libFLAC++ is libFLACpp
+        $Anchor=~s/\~/-/g; # libqttracker.so.1~6
         $SYS_REPORT .= "<tr>\n<td class='left'>$LName<a name=\'$Anchor\'></a></td>\n";
         if(defined $Removed{$LName}) {
-            $SYS_REPORT .= "<td class='failed'>".$Removed{$LName}{"version"}."</td>\n";
+            $SYS_REPORT .= "<td class='failed'>".printVer($Removed{$LName}{"version"})."</td>\n";
         }
         elsif(defined $Added{$LName}) {
             $SYS_REPORT .= "<td class='new'><a href='".$Added{$LName}{"list"}."'>added</a></td>\n";
         }
-        elsif(not $GroupByHeaders) {
-            $SYS_REPORT .= "<td>".$TestResults{$LName}{"v1"}."</td>\n";
+        elsif(not $GroupByHeaders)
+        {
+            $SYS_REPORT .= "<td>".printVer($TestResults{$LName}{"v1"})."</td>\n";
         }
+        my $SONAME_report = "<td colspan=\'$Columns\' rowspan='2'>";
+        if($BinaryOnly and $SourceOnly) {
+            $SONAME_report .= "SONAME has been changed (see <a href='".$TestResults{$LName_Short}{"Binary"}{"path"}."'>binary</a> and <a href='".$TestResults{$LName_Short}{"Source"}{"path"}."'>source</a> compatibility reports)\n";
+        }
+        elsif($BinaryOnly) {
+            $SONAME_report .= "SONAME has been <a href='".$TestResults{$LName_Short}{"Binary"}{"path"}."'>changed</a>\n";
+        }
+        elsif($SourceOnly) {
+            $SONAME_report .= "SONAME has been <a href='".$TestResults{$LName_Short}{"Source"}{"path"}."'>changed</a>\n";
+        }
+        $SONAME_report .= "</td>";
+        
         if(defined $Added{$LName})
         { # added library
-            $SYS_REPORT .= "<td class='new'>".$Added{$LName}{"version"}."</td>\n";
-            $SYS_REPORT .= "<td class='passed'>100%</td>\n";
+            $SYS_REPORT .= "<td class='new'>".printVer($Added{$LName}{"version"})."</td>\n";
+            $SYS_REPORT .= "<td class='passed'>100%</td>\n" if($BinaryOnly);
+            $SYS_REPORT .= "<td class='passed'>100%</td>\n" if($SourceOnly);
             if($RegisteredPairs{$LName}) {
                 # do nothing
             }
             elsif(my $To = $ChangedSoname{$LName})
             {
                 $RegisteredPairs{$To}=1;
-                $SYS_REPORT .= "<td colspan='5' rowspan='2'>SONAME has <a href='".$TestResults{parse_libname($LName, "name+ext", $OStarget)}{"path"}."'>changed</a></td>\n";
+                $SYS_REPORT .= $SONAME_report;
             }
-            else {
-                foreach (1 .. 5) {
+            else
+            {
+                foreach (1 .. $Columns) {
                     $SYS_REPORT .= "<td>n/a</td>\n"; # colspan='5'
                 }
             }
@@ -416,164 +754,325 @@ sub cmpSystems($$$)
         elsif(defined $Removed{$LName})
         { # removed library
             $SYS_REPORT .= "<td class='failed'><a href='".$Removed{$LName}{"list"}."'>removed</a></td>\n";
-            $SYS_REPORT .= "<td class='failed'>0%</td>\n";
+            $SYS_REPORT .= "<td class='failed'>0%</td>\n" if($BinaryOnly);
+            $SYS_REPORT .= "<td class='failed'>0%</td>\n" if($SourceOnly);
             if($RegisteredPairs{$LName}) {
                 # do nothing
             }
             elsif(my $To = $ChangedSoname{$LName})
             {
                 $RegisteredPairs{$To}=1;
-                $SYS_REPORT .= "<td colspan='5' rowspan='2'>SONAME has <a href='".$TestResults{parse_libname($LName, "name+ext", $OStarget)}{"path"}."'>changed</a></td>\n";
+                $SYS_REPORT .= $SONAME_report;
             }
-            else {
-                foreach (1 .. 5) {
+            else
+            {
+                foreach (1 .. $Columns) {
                     $SYS_REPORT .= "<td>n/a</td>\n"; # colspan='5'
                 }
             }
             $SYS_REPORT .= "</tr>\n";
             next;
         }
-        elsif(not $GroupByHeaders) {
-            $SYS_REPORT .= "<td>".$TestResults{$LName}{"v2"}."</td>\n";
-        }
-        if($TestResults{$LName}{"verdict"} eq "compatible") {
-            $SYS_REPORT .= "<td class='passed'><a href=\'$CompatReport\'>100%</a></td>\n";
-        }
-        else
-        {
-            my $Compatible = 100 - $TestResults{$LName}{"affected"};
-            $SYS_REPORT .= "<td class='failed'><a href=\'$CompatReport\'>$Compatible%</a></td>\n";
-        }
-        my $AddedSym="";
-        if(my $Count = $TestResults{$LName}{"added"}) {
-            $AddedSym="<a href='$CompatReport\#Added'>$Count new</a>";
-        }
-        if($AddedSym) {
-            $SYS_REPORT.="<td class='new'>$AddedSym</td>";
-        }
-        else {
-            $SYS_REPORT.="<td class='passed'>0</td>";
-        }
-        my $RemovedSym="";
-        if(my $Count = $TestResults{$LName}{"removed"}) {
-            $RemovedSym="<a href='$CompatReport\#Removed'>$Count removed</a>";
-        }
-        if($RemovedSym) {
-            $SYS_REPORT.="<td class='failed'>$RemovedSym</td>";
-        }
-        else {
-            $SYS_REPORT.="<td class='passed'>0</td>";
-        }
-        my $High="";
-        if(my $Count = $TestResults{$LName}{"type_problems_high"}+$TestResults{$LName}{"interface_problems_high"}) {
-            $High="<a href='$CompatReport\#High_Risk_Problems'>".problem_title($Count)."</a>";
-        }
-        if($High) {
-            $SYS_REPORT.="<td class='failed'>$High</td>";
-        }
-        else {
-            $SYS_REPORT.="<td class='passed'>0</td>";
-        }
-        my $Medium="";
-        if(my $Count = $TestResults{$LName}{"type_problems_medium"}+$TestResults{$LName}{"interface_problems_medium"}) {
-            $Medium="<a href='$CompatReport\#Medium_Risk_Problems'>".problem_title($Count)."</a>";
-        }
-        if($Medium) {
-            $SYS_REPORT.="<td class='failed'>$Medium</td>";
-        }
-        else {
-            $SYS_REPORT.="<td class='passed'>0</td>";
-        }
-        my $Low="";
-        if(my $Count = $TestResults{$LName}{"type_problems_low"}+$TestResults{$LName}{"interface_problems_low"}+$TestResults{$LName}{"changed_constants"}) {
-            $Low="<a href='$CompatReport\#Low_Risk_Problems'>".warning_title($Count)."</a>";
-        }
-        if($Low) {
-            $SYS_REPORT.="<td class='warning'>$Low</td>";
-        }
-        else {
-            $SYS_REPORT.="<td class='passed'>0</td>";
-        }
-        $SYS_REPORT .= "</tr>\n";
-    }
-    my @META_DATA = ();
-    my %Stat = (
-        "total"=>int(keys(%TestResults)),
-        "added"=>int(keys(%Added)),
-        "removed"=>int(keys(%Removed))
-    );
-    foreach ("added", "removed")
-    {
-        my $Kind = $_."_interfaces";
-        foreach my $LName (keys(%TestResults)) {
-            $Stat{$Kind} += $TestResults{$LName}{$_};
-        }
-        push(@META_DATA, $Kind.":".$Stat{$Kind});
-    }
-    foreach my $T ("type", "interface")
-    {
-        foreach my $S ("high", "medium", "low")
-        {
-            my $Kind = $T."_problems_".$S;
-            foreach my $LName (keys(%TestResults)) {
-                $Stat{$Kind} += $TestResults{$LName}{$Kind};
+        elsif(defined $ChangedSoname{$LName})
+        { # added library
+            $SYS_REPORT .= "<td>".printVer($TestResults{$LName}{"v2"})."</td>\n";
+            $SYS_REPORT .= "<td class='passed'>100%</td>\n" if($BinaryOnly);
+            $SYS_REPORT .= "<td class='passed'>100%</td>\n" if($SourceOnly);
+            if($RegisteredPairs{$LName}) {
+                # do nothing
             }
-            push(@META_DATA, $Kind.":".$Stat{$Kind});
+            elsif(my $To = $ChangedSoname{$LName})
+            {
+                $RegisteredPairs{$To}=1;
+                $SYS_REPORT .= $SONAME_report;
+            }
+            else
+            {
+                foreach (1 .. $Columns) {
+                    $SYS_REPORT .= "<td>n/a</td>\n"; # colspan='5'
+                }
+            }
+            $SYS_REPORT .= "</tr>\n";
+            next;
         }
-    }
-    foreach my $LName (keys(%TestResults))
-    {
-        foreach ("affected", "changed_constants") {
-            $Stat{$_} += $TestResults{$LName}{$_};
+        elsif(not $GroupByHeaders)
+        {
+            $SYS_REPORT .= "<td>".printVer($TestResults{$LName}{"v2"})."</td>\n";
         }
-        if(not defined $Stat{"verdict"}
-        and $TestResults{$LName}{"verdict"} eq "incompatible") {
-            $Stat{"verdict"} = "incompatible";
+        
+        my $BinCompatReport = $TestResults{$LName}{"Binary"}{"path"};
+        my $SrcCompatReport = $TestResults{$LName}{"Source"}{"path"};
+        
+        if($BinaryOnly)
+        {
+            if($TestResults{$LName}{"Binary"}{"verdict"} eq "compatible") {
+                $SYS_REPORT .= "<td class='passed'><a href=\'$BinCompatReport\'>100%</a></td>\n";
+            }
+            else
+            {
+                my $Compatible = 100 - $TestResults{$LName}{"Binary"}{"affected"};
+                $SYS_REPORT .= "<td class='failed'><a href=\'$BinCompatReport\'>$Compatible%</a></td>\n";
+            }
         }
-    }
-    if(not defined $Stat{"verdict"}) {
-        $Stat{"verdict"} = "compatible";
-    }
-    if($Stat{"total"}) {
-        $Stat{"affected"} /= $Stat{"total"};
-    }
-    else {
-        $Stat{"affected"} = 0;
-    }
-    $Stat{"affected"} = show_number($Stat{"affected"});
-    if($Stat{"verdict"}>1) {
-        $Stat{"verdict"} = 1;
-    }
-    push(@META_DATA, "changed_constants:".$Stat{"changed_constants"});
-    push(@META_DATA, "tool_version:".get_dumpversion("perl $0"));
-    foreach ("removed", "added", "total", "affected", "verdict") {
-        @META_DATA = ($_.":".$Stat{$_}, @META_DATA);
+        if($SourceOnly)
+        {
+            if($TestResults{$LName}{"Source"}{"verdict"} eq "compatible") {
+                $SYS_REPORT .= "<td class='passed'><a href=\'$SrcCompatReport\'>100%</a></td>\n";
+            }
+            else
+            {
+                my $Compatible = 100 - $TestResults{$LName}{"Source"}{"affected"};
+                $SYS_REPORT .= "<td class='failed'><a href=\'$SrcCompatReport\'>$Compatible%</a></td>\n";
+            }
+        }
+        if($BinaryOnly)
+        { # show added/removed symbols at binary level
+          # for joined and -binary-only reports
+            my $AddedSym="";
+            if(my $Count = $TestResults{$LName}{"Binary"}{"added"}) {
+                $AddedSym="<a href='$BinCompatReport\#Added'>$Count new</a>";
+            }
+            if($AddedSym) {
+                $SYS_REPORT.="<td class='new'>$AddedSym</td>";
+            }
+            else {
+                $SYS_REPORT.="<td class='passed'>0</td>";
+            }
+            my $RemovedSym="";
+            if(my $Count = $TestResults{$LName}{"Binary"}{"removed"}) {
+                $RemovedSym="<a href='$BinCompatReport\#Removed'>$Count removed</a>";
+            }
+            if($RemovedSym) {
+                $SYS_REPORT.="<td class='failed'>$RemovedSym</td>";
+            }
+            else {
+                $SYS_REPORT.="<td class='passed'>0</td>";
+            }
+        }
+        elsif($SourceOnly)
+        {
+            my $AddedSym="";
+            if(my $Count = $TestResults{$LName}{"Source"}{"added"}) {
+                $AddedSym="<a href='$SrcCompatReport\#Added'>$Count new</a>";
+            }
+            if($AddedSym) {
+                $SYS_REPORT.="<td class='new'>$AddedSym</td>";
+            }
+            else {
+                $SYS_REPORT.="<td class='passed'>0</td>";
+            }
+            my $RemovedSym="";
+            if(my $Count = $TestResults{$LName}{"Source"}{"removed"}) {
+                $RemovedSym="<a href='$SrcCompatReport\#Removed'>$Count removed</a>";
+            }
+            if($RemovedSym) {
+                $SYS_REPORT.="<td class='failed'>$RemovedSym</td>";
+            }
+            else {
+                $SYS_REPORT.="<td class='passed'>0</td>";
+            }
+        }
+        
+        if($BinaryOnly)
+        {
+            my $High="";
+            if(my $Count = $TestResults{$LName}{"Binary"}{"type_problems_high"}+$TestResults{$LName}{"Binary"}{"interface_problems_high"}) {
+                $High="<a href='$BinCompatReport\#High_Risk_Problems'>".problem_title($Count)."</a>";
+            }
+            if($High) {
+                $SYS_REPORT.="<td class='failed'>$High</td>";
+            }
+            else {
+                $SYS_REPORT.="<td class='passed'>0</td>";
+            }
+            my $Medium="";
+            if(my $Count = $TestResults{$LName}{"Binary"}{"type_problems_medium"}+$TestResults{$LName}{"Binary"}{"interface_problems_medium"}) {
+                $Medium="<a href='$BinCompatReport\#Medium_Risk_Problems'>".problem_title($Count)."</a>";
+            }
+            if($Medium) {
+                $SYS_REPORT.="<td class='failed'>$Medium</td>";
+            }
+            else {
+                $SYS_REPORT.="<td class='passed'>0</td>";
+            }
+            my $Low="";
+            if(my $Count = $TestResults{$LName}{"Binary"}{"type_problems_low"}+$TestResults{$LName}{"Binary"}{"interface_problems_low"}+$TestResults{$LName}{"Binary"}{"changed_constants"}) {
+                $Low="<a href='$BinCompatReport\#Low_Risk_Problems'>".warning_title($Count)."</a>";
+            }
+            if($Low) {
+                $SYS_REPORT.="<td class='warning'>$Low</td>";
+            }
+            else {
+                $SYS_REPORT.="<td class='passed'>0</td>";
+            }
+        }
+        
+        if($SourceOnly)
+        {
+            my $High="";
+            if(my $Count = $TestResults{$LName}{"Source"}{"type_problems_high"}+$TestResults{$LName}{"Source"}{"interface_problems_high"}) {
+                $High="<a href='$SrcCompatReport\#High_Risk_Problems'>".problem_title($Count)."</a>";
+            }
+            if($High) {
+                $SYS_REPORT.="<td class='failed'>$High</td>";
+            }
+            else {
+                $SYS_REPORT.="<td class='passed'>0</td>";
+            }
+            my $Medium="";
+            if(my $Count = $TestResults{$LName}{"Source"}{"type_problems_medium"}+$TestResults{$LName}{"Source"}{"interface_problems_medium"}) {
+                $Medium="<a href='$SrcCompatReport\#Medium_Risk_Problems'>".problem_title($Count)."</a>";
+            }
+            if($Medium) {
+                $SYS_REPORT.="<td class='failed'>$Medium</td>";
+            }
+            else {
+                $SYS_REPORT.="<td class='passed'>0</td>";
+            }
+            my $Low="";
+            if(my $Count = $TestResults{$LName}{"Source"}{"type_problems_low"}+$TestResults{$LName}{"Source"}{"interface_problems_low"}+$TestResults{$LName}{"Source"}{"changed_constants"}) {
+                $Low="<a href='$SrcCompatReport\#Low_Risk_Problems'>".warning_title($Count)."</a>";
+            }
+            if($Low) {
+                $SYS_REPORT.="<td class='warning'>$Low</td>";
+            }
+            else {
+                $SYS_REPORT.="<td class='passed'>0</td>";
+            }
+        }
+        
+        $SYS_REPORT .= "</tr>\n";
     }
     
     # bottom header
-    $SYS_REPORT .= "<tr><th rowspan='2'>$SONAME_Title</th>";
+    $SYS_REPORT .= "<tr>";
+    $SYS_REPORT .= "<th rowspan='2'>$SONAME_Title</th>";
     if(not $GroupByHeaders) {
         $SYS_REPORT .= "<th>$SystemName1</th><th>$SystemName2</th>";
     }
-    $SYS_REPORT .= "<th rowspan='2'>Compatibility</th>
-    <th rowspan='2'>Added<br/>Symbols</th>
-    <th rowspan='2'>Removed<br/>Symbols</th>
-    <th class='severity'>High</th><th class='severity'>Medium</th><th class='severity'>Low</th></tr>";
-    if(not $GroupByHeaders) {
-        $SYS_REPORT .= "<tr><th colspan='2'>VERSION</th>";
+    if($BinaryOnly and $SourceOnly) {
+        $SYS_REPORT .= "<th>Binary</th><th>Source</th>";
     }
-    $SYS_REPORT .= "<th colspan='3' style='white-space:nowrap;'>API Changes / Compatibility Problems</th></tr>\n";
+    else {
+        $SYS_REPORT .= "<th rowspan='2'>Compatible</th>";
+    }
+    $SYS_REPORT .= "<th rowspan='2'>Added<br/>Symbols</th><th rowspan='2'>Removed<br/>Symbols</th>";
+    $SYS_REPORT .= "<th class='severity'>High</th><th class='severity'>Medium</th><th class='severity'>Low</th>" if($BinaryOnly);
+    $SYS_REPORT .= "<th class='severity'>High</th><th class='severity'>Medium</th><th class='severity'>Low</th>" if($SourceOnly);
+    $SYS_REPORT .= "</tr>";
+    
+    $SYS_REPORT .= "<tr>";
+    if(not $GroupByHeaders) {
+        $SYS_REPORT .= "<th colspan='2'>Version</th>";
+    }
+    
+    if($BinaryOnly and $SourceOnly) {
+        $SYS_REPORT .= "<th colspan='2'>Compatible</th>";
+    }
+    if($BinaryOnly and $SourceOnly)
+    {
+        $SYS_REPORT .= "<th colspan='3' style='white-space:nowrap;'>API Changes / Binary Compatibility</th>";
+        $SYS_REPORT .= "<th colspan='3' style='white-space:nowrap;'>API Changes / Source Compatibility</th>";
+    }
+    else {
+        $SYS_REPORT .= "<th colspan='3' style='white-space:nowrap;'>API Changes / Compatibility</th>";
+    }
+    $SYS_REPORT .= "</tr>";
     $SYS_REPORT .= "</table>";
-    my $Title = "$SystemName1 to $SystemName2 binary compatibility report";
+    
+    my $Title = "$SystemName1 to $SystemName2 compatibility report";
     my $Keywords = "compatibility, $SystemName1, $SystemName2, API, changes";
-    my $Description = "Binary compatibility between $SystemName1 and $SystemName2 on ".showArch($ArchName);
+    my $Description = "API compatibility report between $SystemName1 and $SystemName2 on ".showArch($ArchName);
     my $Styles = readModule("Styles", "CmpSystems.css");
-    writeFile($SYS_REPORT_PATH."/abi_compat_report.html", "<!-\- ".join(";", @META_DATA)." -\->\n".composeHTML_Head($Title, $Keywords, $Description, $Styles, "")."\n<body>
-    <div>$SYS_REPORT</div>
-    <br/><br/><br/><hr/>
-    ".getReportFooter($SystemName2)."
-    <div style='height:999px;'></div>\n</body></html>");
-    printMsg("INFO", "see detailed report:\n  $SYS_REPORT_PATH/abi_compat_report.html");
+    
+    $SYS_REPORT = composeHTML_Head($Title, $Keywords, $Description, $Styles, "")."\n<body>\n<div>".$SYS_REPORT."</div>\n";
+    $SYS_REPORT .= "<br/><br/><br/><hr/>\n".getReportFooter($SystemName2, 1)."<div style='height:999px;'></div>\n</body></html>";
+    
+    if($SourceOnly) {
+        $SYS_REPORT = "<!-\- kind:source;".join(";", @{$META_DATA{"Source"}})." -\->\n".$SYS_REPORT;
+    }
+    if($BinaryOnly) {
+        $SYS_REPORT = "<!-\- kind:binary;".join(";", @{$META_DATA{"Binary"}})." -\->\n".$SYS_REPORT;
+    }
+    my $REPORT_PATH = $SYS_REPORT_PATH."/";
+    if($BinaryOnly and $SourceOnly) {
+        $REPORT_PATH .= "compat_report.html";
+    }
+    elsif($BinaryOnly) {
+        $REPORT_PATH .= "abi_compat_report.html";
+    }
+    elsif($SourceOnly) {
+        $REPORT_PATH .= "src_compat_report.html";
+    }
+    writeFile($REPORT_PATH, $SYS_REPORT);
+    printMsg("INFO", "see detailed report:\n  $REPORT_PATH");
+}
+
+sub printVer($)
+{
+    if($_[0] eq "") {
+        return 0;
+    }
+    return $_[0];
+}
+
+sub getPrefix($)
+{
+    my $Prefix = getPrefix_I($_[0]);
+    if(not $Prefix or defined $NonPrefix{lc($Prefix)}) {
+        return "NONE";
+    }
+    return $Prefix;
+}
+
+sub getPrefix_I($)
+{
+    my $Str = $_[0];
+    if($Str=~/\A([_]*[A-Z][a-z]{1,5})[A-Z]/)
+    { # XmuValidArea: Xmu
+        return $1;
+    }
+    elsif($Str=~/\A([_]*[a-z]+)[A-Z]/)
+    { # snfReadFont: snf
+        return $1;
+    }
+    elsif($Str=~/\A([_]*[A-Z]{2,})[A-Z][a-z]+([A-Z][a-z]+|\Z)/)
+    { # XRRTimes: XRR
+        return $1;
+    }
+    elsif($Str=~/\A([_]*[a-z]{1,2}\d+)[a-z\d]*_[a-z]+/i)
+    { # H5HF_delete: H5
+        return $1;
+    }
+    elsif($Str=~/\A([_]*[a-z0-9]{2,}_)[a-z]+/i)
+    { # alarm_event_add: alarm_
+        return $1;
+    }
+    elsif($Str=~/\A(([a-z])\2{1,})/i)
+    { # ffopen
+        return $1;
+    }
+    return "";
+}
+
+sub problem_title($)
+{
+    if($_[0]==1)  {
+        return "1 change";
+    }
+    else  {
+        return $_[0]." changes";
+    }
+}
+
+sub warning_title($)
+{
+    if($_[0]==1)  {
+        return "1 warning";
+    }
+    else  {
+        return $_[0]." warnings";
+    }
 }
 
 sub readSystemDescriptor($)
@@ -601,6 +1100,10 @@ sub readSystemDescriptor($)
         }
         $Path = get_abs_path($Path);
         $SysDescriptor{"SearchLibs"}{clean_path($Path)} = 1;
+    }
+    foreach my $Path (split(/\s*\n\s*/, parseTag(\$Content, "skip_libs")))
+    { # skip libs
+        $SysDescriptor{"SkipLibs"}{$Path} = 1;
     }
     foreach my $Path (split(/\s*\n\s*/, parseTag(\$Content, "headers")))
     {
@@ -650,9 +1153,10 @@ sub readSystemDescriptor($)
     return {"Tools"=>\@Tools,"CrossPrefix"=>$CrossPrefix};
 }
 
-sub readOpts($)
+sub initModule($)
 {
     my $S = $_[0];
+    
     $OStarget = $S->{"OStarget"};
     $Debug = $S->{"Debug"};
     $Quiet = $S->{"Quiet"};
@@ -668,24 +1172,34 @@ sub readOpts($)
     $CrossGcc = $S->{"CrossGcc"};
     $UseStaticLibs = $S->{"UseStaticLibs"};
     $NoStdInc = $S->{"NoStdInc"};
+    
+    $BinaryOnly = $S->{"BinaryOnly"};
+    $SourceOnly = $S->{"SourceOnly"};
+    
+    if(not $BinaryOnly and not $SourceOnly)
+    { # default
+        $BinaryOnly = 1;
+    }
 }
 
 sub check_list($$)
 {
     my ($Item, $Skip) = @_;
     return 0 if(not $Skip);
-    my @Patterns = @{$Skip};
-    foreach my $Pattern (@Patterns)
+    foreach (@{$Skip})
     {
-        if($Pattern=~s/\*/.*/g)
+        my $Pattern = $_;
+        if(index($Pattern, "*")!=-1)
         { # wildcards
+            $Pattern=~s/\*/.*/g; # to perl format
             if($Item=~/$Pattern/) {
                 return 1;
             }
         }
-        elsif($Pattern=~/[\/\\]/)
+        elsif(index($Pattern, "/")!=-1
+        or index($Pattern, "\\")!=-1)
         { # directory
-            if($Item=~/\Q$Pattern\E/) {
+            if(index($Item, $Pattern)!=-1) {
                 return 1;
             }
         }
@@ -723,12 +1237,12 @@ sub read_sys_descriptor($)
         "skip_include_paths" => "mf",
         "skip_libs" => "mf",
         "include_preamble" => "mf",
-        "non_self_compiled" => "mf",
         "add_include_paths" => "mf",
         "gcc_options" => "m",
         "skip_symbols" => "m",
         "skip_types" => "m",
         "ignore_symbols" => "h",
+        "non_prefix" => "h",
         "defines" => "s"
     );
     my %DInfo = ();
@@ -762,6 +1276,12 @@ sub read_sys_descriptor($)
             }
         }
     }
+    
+    if(defined $DInfo{"non_self_compiled"})
+    { # support for old ABI dumps
+        $DInfo{"skip_including"} = $DInfo{"non_self_compiled"};
+    }
+    
     return \%DInfo;
 }
 
@@ -808,9 +1328,6 @@ sub read_sys_info($)
     { # GL/gl.h: No such file
         $SysInfo{"libSDL"}{"skip_headers"}=["SDL_opengl.h"];
     }
-    if($OStarget eq "linux") {
-        $SysInfo{"libboost_"}{"headers"} = ["/boost/", "/asio/"];
-    }
     # Common Info
     if(not -f $SYS_INFO_PATH."/common.xml") {
         exitStatus("Module_Error", "can't access \'$SYS_INFO_PATH/common.xml\'");
@@ -829,13 +1346,6 @@ sub read_sys_info($)
             $SysCInfo->{"gcc_options"} = [];
         }
         push(@{$SysCInfo->{"gcc_options"}}, @CompilerOpts);
-    }
-    foreach my $Name (keys(%SysInfo))
-    { # strict headers that should be
-      # matched for only one library
-        if($SysInfo{$Name}{"headers"}) {
-            $SysCInfo->{"sheaders"}{$Name} = $SysInfo{$Name}{"headers"};
-        }
     }
     return (\%SysInfo, $SysCInfo);
 }
@@ -858,42 +1368,17 @@ sub get_binversion($)
     return "";
 }
 
-sub get_soname($)
-{
-    my $Path = $_[0];
-    return if(not $Path or not -e $Path);
-    if(defined $Cache{"get_soname"}{$Path}) {
-        return $Cache{"get_soname"}{$Path};
-    }
-    my $ObjdumpCmd = get_CmdPath("objdump");
-    if(not $ObjdumpCmd) {
-        exitStatus("Not_Found", "can't find \"objdump\"");
-    }
-    my $SonameCmd = "$ObjdumpCmd -x $Path 2>$TMP_DIR/null";
-    if($OSgroup eq "windows") {
-        $SonameCmd .= " | find \"SONAME\"";
-    }
-    else {
-        $SonameCmd .= " | grep SONAME";
-    }
-    if(my $SonameInfo = `$SonameCmd`) {
-        if($SonameInfo=~/SONAME\s+([^\s]+)/) {
-            return ($Cache{"get_soname"}{$Path} = $1);
-        }
-    }
-    return ($Cache{"get_soname"}{$Path}="");
-}
-
 sub dumpSystem($)
 { # -dump-system option handler
   # should be used with -sysroot and -cross-gcc options
     my $Opts = $_[0];
-    readOpts($Opts);
+    initModule($Opts);
     my $SYS_DUMP_PATH = "sys_dumps/".$SysDescriptor{"Name"}."/".getArch(1);
     if(not $TargetLibraryName) {
         rmtree($SYS_DUMP_PATH);
     }
     my (@SystemLibs, @SysHeaders) = ();
+    
     foreach my $Path (keys(%{$SysDescriptor{"Libs"}}))
     {
         if(not -e $Path) {
@@ -943,17 +1428,32 @@ sub dumpSystem($)
     }
     writeFile($SYS_DUMP_PATH."/target.txt", $OStarget);
     my (%SysLib_Symbols, %SymbolGroup, %Symbol_SysHeaders,
-    %SysHeader_Symbols, %SysLib_SysHeaders, %MatchByName) = ();
-    my (%Skipped, %Failed, %Success) = ();
-    my (%SysHeaderDir_SysLibs, %SysHeaderDir_SysHeaders) = ();
-    my (%LibPrefixes, %SymbolCounter, %TotalLibs) = ();
+    %SysHeader_Symbols, %SysLib_SysHeaders) = ();
+    my (%Skipped, %Failed) = ();
+    my (%SysHeaderDir_Used, %SysHeaderDir_SysHeaders) = ();
+    my (%SymbolCounter, %TotalLibs) = ();
+    my (%PrefixToLib, %LibPrefix, %PrefixSymbols) = ();
+    
     my %Glibc = map {$_=>1} (
         "libc",
         "libpthread"
     );
     my ($SysInfo, $SysCInfo) = read_sys_info($OStarget);
-    if(not $GroupByHeaders) {
-        printMsg("INFO", "Indexing sonames ...");
+    
+    foreach (keys(%{$SysCInfo->{"non_prefix"}}))
+    {
+        $NonPrefix{$_} = 1;
+        $NonPrefix{$_."_"} = 1;
+        $NonPrefix{"_".$_} = 1;
+        $NonPrefix{"_".$_."_"} = 1;
+    }
+    
+    if(not $GroupByHeaders)
+    {
+        if($Debug) {
+            printMsg("INFO", localtime(time));
+        }
+        printMsg("INFO", "Indexing sonames ...\n");
     }
     my (%LibSoname, %SysLibVersion) = ();
     my %DevelPaths = map {$_=>1} @SystemLibs;
@@ -966,7 +1466,6 @@ sub dumpSystem($)
     foreach my $LPath (keys(%DevelPaths))
     { # register SONAMEs
         my $LName = get_filename($LPath);
-        my $LRelPath = cut_path_prefix($LPath, $SystemRoot);
         if(not is_target_lib($LName)) {
             next;
         }
@@ -974,7 +1473,7 @@ sub dumpSystem($)
         and $LName!~/\Alib/) {
             next;
         }
-        if(my $Soname = get_soname($LPath))
+        if(my $Soname = getSONAME($LPath))
         {
             if($OStarget eq "symbian")
             {
@@ -1022,6 +1521,10 @@ sub dumpSystem($)
         { # source version
             $SysLibVersion{$LName} = $PV;
         }
+        elsif(my $SV = parse_libname(getSONAME($LPath), "version", $OStarget))
+        { # soname version
+            $SysLibVersion{$LName} = $SV;
+        }
         elsif($LName=~/(\d[\d\.\-\_]*)\.$LIB_EXT\Z/)
         { # libfreebl3.so
             if($1 ne 32 and $1 ne 64) {
@@ -1036,6 +1539,29 @@ sub dumpSystem($)
     if(not $GroupByHeaders) {
         writeFile($SYS_DUMP_PATH."/versions.txt", $VERSIONS);
     }
+    
+    # create target list
+    my @SkipLibs = keys(%{$SysDescriptor{"SkipLibs"}});
+    if(my $CSkip = $SysCInfo->{"skip_libs"}) {
+        push(@SkipLibs, @{$CSkip});
+    }
+    if(@SkipLibs and not $TargetLibraryName)
+    {
+        my %SkipLibs = map {$_ => 1} @SkipLibs;
+        my @Target = ();
+        foreach my $LPath (@SystemLibs)
+        {
+            my $LName = get_filename($LPath);
+            my $LName_Short = parse_libname($LName, "name+ext", $OStarget);
+            if(not defined $SkipLibs{$LName_Short}
+            and not defined $SkipLibs{$LName}
+            and not check_list($LPath, \@SkipLibs)) {
+                push(@Target, $LName);
+            }
+        }
+        add_target_libs(\@Target);
+    }
+    
     my %SysLibs = ();
     foreach my $LPath (sort @SystemLibs)
     {
@@ -1064,12 +1590,6 @@ sub dumpSystem($)
                 }
             }
         }
-        if(my $Skip = $SysCInfo->{"skip_libs"})
-        { # do NOT check some libs
-            if(check_list($LRelPath, $Skip)) {
-                next;
-            }
-        }
         if(-l $LPath)
         { # symlinks
             if(my $Path = resolve_symlink($LPath)) {
@@ -1080,7 +1600,7 @@ sub dumpSystem($)
         {
             if($Glibc{$LSName}
             and cmd_file($LPath)=~/ASCII/)
-            {# GNU ld scripts (libc.so, libpthread.so)
+            { # GNU ld scripts (libc.so, libpthread.so)
                 my @Candidates = cmd_find($SystemRoot."/lib","",$LSName.".".$LIB_EXT."*","1");
                 if(@Candidates)
                 {
@@ -1097,25 +1617,45 @@ sub dumpSystem($)
             }
         }
     }
-    @SystemLibs = ();# clear memory
+    @SystemLibs = (); # clear memory
     if(not $CheckHeadersOnly)
     {
+        if($Debug) {
+            printMsg("INFO", localtime(time));
+        }
         if($SysDescriptor{"Image"}) {
-            printMsg("INFO", "Reading symbols from image ...");
+            printMsg("INFO", "Reading symbols from image ...\n");
         }
         else {
-            printMsg("INFO", "Reading symbols from libraries ...");
+            printMsg("INFO", "Reading symbols from libraries ...\n");
         }
     }
     
-    foreach my $LPath (sort keys(%SysLibs))
+    my %Syms = ();
+    my @AllSyms = {};
+    my %ShortestNames = ();
+    
+    foreach my $LPath (sort {lc($a) cmp lc($b)} keys(%SysLibs))
     {
         my $LRelPath = cut_path_prefix($LPath, $SystemRoot);
         my $LName = get_filename($LPath);
-        my $Library_Symbol = readSymbols_Lib(1, $LPath, 0, (), "-Weak");
-        my @AllSymbols = keys(%{$Library_Symbol->{$LName}});
-        my $tr_name = translateSymbols(@AllSymbols, 1);
-        foreach my $Symbol (@AllSymbols)
+        
+        $ShortestNames{$LPath} = parse_libname($LName, "shortest", $OStarget);
+        
+        my $Res = readSymbols_Lib(1, $LPath, 0, "-Weak", 0, 0);
+        $Syms{$LPath} = $Res->{$LName};
+        push(@AllSyms, keys(%{$Syms{$LPath}}));
+    }
+    
+    my $Translate = translateSymbols(@AllSyms, 1);
+    
+    my %DupSymbols = ();
+    
+    foreach my $LPath (sort {lc($a) cmp lc($b)} keys(%SysLibs))
+    {
+        my $LRelPath = cut_path_prefix($LPath, $SystemRoot);
+        my $LName = get_filename($LPath);
+        foreach my $Symbol (keys(%{$Syms{$LPath}}))
         {
             $Symbol=~s/[\@\$]+(.*)\Z//g;
             if($Symbol=~/\A(_Z|\?)/)
@@ -1128,7 +1668,7 @@ sub dumpSystem($)
                   # and destructors
                     next;
                 }
-                my $Unmangled = $tr_name->{$Symbol};
+                my $Unmangled = $Translate->{$Symbol};
                 $Unmangled=~s/<.+>//g;
                 if($Unmangled=~/\A([\w:]+)/)
                 { # cut out the parameters
@@ -1149,11 +1689,24 @@ sub dumpSystem($)
                         { # do NOT match this symbol
                             next;
                         }
-                        $SysLib_Symbols{$LPath}{$Sym}=1;
-                        if(my $Prefix = getPrefix($Sym)) {
-                            $LibPrefixes{$Prefix}{$LName}+=1;
+                        $SysLib_Symbols{$LPath}{$Sym} = 1;
+                        if(my $Prefix = getPrefix($Sym))
+                        {
+                            $PrefixToLib{$Prefix}{$LName} += 1;
+                            $LibPrefix{$LPath}{$Prefix} += 1;
+                            $PrefixSymbols{$LPath}{$Prefix}{$Sym} = 1;
                         }
-                        $SymbolCounter{$Sym}{$LName}=1;
+                        $SymbolCounter{$Sym}{$LPath} = 1;
+                        
+                        if(my @Libs = keys(%{$SymbolCounter{$Sym}}))
+                        {
+                            if($#Libs>=1)
+                            {
+                                foreach (@Libs) {
+                                    $DupSymbols{$_}{$Sym} = 1;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1163,53 +1716,193 @@ sub dumpSystem($)
                 { # do NOT match this symbol
                     next;
                 }
-                $SysLib_Symbols{$LPath}{$Symbol}=1;
-                if(my $Prefix = getPrefix($Symbol)) {
-                    $LibPrefixes{$Prefix}{$LName}+=1;
+                $SysLib_Symbols{$LPath}{$Symbol} = 1;
+                if(my $Prefix = getPrefix($Symbol))
+                {
+                    $PrefixToLib{$Prefix}{$LName} += 1;
+                    $LibPrefix{$LPath}{$Prefix} += 1;
+                    $PrefixSymbols{$LPath}{$Prefix}{$Symbol} = 1;
                 }
-                $SymbolCounter{$Symbol}{$LName}=1;
+                $SymbolCounter{$Symbol}{$LPath} = 1;
+                
+                if(my @Libs = keys(%{$SymbolCounter{$Symbol}}))
+                {
+                    if($#Libs>=1)
+                    {
+                        foreach (@Libs) {
+                            $DupSymbols{$_}{$Symbol} = 1;
+                        }
+                    }
+                }
             }
         }
     }
-    if(not $CheckHeadersOnly) {
-        writeFile($SYS_DUMP_PATH."/symbols.txt", Dumper(\%SysLib_Symbols));
+    
+    %Syms = ();
+    %{$Translate} = ();
+    
+    # remove minor symbols
+    foreach my $LPath (keys(%SysLib_Symbols))
+    {
+        my $SName = $ShortestNames{$LPath};
+        my $Count = keys(%{$SysLib_Symbols{$LPath}});
+        my %Prefixes = %{$LibPrefix{$LPath}};
+        my @Prefixes = sort {$Prefixes{$b}<=>$Prefixes{$a}} keys(%Prefixes);
+        # print "$LPath ".Dumper(\%Prefixes);
+        if($#Prefixes>=1)
+        {
+            my $MaxPrefix = $Prefixes[0];
+            if($MaxPrefix eq "NONE") {
+                $MaxPrefix = $Prefixes[1];
+            }
+            my $Max = $Prefixes{$MaxPrefix};
+            my $None = $Prefixes{"NONE"};
+            
+            next if($None*100/$Count>=50);
+            next if($None>=$Max);
+            
+            foreach my $Prefix (@Prefixes)
+            {
+                next if($Prefix eq $MaxPrefix);
+                my $Num = $Prefixes{$Prefix};
+                my $Rm = 0;
+                
+                if($Prefix eq "NONE") {
+                    $Rm = 1;
+                }
+                else
+                {
+                    if($Num*100/$Max<5) {
+                        $Rm = 1;
+                    }
+                }
+                
+                if($Rm)
+                {
+                    next if($Prefix=~/\Q$MaxPrefix\E/i);
+                    next if($MaxPrefix=~/\Q$Prefix\E/i);
+                    next if($Prefix=~/\Q$SName\E/i);
+                    
+                    # print "Removing $Prefix $Num\n";
+                    foreach my $Symbol (keys(%{$PrefixSymbols{$LPath}{$Prefix}})) {
+                        delete($SysLib_Symbols{$LPath}{$Symbol});
+                    }
+                }
+            }
+        }
     }
+    
+    %PrefixSymbols = (); # free memory
+    
+    if(not $CheckHeadersOnly) {
+        writeFile($SYS_DUMP_PATH."/debug/symbols.txt", Dumper(\%SysLib_Symbols));
+    }
+    
     my (%DupLibs, %VersionedLibs) = ();
-    foreach my $LPath1 (sort keys(%SysLib_Symbols))
+    foreach my $LPath (sort keys(%DupSymbols))
     { # match duplicated libs
       # libmenu contains all symbols from libmenuw
-        my $SName = parse_libname(get_filename($LPath1), "shortest", $OStarget);
-        foreach my $LPath2 (sort keys(%SysLib_Symbols))
-        {
-            next if($LPath1 eq $LPath2);
-            if($SName eq parse_libname(get_filename($LPath2), "shortest", $OStarget))
-            { # libpython-X.Y
-                $VersionedLibs{$LPath1}{$LPath2}=1;
-                next;
-            }
-            my $Duplicate=1;
-            foreach (keys(%{$SysLib_Symbols{$LPath1}}))
+        my @Syms = keys(%{$SysLib_Symbols{$LPath}});
+        next if($#Syms==-1);
+        if($#Syms+1==keys(%{$DupSymbols{$LPath}})) {
+            $DupLibs{$LPath} = 1;
+        }
+    }
+    foreach my $Prefix (keys(%PrefixToLib))
+    {
+        my @Libs = keys(%{$PrefixToLib{$Prefix}});
+        @Libs = sort {$PrefixToLib{$Prefix}{$b}<=>$PrefixToLib{$Prefix}{$a}} @Libs;
+        $PrefixToLib{$Prefix} = $Libs[0];
+    }
+    
+    my %PackageFile = (); # to improve results
+    my %FilePackage = ();
+    my %LibraryFile = ();
+    
+    if(0)
+    {
+        if($Debug) {
+            printMsg("INFO", localtime(time));
+        }
+        printMsg("INFO", "Reading info from packages ...\n");
+        if(my $Urpmf = get_CmdPath("urpmf"))
+        { # Mandriva, ROSA
+            my $Out = $TMP_DIR."/urpmf.out";
+            system("urpmf : >\"$Out\"");
+            open(FILE, $Out);
+            while(<FILE>)
             {
-                if(not defined $SysLib_Symbols{$LPath2}{$_}) {
-                    $Duplicate=0;
-                    last;
+                chomp($_);
+                if(my $M = index($_, ":"))
+                {
+                    my $Pkg = substr($_, 0, $M);
+                    my $File = substr($_, $M+1);
+                    $PackageFile{$Pkg}{$File} = 1;
+                    $FilePackage{$File} = $Pkg;
                 }
             }
-            if($Duplicate) {
-                $DupLibs{$LPath1}{$LPath2}=1;
+            close(FILE);
+        }
+    }
+    
+    if(keys(%FilePackage))
+    {
+        foreach my $LPath (sort {lc($a) cmp lc($b)} keys(%SysLibs))
+        {
+            my $LName = get_filename($LPath);
+            my $LDir = get_dirname($LPath);
+            my $LName_Short = parse_libname($LName, "name+ext", $OStarget);
+            
+            my $Pkg = $FilePackage{$LDir."/".$LName_Short};
+            if(not $Pkg)
+            {
+                my $RPkg = $FilePackage{$LPath};
+                if(defined $PackageFile{$RPkg."-devel"}) {
+                    $Pkg = $RPkg."-devel";
+                }
+                if($RPkg=~s/[\d\.]+\Z//g)
+                {
+                    if(defined $PackageFile{$RPkg."-devel"}) {
+                        $Pkg = $RPkg."-devel";
+                    }
+                }
+            }
+            if($Pkg)
+            {
+                foreach (keys(%{$PackageFile{$Pkg}}))
+                {
+                    if(index($_, "/usr/include/")==0) {
+                        $LibraryFile{$LPath}{$_} = 1;
+                    }
+                }
+            }
+            
+            $LName_Short=~s/\.so\Z/.a/;
+            if($Pkg = $FilePackage{$LDir."/".$LName_Short})
+            { # headers for static library
+                foreach (keys(%{$PackageFile{$Pkg}}))
+                {
+                    if(index($_, "/usr/include/")==0) {
+                        $LibraryFile{$LPath}{$_} = 1;
+                    }
+                }
             }
         }
     }
-    foreach my $Prefix (keys(%LibPrefixes))
-    {
-        my @Libs = keys(%{$LibPrefixes{$Prefix}});
-        @Libs = sort {$LibPrefixes{$Prefix}{$b}<=>$LibPrefixes{$Prefix}{$a}} @Libs;
-        $LibPrefixes{$Prefix}=$Libs[0];
+    
+    my %HeaderFile_Path = ();
+    
+    if($Debug) {
+        printMsg("INFO", localtime(time));
     }
-    printMsg("INFO", "Reading symbols from headers ...");
+    printMsg("INFO", "Reading symbols from headers ...\n");
     foreach my $HPath (@SysHeaders)
     {
         $HPath = path_format($HPath, $OSgroup);
+        if(readBytes($HPath) eq "7f454c46")
+        { # skip ELF files
+            next;
+        }
         my $HRelPath = cut_path_prefix($HPath, $SystemRoot);
         my ($HDir, $HName) = separate_path($HRelPath);
         if(is_not_header($HName))
@@ -1220,20 +1913,20 @@ sub dumpSystem($)
         { # reserved copy
             next;
         }
-        if($HRelPath=~/[\/\\]_gen/)
+        if(index($HRelPath, "/_gen")!=-1)
         { # telepathy-1.0/telepathy-glib/_gen
           # telepathy-1.0/libtelepathy/_gen-tp-constants-deprecated.h
             next;
         }
-        if($HRelPath=~/include[\/\\]linux[\/\\]/)
+        if(index($HRelPath, "include/linux/")!=-1)
         { # kernel-space headers
             next;
         }
-        if($HRelPath=~/include[\/\\]asm[\/\\]/)
+        if(index($HRelPath, "include/asm/")!=-1)
         { # asm headers
             next;
         }
-        if($HRelPath=~/[\/\\]microb-engine[\/\\]/)
+        if(index($HRelPath, "/microb-engine/")!=-1)
         { # MicroB engine (Maemo 4)
             next;
         }
@@ -1241,35 +1934,33 @@ sub dumpSystem($)
         { # private directories (include/tcl-private, ...)
             next;
         }
+        if(index($HRelPath, "/lib/")!=-1)
+        {
+            if(not is_header_file($HName))
+            { # without or with a wrong extension
+              # under the /lib directory
+                next;
+            }
+        }
         my $Content = readFile($HPath);
         $Content=~s/\/\*(.|\n)+?\*\///g;
-        $Content=~s/\/\/.*?\n//g;# remove comments
-        $Content=~s/#\s*define[^\n\\]*(\\\n[^\n\\]*)+\n*//g;# remove defines
-        $Content=~s/#[^\n]*?\n//g;# remove directives
-        $Content=~s/(\A|\n)class\s+\w+;\n//g;# remove forward declarations
+        $Content=~s/\/\/.*?\n//g; # remove comments
+        $Content=~s/#\s*define[^\n\\]*(\\\n[^\n\\]*)+\n*//g; # remove defines
+        $Content=~s/#[^\n]*?\n//g; # remove directives
+        $Content=~s/(\A|\n)class\s+\w+;\n//g; # remove forward declarations
         # FIXME: try to add preprocessing stage
         foreach my $Symbol (split(/\W+/, $Content))
         {
+            next if(not $Symbol);
             $Symbol_SysHeaders{$Symbol}{$HRelPath} = 1;
             $SysHeader_Symbols{$HRelPath}{$Symbol} = 1;
         }
         $SysHeaderDir_SysHeaders{$HDir}{$HName} = 1;
-        my $HShort = $HName;
-        $HShort=~s/\.\w+\Z//g;
-        if($HShort=~/\Alib/) {
-            $MatchByName{$HShort} = $HRelPath;
-        }
-        elsif(get_filename(get_dirname($HRelPath))=~/\Alib(.+)\Z/)
-        { # libical/ical.h
-            if($HShort=~/\Q$1\E/) {
-                $MatchByName{"lib".$HShort} = $HRelPath;
-            }
-        }
-        elsif($OStarget eq "windows"
-        and $HShort=~/api\Z/) {
-            $MatchByName{$HShort} = $HRelPath;
-        }
+        $HeaderFile_Path{get_filename($HRelPath)}{$HRelPath} = 1;
     }
+    
+    # writeFile($SYS_DUMP_PATH."/debug/headers.txt", Dumper(\%SysHeader_Symbols));
+    
     my %SkipDHeaders = (
     # header files, that should be in the <skip_headers> section
     # but should be matched in the algorithm
@@ -1279,34 +1970,55 @@ sub dumpSystem($)
                         "properties.h", "Channel", "channel.h", "message.h"],
     );
     filter_format(\%SkipDHeaders);
-    if(not $GroupByHeaders) {
-        printMsg("INFO", "Matching symbols ...");
+    if(not $GroupByHeaders)
+    {
+        if($Debug) {
+            printMsg("INFO", localtime(time));
+        }
+        printMsg("INFO", "Matching symbols ...\n");
     }
-    foreach my $LPath (sort keys(%SysLibs))
+    
+    foreach my $LPath (sort {lc($a) cmp lc($b)} keys(%SysLibs))
     { # matching
         my $LName = get_filename($LPath);
-        my $LNameSE = parse_libname($LName, "name+ext", $OStarget);
+    }
+    
+    foreach my $LPath (sort {lc($a) cmp lc($b)} keys(%SysLibs))
+    { # matching
+        my $LName = get_filename($LPath);
+        my $LName_Short = parse_libname($LName, "name", $OStarget);
         my $LRelPath = cut_path_prefix($LPath, $SystemRoot);
         my $LSName = parse_libname($LName, "short", $OStarget);
-        my $SName = parse_libname($LName, "shortest", $OStarget);
+        my $SName = $ShortestNames{$LPath};
+        
+        my @TryNames = (); # libX-N.so.M
+        
+        if(my $Ver = $SysLibVersion{$LName})
+        { # libX-N-M
+            if($LSName."-".$Ver ne $LName_Short)
+            {
+                push(@TryNames, $LName_Short."-".$Ver);
+                #while($Ver=~s/\.\d+\Z//) { # partial versions
+                #    push(@TryNames, $LName_Short."-".$Ver);
+                #}
+            }
+        }
+        push(@TryNames, $LName_Short); # libX-N
+        if($LSName ne $LName_Short)
+        { # libX
+            push(@TryNames, $LSName);
+        }
+        
         if($LRelPath=~/\/debug\//)
         { # debug libs
-            $Skipped{$LRelPath}=1;
+            $Skipped{$LRelPath} = 1;
             next;
         }
-        $TotalLibs{$LRelPath}=1;
+        $TotalLibs{$LRelPath} = 1;
         $SysLib_SysHeaders{$LRelPath} = ();
-        if(keys(%{$SysLib_Symbols{$LPath}}))
-        { # try to match by name of the header
-            if(my $Path = $MatchByName{$LSName}) {
-                $SysLib_SysHeaders{$LRelPath}{$Path}="exact match ($LSName)";
-            }
-            if(length($SName)>=3
-            and my $Path = $MatchByName{"lib".$SName}) {
-                $SysLib_SysHeaders{$LRelPath}{$Path}="exact match (lib$SName)";
-            }
-        }
+        
         my (%SymbolDirs, %SymbolFiles) = ();
+        
         foreach my $Symbol (sort {length($b) cmp length($a)}
         sort keys(%{$SysLib_Symbols{$LPath}}))
         {
@@ -1318,8 +2030,8 @@ sub dumpSystem($)
             and keys(%{$SymbolCounter{$Symbol}})>=2
             and my $Prefix = getPrefix($Symbol))
             { # duplicated symbols
-                if($LibPrefixes{$Prefix}
-                and $LibPrefixes{$Prefix} ne $LName
+                if($PrefixToLib{$Prefix}
+                and $PrefixToLib{$Prefix} ne $LName
                 and not $Glibc{$LSName}) {
                     next;
                 }
@@ -1353,8 +2065,8 @@ sub dumpSystem($)
                 next;
             }
             my @SymHeaders = keys(%{$Symbol_SysHeaders{$Symbol}});
-            @SymHeaders = sort {lc($a) cmp lc($b)} @SymHeaders;# sort by name
-            @SymHeaders = sort {length(get_dirname($a))<=>length(get_dirname($b))} @SymHeaders;# sort by length
+            @SymHeaders = sort {lc($a) cmp lc($b)} @SymHeaders; # sort by name
+            @SymHeaders = sort {length(get_dirname($a))<=>length(get_dirname($b))} @SymHeaders; # sort by length
             if(length($SName)>=3)
             { # sort candidate headers by name
                 @SymHeaders = sort {$b=~/\Q$SName\E/i<=>$a=~/\Q$SName\E/i} @SymHeaders;
@@ -1369,85 +2081,136 @@ sub dumpSystem($)
             @SymHeaders = sort {$SymbolFiles{get_filename($b)}<=>$SymbolFiles{get_filename($a)}} @SymHeaders;
             foreach my $HRelPath (@SymHeaders)
             {
-                if(my $Group = $SymbolGroup{$LRelPath}{$Symbol}) {
+                my $HDir = get_dirname($HRelPath);
+                my $HName = get_filename($HRelPath);
+                
+                if(my $Group = $SymbolGroup{$LRelPath}{$Symbol})
+                {
                     if(not $SysHeader_Symbols{$HRelPath}{$Group}) {
                         next;
                     }
                 }
-                if(my $Search = $SysInfo->{$LSName}{"headers"})
-                { # search for specified headers
-                    if(not check_list($HRelPath, $Search)) {
-                        next;
-                    }
-                }
-                if(my $Skip = $SysInfo->{$LSName}{"skip_headers"})
-                { # do NOT search for some headers
-                    if(check_list($HRelPath, $Skip)) {
-                        next;
-                    }
-                }
-                if(my $Skip = $SysInfo->{$LSName}{"skip_including"})
-                { # do NOT search for some headers
-                    if(check_list($HRelPath, $Skip)) {
-                        next;
-                    }
-                }
-                if(my $Skip = $SysCInfo->{"skip_headers"})
-                { # do NOT search for some headers
-                    if(check_list($HRelPath, $Skip)) {
-                        next;
-                    }
-                }
-                if(my $Skip = $SysCInfo->{"skip_including"})
-                { # do NOT search for some headers
-                    if(check_list($HRelPath, $Skip)) {
-                        next;
-                    }
-                }
-                if(my $Skip = $SysInfo->{$LSName}{"non_self_compiled"})
-                { # do NOT search for some headers
-                    if(check_list($HRelPath, $Skip)) {
-                        $SymbolDirs{get_dirname($HRelPath)}+=1;
-                        $SymbolFiles{get_filename($HRelPath)}+=1;
-                        next;
-                    }
-                }
-                my $Continue = 1;
-                foreach my $Name (keys(%{$SysCInfo->{"sheaders"}}))
+                my $Filter = 0;
+                foreach (@TryNames)
                 {
-                    if($LSName!~/\Q$Name\E/
-                    and check_list($HRelPath, $SysCInfo->{"sheaders"}{$Name}))
-                    { # restriction to search for C++ or Boost headers
-                      # in the boost/ and c++/ directories only
-                        $Continue=0;
-                        last;
+                    if(my $Filt = $SysInfo->{$_}{"headers"})
+                    { # search for specified headers
+                        if(not check_list($HRelPath, $Filt))
+                        {
+                            $Filter = 1;
+                            last;
+                        }
+                    }
+                    if(my $Filt = $SysInfo->{$_}{"skip_headers"})
+                    { # do NOT search for some headers
+                        if(check_list($HRelPath, $Filt))
+                        {
+                            $Filter = 1;
+                            last;
+                        }
+                    }
+                    if(my $Filt = $SysInfo->{$_}{"skip_including"})
+                    { # do NOT search for some headers
+                        if(check_list($HRelPath, $Filt))
+                        {
+                            $SymbolDirs{$HDir}+=1;
+                            $SymbolFiles{$HName}+=1;
+                            $Filter = 1;
+                            last;
+                        }
                     }
                 }
-                if(not $Continue) {
+                if($Filter) {
                     next;
                 }
-                $SysLib_SysHeaders{$LRelPath}{$HRelPath}=$Symbol;
-                $SysHeaderDir_SysLibs{get_dirname($HRelPath)}{$LNameSE}=1;
-                $SysHeaderDir_SysLibs{get_dirname(get_dirname($HRelPath))}{$LNameSE}=1;
-                $SymbolDirs{get_dirname($HRelPath)}+=1;
-                $SymbolFiles{get_filename($HRelPath)}+=1;
-                last;# select one header for one symbol
+                if(my $Filt = $SysCInfo->{"skip_headers"})
+                { # do NOT search for some headers
+                    if(check_list($HRelPath, $Filt)) {
+                        next;
+                    }
+                }
+                if(my $Filt = $SysCInfo->{"skip_including"})
+                { # do NOT search for some headers
+                    if(check_list($HRelPath, $Filt)) {
+                        next;
+                    }
+                }
+                
+                if(defined $LibraryFile{$LRelPath})
+                { # skip wrongly matched headers
+                    if(not defined $LibraryFile{$LRelPath}{$HRelPath})
+                    { print "WRONG: $LRelPath $HRelPath\n";
+                        # next;
+                    }
+                }
+                
+                $SysLib_SysHeaders{$LRelPath}{$HRelPath} = $Symbol;
+                
+                $SysHeaderDir_Used{$HDir}{$LName_Short} = 1;
+                $SysHeaderDir_Used{get_dirname($HDir)}{$LName_Short} = 1;
+                
+                $SymbolDirs{$HDir} += 1;
+                $SymbolFiles{$HName} +=1 ;
+                
+                # select one header for one symbol
+                last;
             }
         }
-        if(keys(%{$SysLib_SysHeaders{$LRelPath}})) {
-            $Success{$LRelPath}=1;
+        
+        if(keys(%{$SysLib_Symbols{$LPath}})
+        and not $SysInfo->{$_}{"headers"})
+        { # try to match by name of the header
+            if(length($SName)>=3)
+            {
+                my @Paths = ();
+                foreach my $Path (keys(%{$HeaderFile_Path{$SName.".h"}}), keys(%{$HeaderFile_Path{$LSName.".h"}}))
+                {
+                    my $Dir = get_dirname($Path);
+                    if(defined $SymbolDirs{$Dir} or $Dir eq "/usr/include") {
+                        push(@Paths, $Path);
+                    }
+                }
+                if($#Paths==0)
+                {
+                    my $Path = $Paths[0];
+                    if(not defined $SysLib_SysHeaders{$LRelPath}{$Path}) {
+                        $SysLib_SysHeaders{$LRelPath}{$Path} = "by name ($LSName)";
+                    }
+                }
+            }
         }
-        else {
-            $Failed{$LRelPath}=1;
+        
+        if(not keys(%{$SysLib_SysHeaders{$LRelPath}}))
+        {
+            foreach (@TryNames)
+            {
+                if(my $List = $SysInfo->{$_}{"headers"})
+                {
+                    foreach my $HName (@{$List})
+                    {
+                        next if($HName=~/[\*\/\\]/);
+                        if(my $HPath = selectSystemHeader($HName, 1))
+                        {
+                            my $HRelPath = cut_path_prefix($HPath, $SystemRoot);
+                            $SysLib_SysHeaders{$LRelPath}{$HRelPath} = "by descriptor";
+                        }
+                    }
+                }
+            }
+        }
+        
+        if(not keys(%{$SysLib_SysHeaders{$LRelPath}})) {
+            $Failed{$LRelPath} = 1;
         }
     }
+    
     if(not $GroupByHeaders)
     { # matching results
-        writeFile($SYS_DUMP_PATH."/match.txt", Dumper(\%SysLib_SysHeaders));
-        writeFile($SYS_DUMP_PATH."/skipped.txt", join("\n", sort keys(%Skipped)));
-        writeFile($SYS_DUMP_PATH."/failed.txt", join("\n", sort keys(%Failed)));
+        writeFile($SYS_DUMP_PATH."/debug/match.txt", Dumper(\%SysLib_SysHeaders));
+        writeFile($SYS_DUMP_PATH."/debug/skipped.txt", join("\n", sort keys(%Skipped)));
+        writeFile($SYS_DUMP_PATH."/debug/failed.txt", join("\n", sort keys(%Failed)));
     }
-    (%SysLib_Symbols, %SymbolGroup, %Symbol_SysHeaders, %SysHeader_Symbols) = ();# free memory
+    (%SysLib_Symbols, %SymbolGroup, %Symbol_SysHeaders, %SysHeader_Symbols) = (); # free memory
     if($GroupByHeaders)
     {
         if($SysDescriptor{"Image"} and not $CheckHeadersOnly) {
@@ -1478,8 +2241,12 @@ sub dumpSystem($)
         }
     }
     @SysHeaders = (); # clear memory
-    (%Skipped, %Failed, %Success) = ();
+    
+    if($Debug) {
+        printMsg("INFO", localtime(time));
+    }
     printMsg("INFO", "Generating XML descriptors ...");
+    my %Generated = ();
     foreach my $LRelPath (keys(%SysLib_SysHeaders))
     {
         my $LName = get_filename($LRelPath);
@@ -1488,16 +2255,30 @@ sub dumpSystem($)
         if(my @LibHeaders = keys(%{$SysLib_SysHeaders{$LRelPath}}))
         {
             my $LSName = parse_libname($LName, "short", $OStarget);
-            my $SName = parse_libname($LName, "shortest", $OStarget);
+            my $LName_Short = parse_libname($LName, "name", $OStarget);
+            my $LName_Shortest = parse_libname($LName, "shortest", $OStarget);
             if($GroupByHeaders)
             { # header short name
                 $LSName = $LName;
                 $LSName=~s/\.(.+?)\Z//;
             }
-            my (%DirsHeaders, %Includes) = ();
-            foreach my $HRelPath (@LibHeaders) {
-                $DirsHeaders{get_dirname($HRelPath)}{$HRelPath}=1;
+            
+            my (%DirsHeaders, %Includes, %MainDirs) = ();
+            foreach my $HRelPath (@LibHeaders)
+            {
+                my $Dir = get_dirname($HRelPath);
+                $DirsHeaders{$Dir}{$HRelPath} = 1;
+                
+                if($Dir=~/\/\Q$LName_Shortest\E(\/|\Z)/i
+                or $Dir=~/\/\Q$LName_Short\E(\/|\Z)/i)
+                {
+                    if(get_filename($Dir) ne "include")
+                    { # except /usr/include
+                        $MainDirs{$Dir} += 1;
+                    }
+                }
             }
+            
             if($#LibHeaders==0)
             { # one header at all
                 $Includes{$LibHeaders[0]} = 1;
@@ -1506,12 +2287,19 @@ sub dumpSystem($)
             {
                 foreach my $Dir (keys(%DirsHeaders))
                 {
+                    if(keys(%MainDirs) and not defined $MainDirs{$Dir})
+                    { # search in /X/ dir for libX headers
+                        if(get_filename($Dir) ne "include")
+                        { # except /usr/include
+                            next;
+                        }
+                    }
                     my $DirPart = 0;
                     my $TotalHeaders = keys(%{$SysHeaderDir_SysHeaders{$Dir}});
                     if($TotalHeaders) {
                         $DirPart = (keys(%{$DirsHeaders{$Dir}})*100)/$TotalHeaders;
                     }
-                    my $Neighbourhoods = keys(%{$SysHeaderDir_SysLibs{$Dir}});
+                    my $Neighbourhoods = keys(%{$SysHeaderDir_Used{$Dir}});
                     if($Neighbourhoods==1)
                     { # one lib in this directory
                         if(get_filename($Dir) ne "include"
@@ -1521,19 +2309,32 @@ sub dumpSystem($)
                         }
                         else
                         { # list of headers
-                            @Includes{keys(%{$DirsHeaders{$Dir}})}=values(%{$DirsHeaders{$Dir}});
+                            foreach (keys(%{$DirsHeaders{$Dir}})) {
+                                $Includes{$_} = 1;
+                            }
                         }
                     }
                     elsif((keys(%{$DirsHeaders{$Dir}})*100)/($#LibHeaders+1)>5)
                     { # remove 5% divergence
                         if(get_filename($Dir) ne "include"
                         and $DirPart>=50)
-                        { # complete directory
+                        { # complete directory if more than 50%
                             $Includes{$Dir} = 1;
                         }
                         else
                         { # list of headers
-                            @Includes{keys(%{$DirsHeaders{$Dir}})}=values(%{$DirsHeaders{$Dir}});
+                            foreach (keys(%{$DirsHeaders{$Dir}})) {
+                                $Includes{$_} = 1;
+                            }
+                        }
+                    }
+                    else
+                    { # noise
+                        foreach (keys(%{$DirsHeaders{$Dir}}))
+                        { # NOTE: /usr/include/libX.h
+                            if(/\Q$LName_Shortest\E/i) {
+                                $Includes{$_} = 1;
+                            }
                         }
                     }
                 }
@@ -1551,9 +2352,19 @@ sub dumpSystem($)
                 $LVersion = $SysDescriptor{"Name"};
             }
             my @Content = ("<version>\n    $LVersion\n</version>");
-            my @IncHeaders = sort {natural_sorting($a, $b)} keys(%Includes);
-            sort_by_word(\@IncHeaders, parse_libname($LName, "shortest", $OStarget));
-            if(is_abs($IncHeaders[0])) {
+            
+            my @IncHeaders = keys(%Includes);
+            
+            # sort files up
+            @IncHeaders = sort {$b=~/\.h\Z/<=>$a=~/\.h\Z/} @IncHeaders;
+            
+            # sort by name
+            @IncHeaders = sort {sortHeaders($a, $b)} @IncHeaders;
+            
+            # sort by library name
+            sortByWord(\@IncHeaders, parse_libname($LName, "shortest", $OStarget));
+            
+            if(is_abs($IncHeaders[0]) or -f $IncHeaders[0]) {
                 push(@Content, "<headers>\n    ".join("\n    ", @IncHeaders)."\n</headers>");
             }
             else {
@@ -1574,6 +2385,8 @@ sub dumpSystem($)
                     push(@Content, "<libs>\n    {RELPATH}/$LRelPath\n</libs>");
                 }
             }
+            
+            # system
             if(my @SearchHeaders = keys(%{$SysDescriptor{"SearchHeaders"}})) {
                 push(@Content, "<search_headers>\n    ".join("\n    ", @SearchHeaders)."\n</search_headers>");
             }
@@ -1583,98 +2396,133 @@ sub dumpSystem($)
             if(my @Tools = keys(%{$SysDescriptor{"Tools"}})) {
                 push(@Content, "<tools>\n    ".join("\n    ", @Tools)."\n</tools>");
             }
-            my @Skip = ();
-            if($SysInfo->{$LSName}{"skip_headers"}) {
-                @Skip = (@Skip, @{$SysInfo->{$LSName}{"skip_headers"}});
+            if(my $Prefix = $SysDescriptor{"CrossPrefix"}) {
+                push(@Content, "<cross_prefix>\n    $Prefix\n</cross_prefix>");
             }
-            if($SysCInfo->{"skip_headers"}) {
-                @Skip = (@Skip, @{$SysCInfo->{"skip_headers"}});
+            
+            # library
+            my (@Skip, @SkipInc, @AddIncPath, @SkipIncPath,
+            @SkipTypes, @SkipSymb, @Preamble, @Defines, @CompilerOpts) = ();
+            
+            my @TryNames = ();
+            if(my $Ver = $SysLibVersion{$LName})
+            {
+                if($LSName."-".$Ver ne $LName_Short) {
+                    push(@TryNames, $LName_Short."-".$Ver);
+                }
             }
-            if(@Skip) {
-                push(@Content, "<skip_headers>\n    ".join("\n    ", @Skip)."\n</skip_headers>");
+            push(@TryNames, $LName_Short);
+            if($LSName ne $LName_Short) {
+                push(@TryNames, $LSName);
             }
-            my @SkipInc = ();
-            if($SysInfo->{$LSName}{"skip_including"}) {
-                @SkipInc = (@SkipInc, @{$SysInfo->{$LSName}{"skip_including"}});
+            
+            foreach (@TryNames)
+            {
+                if(my $List = $SysInfo->{$_}{"include_preamble"}) {
+                    push(@Preamble, @{$List});
+                }
+                if(my $List = $SysInfo->{$_}{"skip_headers"}) {
+                    @Skip = (@Skip, @{$List});
+                }
+                if(my $List = $SysInfo->{$_}{"skip_including"}) {
+                    @SkipInc = (@SkipInc, @{$List});
+                }
+                if(my $List = $SysInfo->{$_}{"add_include_paths"}) {
+                    @AddIncPath = (@AddIncPath, @{$List});
+                }
+                if(my $List = $SysInfo->{$_}{"skip_include_paths"}) {
+                    @SkipIncPath = (@SkipIncPath, @{$List});
+                }
+                if(my $List = $SysInfo->{$_}{"skip_symbols"}) {
+                    push(@SkipSymb, @{$List});
+                }
+                if(my $List = $SysInfo->{$_}{"skip_types"}) {
+                    @SkipTypes = (@SkipTypes, @{$List});
+                }
+                if(my $List = $SysInfo->{$_}{"gcc_options"}) {
+                    push(@CompilerOpts, @{$List});
+                }
+                if(my $List = $SysInfo->{$_}{"defines"}) {
+                    push(@Defines, $List);
+                }
             }
-            if($SysCInfo->{"skip_including"}) {
-                @SkipInc = (@SkipInc, @{$SysCInfo->{"skip_including"}});
+            
+            # common
+            if(my $List = $SysCInfo->{"include_preamble"}) {
+                push(@Preamble, @{$List});
             }
-            if($SysInfo->{$LSName}{"non_self_compiled"}) {
-                @SkipInc = (@SkipInc, @{$SysInfo->{$LSName}{"non_self_compiled"}});
+            if(my $List = $SysCInfo->{"skip_headers"}) {
+                @Skip = (@Skip, @{$List});
             }
-            if($SkipDHeaders{$LSName}) {
-                @SkipInc = (@SkipInc, @{$SkipDHeaders{$LSName}});
+            if(my $List = $SysCInfo->{"skip_including"}) {
+                @SkipInc = (@SkipInc, @{$List});
             }
-            if(@SkipInc) {
-                push(@Content, "<skip_including>\n    ".join("\n    ", @SkipInc)."\n</skip_including>");
+            if(my $List = $SysCInfo->{"skip_symbols"}) {
+                push(@SkipSymb, @{$List});
             }
-            if($SysInfo->{$LSName}{"add_include_paths"}) {
-                push(@Content, "<add_include_paths>\n    ".join("\n    ", @{$SysInfo->{$LSName}{"add_include_paths"}})."\n</add_include_paths>");
+            if(my $List = $SysCInfo->{"gcc_options"}) {
+                push(@CompilerOpts, @{$List});
             }
-            if($SysInfo->{$LSName}{"skip_include_paths"}) {
-                push(@Content, "<skip_include_paths>\n    ".join("\n    ", @{$SysInfo->{$LSName}{"skip_include_paths"}})."\n</skip_include_paths>");
+            if($SysCInfo->{"defines"}) {
+                push(@Defines, $SysCInfo->{"defines"});
             }
-            if($SysInfo->{$LSName}{"skip_types"}) {
-                push(@Content, "<skip_types>\n    ".join("\n    ", @{$SysInfo->{$LSName}{"skip_types"}})."\n</skip_types>");
-            }
-            my @SkipSymb = ();
-            if($SysInfo->{$LSName}{"skip_symbols"}) {
-                push(@SkipSymb, @{$SysInfo->{$LSName}{"skip_symbols"}});
-            }
-            if($SysCInfo->{"skip_symbols"}) {
-                push(@SkipSymb, @{$SysCInfo->{"skip_symbols"}});
-            }
-            if(@SkipSymb) {
-                push(@Content, "<skip_symbols>\n    ".join("\n    ", @SkipSymb)."\n</skip_symbols>");
-            }
-            my @Preamble = ();
-            if($SysCInfo->{"include_preamble"}) {
-                push(@Preamble, @{$SysCInfo->{"include_preamble"}});
-            }
+            
+            # common other
             if($LSName=~/\AlibX\w+\Z/)
             { # add Xlib.h for libXt, libXaw, libXext and others
                 push(@Preamble, "Xlib.h", "X11/Intrinsic.h");
             }
-            if($SysInfo->{$LSName}{"include_preamble"}) {
-                push(@Preamble, @{$SysInfo->{$LSName}{"include_preamble"}});
-            }
-            if(@Preamble) {
-                push(@Content, "<include_preamble>\n    ".join("\n    ", @Preamble)."\n</include_preamble>");
-            }
-            my @Defines = ();
-            if($SysCInfo->{"defines"}) {
-                push(@Defines, $SysCInfo->{"defines"});
-            }
-            if($SysInfo->{$LSName}{"defines"}) {
-                push(@Defines, $SysInfo->{$LSName}{"defines"});
+            if($SkipDHeaders{$LSName}) {
+                @SkipInc = (@SkipInc, @{$SkipDHeaders{$LSName}});
             }
             if($SysDescriptor{"Defines"}) {
                 push(@Defines, $SysDescriptor{"Defines"});
             }
-            if(@Defines) {
-                push(@Content, "<defines>\n    ".join("\n    ", @Defines)."\n</defines>");
+            
+            # add sections
+            if(@Preamble) {
+                push(@Content, "<include_preamble>\n    ".join("\n    ", @Preamble)."\n</include_preamble>");
             }
-            my @CompilerOpts = ();
-            if($SysCInfo->{"gcc_options"}) {
-                push(@CompilerOpts, @{$SysCInfo->{"gcc_options"}});
+            if(@Skip) {
+                push(@Content, "<skip_headers>\n    ".join("\n    ", @Skip)."\n</skip_headers>");
             }
-            if($SysInfo->{$LSName}{"gcc_options"}) {
-                push(@CompilerOpts, @{$SysInfo->{$LSName}{"gcc_options"}});
+            if(@SkipInc) {
+                push(@Content, "<skip_including>\n    ".join("\n    ", @SkipInc)."\n</skip_including>");
+            }
+            if(@AddIncPath) {
+                push(@Content, "<add_include_paths>\n    ".join("\n    ", @AddIncPath)."\n</add_include_paths>");
+            }
+            if(@SkipIncPath) {
+                push(@Content, "<skip_include_paths>\n    ".join("\n    ", @SkipIncPath)."\n</skip_include_paths>");
+            }
+            if(@SkipSymb) {
+                push(@Content, "<skip_symbols>\n    ".join("\n    ", @SkipSymb)."\n</skip_symbols>");
+            }
+            if(@SkipTypes) {
+                push(@Content, "<skip_types>\n    ".join("\n    ", @SkipTypes)."\n</skip_types>");
             }
             if(@CompilerOpts) {
                 push(@Content, "<gcc_options>\n    ".join("\n    ", @CompilerOpts)."\n</gcc_options>");
             }
-            if($SysDescriptor{"CrossPrefix"}) {
-                push(@Content, "<cross_prefix>\n    ".$SysDescriptor{"CrossPrefix"}."\n</cross_prefix>");
+            if(@Defines) {
+                push(@Content, "<defines>\n    ".join("\n    ", @Defines)."\n</defines>");
             }
+            
             writeFile($DPath, join("\n\n", @Content));
-            $Success{$LRelPath}=1;
+            $Generated{$LRelPath}=1;
         }
     }
+    printMsg("INFO", "Created descriptors:     ".keys(%Generated)." ($SYS_DUMP_PATH/descriptors/)\n");
+    
+    if($Debug) {
+        printMsg("INFO", localtime(time));
+    }
     printMsg("INFO", "Dumping ABIs:");
-    my %DumpSuccess = ();
+    my %Dumped = ();
     my @Descriptors = cmd_find($SYS_DUMP_PATH."/descriptors","f","*.xml","1");
+    if(-d $SYS_DUMP_PATH."/descriptors" and $#Descriptors==-1) {
+        printMsg("ERROR", "internal problem with \'find\' utility");
+    }
     foreach my $DPath (sort {lc($a) cmp lc($b)} @Descriptors)
     {
         my $DName = get_filename($DPath);
@@ -1690,7 +2538,7 @@ sub dumpSystem($)
             next;
         }
         $DPath = cut_path_prefix($DPath, $ORIG_DIR);
-        my $ACC_dump = "perl $0 -binary";
+        my $ACC_dump = "perl $0";
         if($GroupByHeaders)
         { # header name is going here
             $ACC_dump .= " -l $LName";
@@ -1761,18 +2609,18 @@ sub dumpSystem($)
         }
         else
         {
-            $DumpSuccess{$LName}=1;
+            $Dumped{$LName}=1;
             printMsg("INFO", "Ok");
         }
     }
+    printMsg("INFO", "\n");
     if(not $GroupByHeaders)
     { # general mode
         printMsg("INFO", "Total libraries:         ".keys(%TotalLibs));
         printMsg("INFO", "Skipped libraries:       ".keys(%Skipped)." ($SYS_DUMP_PATH/skipped.txt)");
         printMsg("INFO", "Failed to find headers:  ".keys(%Failed)." ($SYS_DUMP_PATH/failed.txt)");
     }
-    printMsg("INFO", "Created descriptors:     ".keys(%Success)." ($SYS_DUMP_PATH/descriptors/)");
-    printMsg("INFO", "Dumped ABIs:             ".keys(%DumpSuccess)." ($SYS_DUMP_PATH/abi_dumps/)");
+    printMsg("INFO", "Dumped ABIs:             ".keys(%Dumped)." ($SYS_DUMP_PATH/abi_dumps/)");
     printMsg("INFO", "The ".$SysDescriptor{"Name"}." system ABI has been dumped to:\n  $SYS_DUMP_PATH");
 }
 

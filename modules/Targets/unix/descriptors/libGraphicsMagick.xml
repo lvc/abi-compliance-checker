@@ -1,0 +1,9 @@
+<skip_headers>
+    /ImageMagick/
+    /libltdl/
+    ltdl.h
+</skip_headers>
+
+<include_preamble>
+    magick/api.h
+</include_preamble>

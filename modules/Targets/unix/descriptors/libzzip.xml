@@ -1,0 +1,5 @@
+<skip_including>
+    fetch.h
+    format.h
+    fseeko.h
+</skip_including>

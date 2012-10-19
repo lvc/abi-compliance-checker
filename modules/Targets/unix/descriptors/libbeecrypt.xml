@@ -1,0 +1,4 @@
+<skip_including>
+    /c++/
+    win.h
+</skip_including>

@@ -4,7 +4,7 @@
 
 <include_preamble>
     ft2build.h
-    freetype.h
+    freetype2/freetype/freetype.h
     fntfilst.h
     fontenc.h
     bitmap.h

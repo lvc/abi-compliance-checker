@@ -1,6 +1,6 @@
-<non_self_compiled>
+<skip_including>
     dbus-glib-bindings.h
-</non_self_compiled>
+</skip_including>
 
 <gcc_options>
     -DDBUS_API_SUBJECT_TO_CHANGE

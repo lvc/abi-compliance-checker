@@ -1,7 +1,7 @@
-<non_self_compiled>
+<skip_including>
     telepathy/_gen
     *-gen.h
-</non_self_compiled>
+</skip_including>
 
 <gcc_options>
     -DDBUS_GLIB_CLIENT_WRAPPERS_org_freedesktop_Telepathy_Channel

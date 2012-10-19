@@ -201,8 +201,10 @@ span.mangled {
     padding-left:15px;
     font-size:14px;
     cursor:text;
+    color:#444444;
 }
 span.sym_ver {
+    color:#333333;
     white-space:nowrap;
 }
 span.color_p {

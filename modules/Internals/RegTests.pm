@@ -51,6 +51,79 @@ sub testCpp()
     $SOURCE1 .= "namespace TestNS {\n";
     $SOURCE2 .= "namespace TestNS {\n";
     
+    # Pure_Virtual_Replacement
+    $HEADER1 .= "
+        class $DECL_SPEC PureVirtualReplacement {
+        public:
+            virtual int methodOld(int param) = 0;
+            int otherMethod();
+        };
+        
+        class $DECL_SPEC PureVirtualReplacement_Derived: public PureVirtualReplacement {
+        public:
+            int methodOld(int param);
+        };";
+    $SOURCE1 .= "
+        int PureVirtualReplacement::otherMethod() { return 0; }
+        int PureVirtualReplacement_Derived::methodOld(int param) { return 0; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC PureVirtualReplacement {
+        public:
+            virtual int methodNew(int param) = 0;
+            int otherMethod();
+        };
+        
+        class $DECL_SPEC PureVirtualReplacement_Derived: public PureVirtualReplacement {
+        public:
+            int methodNew(int param);
+        };";
+    $SOURCE2 .= "
+        int PureVirtualReplacement::otherMethod() { return 0; }
+        int PureVirtualReplacement_Derived::methodNew(int param) { return 0; }";
+    
+    # Virtual_Replacement
+    $HEADER1 .= "
+        class $DECL_SPEC VirtualReplacement {
+        public:
+            virtual int methodOld(int param);
+        };";
+    $SOURCE1 .= "
+        int VirtualReplacement::methodOld(int param) { return 0; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC VirtualReplacement {
+        public:
+            virtual int methodNew(int param);
+        };";
+    $SOURCE2 .= "
+        int VirtualReplacement::methodNew(int param) { return 0; }";
+    
+    # Removed_Symbol (renamed, source-compatible)
+    $HEADER1 .= "
+        int $DECL_SPEC renamedFunc(int param);";
+    $SOURCE1 .= "
+        int renamedFunc(int param) { return 0; }";
+    
+    $HEADER2 .= "
+        int $DECL_SPEC renamedFunc_NewName(int param);
+        #define renamedFunc renamedFunc_NewName";
+    $SOURCE2 .= "
+        int renamedFunc_NewName(int param) { return 0; }";
+    
+    # Removed_Symbol
+    $HEADER1 .= "
+        int $DECL_SPEC functionBecameInline(int param);";
+    $SOURCE1 .= "
+        int functionBecameInline(int param) { return 0; }";
+    
+    $HEADER2 .= "
+        inline int functionBecameInline(int param) { return 0; }";
+    
+    # Removed_Symbol (safe)
+    $HEADER1 .= "
+        inline int removedInlineFunction(int param) { return 0; }";
+    
     # Field_Became_Const
     # Typedef
     $HEADER1 .= "
@@ -2663,6 +2736,29 @@ sub testC()
     my $DECL_SPEC = ($OSgroup eq "windows")?"__declspec( dllexport )":"";
     my $EXTERN = ($OSgroup eq "windows")?"extern ":""; # add "extern" for CL compiler
     
+    # Used_Reserved
+    $HEADER1 .= "
+        typedef struct {
+            int f;
+            void* reserved0;
+            void* reserved1;
+        } UsedReserved;
+        
+        $DECL_SPEC int usedReserved(UsedReserved p);";
+    $SOURCE1 .= "
+        int usedReserved(UsedReserved p) { return 0; }";
+    
+    $HEADER2 .= "
+        typedef struct {
+            int f;
+            void* f0;
+            void* f1;
+        } UsedReserved;
+        
+        $DECL_SPEC int usedReserved(UsedReserved p);";
+    $SOURCE2 .= "
+        int usedReserved(UsedReserved p) { return 0; }";
+    
     # Parameter_Type_And_Register
     $HEADER1 .= "
         typedef struct {
@@ -4295,12 +4391,12 @@ sub runTests($$$$$$$$)
                     changedDefaultVersion;
                 };
             ");
-            $BuildCmd = $GCC_PATH." -Wl,--version-script version -shared -fkeep-inline-functions libsample.$Ext -o libsample.$LIB_EXT";
+            $BuildCmd = $GCC_PATH." -Wl,--version-script version -shared libsample.$Ext -o libsample.$LIB_EXT";
             $BuildCmd_Test = $GCC_PATH." -Wl,--version-script version test.$Ext -Wl,libsample.$LIB_EXT -o test";
         }
         else
         {
-            $BuildCmd = $GCC_PATH." -shared -fkeep-inline-functions -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT";
+            $BuildCmd = $GCC_PATH." -shared -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT";
             $BuildCmd_Test = $GCC_PATH." -x c++ test.$Ext -lstdc++ -Wl,libsample.$LIB_EXT -o test";
         }
         if(getArch(1)=~/\A(arm|x86_64)\Z/i)
@@ -4313,12 +4409,12 @@ sub runTests($$$$$$$$)
     { # using GCC -dynamiclib
         if($Lang eq "C")
         {
-            $BuildCmd = $GCC_PATH." -dynamiclib -fkeep-inline-functions libsample.$Ext -o libsample.$LIB_EXT";
+            $BuildCmd = $GCC_PATH." -dynamiclib libsample.$Ext -o libsample.$LIB_EXT";
             $BuildCmd_Test = $GCC_PATH." test.$Ext libsample.$LIB_EXT -o test";
         }
         else
         { # C++
-            $BuildCmd = $GCC_PATH." -dynamiclib -fkeep-inline-functions -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT";
+            $BuildCmd = $GCC_PATH." -dynamiclib -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT";
             $BuildCmd_Test = $GCC_PATH." -x c++ test.$Ext libsample.$LIB_EXT -o test";
         }
     }
@@ -4327,12 +4423,12 @@ sub runTests($$$$$$$$)
       # symbian target
         if($Lang eq "C")
         {
-            $BuildCmd = $GCC_PATH." -shared -fkeep-inline-functions libsample.$Ext -o libsample.$LIB_EXT";
+            $BuildCmd = $GCC_PATH." -shared libsample.$Ext -o libsample.$LIB_EXT";
             $BuildCmd_Test = $GCC_PATH." test.$Ext -Wl,libsample.$LIB_EXT -o test";
         }
         else
         { # C++
-            $BuildCmd = $GCC_PATH." -shared -fkeep-inline-functions -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT";
+            $BuildCmd = $GCC_PATH." -shared -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT";
             $BuildCmd_Test = $GCC_PATH." -x c++ test.$Ext -Wl,libsample.$LIB_EXT -o test";
         }
     }

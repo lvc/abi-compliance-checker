@@ -1,10 +1,11 @@
 <skip_headers>
     /wx/
+    /perl5/
 </skip_headers>
 
-<non_self_compiled>
+<skip_including>
     /extensions/
     CoreP.h
     ResourceI.h
     /xorg/
-</non_self_compiled>
+</skip_including>

@@ -1,0 +1,4 @@
+<skip_headers>
+    sql.h
+    sqlext.h
+</skip_headers>

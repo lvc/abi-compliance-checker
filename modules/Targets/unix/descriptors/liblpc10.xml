@@ -1,0 +1,3 @@
+<skip_headers>
+    /boost/
+</skip_headers>

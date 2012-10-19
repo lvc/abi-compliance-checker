@@ -1,0 +1,11 @@
+<headers>
+    /mythtv/
+</headers>
+
+<defines>
+    # if __WORDSIZE == 64
+    #  define UINT64_C(c)   c ## UL
+    # else
+    #  define UINT64_C(c)   c ## ULL
+    # endif
+</defines>

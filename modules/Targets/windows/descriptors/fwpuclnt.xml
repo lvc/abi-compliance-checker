@@ -3,9 +3,9 @@
     ws2tcpip.h
 </skip_headers>
 
-<non_self_compiled>
+<skip_including>
     fwpsu.h
-</non_self_compiled>
+</skip_including>
 
 <include_preamble>
     guiddef.h

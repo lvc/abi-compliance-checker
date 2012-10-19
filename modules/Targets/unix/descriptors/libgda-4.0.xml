@@ -1,0 +1,7 @@
+<skip_headers>
+    /libgda-3.0/
+</skip_headers>
+
+<skip_including>
+    gda-server-provider-private.h
+</skip_including>

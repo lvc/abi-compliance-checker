@@ -735,6 +735,7 @@
         Field @target has been added to this type.
     </change>
     <effect>
+        This field will not be initialized by old clients.
         NOTE: this field should be accessed only from the new library functions, otherwise it may result in crash or incorrect behavior of applications.
     </effect>
 </rule>
@@ -753,7 +754,8 @@
         Field @target has been added to this type.
     </change>
     <effect>
-        Size of the inclusive type has been changed.
+        1) This field will not be initialized by old clients.
+        2) Size of the inclusive type has been changed.
         NOTE: this field should be accessed only from the new library functions, otherwise it may result in crash or incorrect behavior of applications.
     </effect>
 </rule>
@@ -1070,6 +1072,24 @@
     </change>
     <effect>
         Renaming of a field in data type may indicate a change in the semantic meaning of the field.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Used_Reserved_Field
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Fields
+    </kind>
+    <change>
+        Reserved field @target has been replaced by @new_value.
+    </change>
+    <effect>
+        This field will not be initialized by old clients.
     </effect>
 </rule>
 
@@ -2753,7 +2773,7 @@
         Field_BaseType_Format
     </id>
     <severity>
-        Low
+        Medium
     </severity>
     <kind>
         Fields
@@ -2789,7 +2809,7 @@
         Parameter_BaseType_Format
     </id>
     <severity>
-        Low
+        Medium
     </severity>
     <kind>
         Parameters
@@ -2843,7 +2863,7 @@
         Return_BaseType_Format
     </id>
     <severity>
-        Low
+        Medium
     </severity>
     <kind>
         Symbols

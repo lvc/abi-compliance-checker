@@ -16,6 +16,7 @@ span.iname {
     font-weight:bold;
     font-size:16px;
     color:#003E69;
+    margin-left:5px;
 }
 span.section {
     font-weight:bold;
@@ -23,6 +24,7 @@ span.section {
     font-size:16px;
     color:#003E69;
     white-space:nowrap;
+    margin-left:5px;
 }
 span:hover.section {
     color:#336699;
@@ -62,7 +64,6 @@ span.mangled {
 }
 span.sym_ver {
     color:#333333;
-    font-size:14px;
     white-space:nowrap;
 }
 span.color_p {

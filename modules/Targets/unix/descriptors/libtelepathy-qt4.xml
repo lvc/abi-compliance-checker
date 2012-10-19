@@ -1,6 +1,6 @@
-<non_self_compiled>
+<skip_including>
     /_gen/
-</non_self_compiled>
+</skip_including>
 
 <skip_headers>
     profile.h

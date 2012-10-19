@@ -1,7 +1,7 @@
-<non_self_compiled>
+<skip_including>
     poll.h
     /pulsecore/modules/
-</non_self_compiled>
+</skip_including>
 
 <include_preamble>
     stdbool.h

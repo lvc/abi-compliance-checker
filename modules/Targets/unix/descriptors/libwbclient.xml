@@ -1,0 +1,3 @@
+<skip_including>
+    wbc_async.h
+</skip_including>

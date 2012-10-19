@@ -1,0 +1,3 @@
+<skip_including>
+    /avahi-client/
+</skip_including>

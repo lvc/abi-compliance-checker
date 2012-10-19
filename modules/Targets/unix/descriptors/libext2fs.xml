@@ -1,4 +1,7 @@
-<non_self_compiled>
+<headers>
+    /ext2fs/
+</headers>
+
+<skip_including>
     bitops.h
-    bitops.h
-</non_self_compiled>
+</skip_including>

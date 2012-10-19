@@ -1,0 +1,12 @@
+<skip_headers>
+    /v2/
+    /detail/
+</skip_headers>
+
+<defines>
+    #define BOOST_FILESYSTEM_VERSION 3
+</defines>
+
+<include_preamble>
+    boost/filesystem.hpp
+</include_preamble>

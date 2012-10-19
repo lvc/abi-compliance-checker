@@ -1,0 +1,6 @@
+<skip_including>
+    QtMarbleConfigDialog.h
+    CurrentLocationWidget.h
+    PositionTracking.h
+    RunnerPlugin.h
+</skip_including>

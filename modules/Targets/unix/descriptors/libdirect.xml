@@ -1,0 +1,3 @@
+<skip_including>
+    interface_implementation.h
+</skip_including>

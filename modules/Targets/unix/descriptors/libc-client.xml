@@ -1,0 +1,12 @@
+<skip_headers>
+    /dovecot/
+    /inn/
+</skip_headers>
+
+<skip_including>
+    sslio.h
+</skip_including>
+
+<headers>
+    c-client.h
+</headers>

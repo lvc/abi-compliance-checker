@@ -3,7 +3,11 @@
     gdkalias.h
 </skip_headers>
 
-<non_self_compiled>
+<skip_including>
     gdkalias.h
     gdkprivate.h
-</non_self_compiled>
+</skip_including>
+
+<skip_headers>
+    /gtk-3.0/
+</skip_headers>

@@ -1,0 +1,4 @@
+<include_preamble>
+    stdint.h
+    stdafx.h
+</include_preamble>

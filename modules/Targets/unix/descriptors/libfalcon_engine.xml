@@ -1,0 +1,9 @@
+<skip_including>
+    *_win.h
+    refstring.h
+    xtree_fix.h
+    spage.h
+    heap_linux.h
+    itm_deref.h
+    stringwithid.h
+</skip_including>

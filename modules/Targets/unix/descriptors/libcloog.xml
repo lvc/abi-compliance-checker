@@ -1,4 +1,4 @@
-<non_self_compiled>
+<skip_including>
     ppl_backend.h
     polylib_backend.h
-</non_self_compiled>
+</skip_including>

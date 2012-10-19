@@ -1,8 +1,8 @@
-<non_self_compiled>
+<skip_including>
     [a-z]P
     VendorEP.h
     SmeBSBP.h
-</non_self_compiled>
+</skip_including>
 
 <include_preamble>
     X11/Intrinsic.h

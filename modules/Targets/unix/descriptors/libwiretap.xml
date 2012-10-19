@@ -1,0 +1,12 @@
+<skip_including>
+    file_wrappers.h
+    wtap-int.h
+</skip_including>
+
+<gcc_options>
+    -D_U_=
+</gcc_options>
+
+<include_preamble>
+    sys/time.h
+</include_preamble>

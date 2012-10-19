@@ -1,3 +1,8 @@
 <skip_headers>
     /GL/
+    /GLES/
 </skip_headers>
+
+<include_preamble>
+    GLES2/gl2.h
+</include_preamble>

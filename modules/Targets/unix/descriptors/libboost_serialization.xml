@@ -1,0 +1,11 @@
+<skip_headers>
+    vector_135.hpp
+    shared_ptr_nmt_132.hpp
+    vector.hpp
+    /detail/
+    /archive/
+</skip_headers>
+
+<include_preamble>
+    serialization.hpp
+</include_preamble>

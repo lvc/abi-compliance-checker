@@ -188,6 +188,9 @@ sub createXmlDump($)
             if($TInfo{"Spec"}) {
                 $ABI_DUMP .= addTag("note", "specialization");
             }
+            if($TInfo{"Forward"}) {
+                $ABI_DUMP .= addTag("note", "forward");
+            }
             $ABI_DUMP .= closeTag("data_type");
         }
         $ABI_DUMP .= closeTag("type_info");
@@ -544,6 +547,9 @@ sub readXmlDump($)
                 }
                 elsif($Note eq "specialization") {
                     $TInfo{"Spec"} = 1;
+                }
+                elsif($Note eq "forward") {
+                    $TInfo{"Forward"} = 1;
                 }
             }
             foreach my $Attr ("Name", "Type", "Size",

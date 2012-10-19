@@ -1,0 +1,7 @@
+<defines>
+    #define UNSTABLE
+</defines>
+
+<include_preamble>
+    xplc/delete.h
+</include_preamble>

@@ -1,0 +1,3 @@
+<skip_including>
+    gegl-chant.h
+</skip_including>

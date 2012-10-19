@@ -1,0 +1,7 @@
+<skip_including>
+    k3bmetawriter.h
+    k3bcdrecordwriter.h
+    k3bcdrdaowriter.h
+    k3bgrowisofswriter.h
+    k3bvcddoc.h
+</skip_including>

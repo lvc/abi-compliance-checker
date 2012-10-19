@@ -1,8 +1,8 @@
-<non_self_compiled>
+<skip_including>
     string0.h
     sip_parser.h
     sip_util.h
     sl_utils.h
     tstdef.h
     sres_cache.h
-</non_self_compiled>
+</skip_including>

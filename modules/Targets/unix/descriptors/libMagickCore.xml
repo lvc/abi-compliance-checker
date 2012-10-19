@@ -1,0 +1,4 @@
+<skip_including>
+    /GraphicsMagick/
+    widget.h
+</skip_including>

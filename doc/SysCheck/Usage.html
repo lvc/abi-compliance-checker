@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "Operating_Systems_Compatibility", "wgTitle": "Operating Systems Compatibility", "wgCurRevisionId": 7974, "wgArticleId": 2655, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "Operating_Systems_Compatibility", "wgTitle": "Operating Systems Compatibility", "wgCurRevisionId": 8057, "wgArticleId": 2655, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -45,42 +45,48 @@
 <ul>
 <li class="toclevel-1 tocsection-1"><a href="#Setting_Up_Environment"><span class="tocnumber">1</span> <span class="toctext">Setting Up Environment</span></a>
 <ul>
-<li class="toclevel-2 tocsection-2"><a href="#Deb-based_OS_.28Ubuntu.2C_Debian.2C_Maemo.29"><span class="tocnumber">1.1</span> <span class="toctext">Deb-based OS (Ubuntu, Debian, Maemo)</span></a></li>
-<li class="toclevel-2 tocsection-3"><a href="#Rpm-based_OS_.28Fedora.2C_openSUSE.2C_MeeGo.29"><span class="tocnumber">1.2</span> <span class="toctext">Rpm-based OS (Fedora, openSUSE, MeeGo)</span></a></li>
-<li class="toclevel-2 tocsection-4"><a href="#Apk-based_OS_.28Alpine_Linux.29"><span class="tocnumber">1.3</span> <span class="toctext">Apk-based OS (Alpine Linux)</span></a></li>
-<li class="toclevel-2 tocsection-5"><a href="#Other_Systems_.28Symbian.2C_Windows.29"><span class="tocnumber">1.4</span> <span class="toctext">Other Systems (Symbian, Windows)</span></a></li>
+<li class="toclevel-2 tocsection-2"><a href="#Apt-based_OS_.28Ubuntu.2C_Debian.2C_Maemo.29"><span class="tocnumber">1.1</span> <span class="toctext">Apt-based OS (Ubuntu, Debian, Maemo)</span></a></li>
+<li class="toclevel-2 tocsection-3"><a href="#Zypper-based_OS_.28Fedora.2C_openSUSE.2C_MeeGo.29"><span class="tocnumber">1.2</span> <span class="toctext">Zypper-based OS (Fedora, openSUSE, MeeGo)</span></a></li>
+<li class="toclevel-2 tocsection-4"><a href="#Urpmi-based_OS_.28Mandriva.2C_ROSA.2C_Mageia.29"><span class="tocnumber">1.3</span> <span class="toctext">Urpmi-based OS (Mandriva, ROSA, Mageia)</span></a></li>
+<li class="toclevel-2 tocsection-5"><a href="#Apk-based_OS_.28Alpine_Linux.29"><span class="tocnumber">1.4</span> <span class="toctext">Apk-based OS (Alpine Linux)</span></a></li>
+<li class="toclevel-2 tocsection-6"><a href="#Other_Systems_.28Symbian.2C_Windows.29"><span class="tocnumber">1.5</span> <span class="toctext">Other Systems (Symbian, Windows)</span></a></li>
 </ul>
 </li>
-<li class="toclevel-1 tocsection-6"><a href="#Dumping_System_ABI"><span class="tocnumber">2</span> <span class="toctext">Dumping System ABI</span></a></li>
-<li class="toclevel-1 tocsection-7"><a href="#Compare_ABI_Dumps"><span class="tocnumber">3</span> <span class="toctext">Compare ABI Dumps</span></a></li>
-<li class="toclevel-1 tocsection-8"><a href="#Examples"><span class="tocnumber">4</span> <span class="toctext">Examples</span></a></li>
+<li class="toclevel-1 tocsection-7"><a href="#Dumping_System_ABI"><span class="tocnumber">2</span> <span class="toctext">Dumping System ABI</span></a></li>
+<li class="toclevel-1 tocsection-8"><a href="#Compare_ABI_Dumps"><span class="tocnumber">3</span> <span class="toctext">Compare ABI Dumps</span></a></li>
+<li class="toclevel-1 tocsection-9"><a href="#Examples"><span class="tocnumber">4</span> <span class="toctext">Examples</span></a></li>
 </ul>
 </td></tr></table>
 <h2> <span class="mw-headline" id="Setting_Up_Environment"> Setting Up Environment </span></h2>
 <p>The first step is to setup development environment on target operating systems:
 </p>
-<ul><li> Install G++, Perl, Binutils and File utility
+<ul><li> Install G++, Perl, Binutils, Ctags and File utility
 </li><li> Install all "devel" packages or SDK.
 </li></ul>
-<h3> <span class="mw-headline" id="Deb-based_OS_.28Ubuntu.2C_Debian.2C_Maemo.29"> Deb-based OS (Ubuntu, Debian, Maemo) </span></h3>
+<h3> <span class="mw-headline" id="Apt-based_OS_.28Ubuntu.2C_Debian.2C_Maemo.29"> Apt-based OS (Ubuntu, Debian, Maemo) </span></h3>
 <p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;apt-get update&#160;</code><br /><br />
 </p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;apt-cache search "\-dev"|awk '{print $1;}'&gt;install.txt&#160;</code><br /><br />
-</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;for i in `cat install.txt`;do apt-get --force-yes -y install $i;done&#160;</code><br /><br />
-</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;apt-get install gcc perl binutils file&#160;</code><br /><br />
+</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;for i in `cat install.txt`;do sudo apt-get --force-yes -y install $i;done&#160;</code><br /><br />
+</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;sudo apt-get install gcc perl binutils file ctags&#160;</code><br /><br />
 </p>
-<h3> <span class="mw-headline" id="Rpm-based_OS_.28Fedora.2C_openSUSE.2C_MeeGo.29"> Rpm-based OS (Fedora, openSUSE, MeeGo) </span></h3>
-<p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;zypper search -u dev|awk '{print $2;}'|grep 'dev'&gt;install.txt&#160;</code><br /><br />
-</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;for i in `cat install.txt`;do zypper -n install $i;done&#160;</code><br /><br />
-</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;zypper install gcc-c++ perl binutils file&#160;</code><br /><br />
+<h3> <span class="mw-headline" id="Zypper-based_OS_.28Fedora.2C_openSUSE.2C_MeeGo.29"> Zypper-based OS (Fedora, openSUSE, MeeGo) </span></h3>
+<p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;zypper search -u dev|awk '{print $2;}'|grep "dev"&gt;install.txt&#160;</code><br /><br />
+</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;for i in `cat install.txt`;do sudo zypper -n install $i;done&#160;</code><br /><br />
+</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;sudo zypper install gcc-c++ perl binutils file ctags&#160;</code><br /><br />
+</p>
+<h3> <span class="mw-headline" id="Urpmi-based_OS_.28Mandriva.2C_ROSA.2C_Mageia.29"> Urpmi-based OS (Mandriva, ROSA, Mageia) </span></h3>
+<p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;urpmq|grep "\-devel"&gt;install.txt&#160;</code><br /><br />
+</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;for i in `cat install.txt`;do sudo urpmi --auto --force $i;done&#160;</code><br /><br />
+</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;sudo urpmi install gcc-c++ perl binutils file ctags&#160;</code><br /><br />
 </p>
 <h3> <span class="mw-headline" id="Apk-based_OS_.28Alpine_Linux.29"> Apk-based OS (Alpine Linux) </span></h3>
 <p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;apk update&#160;</code><br /><br />
 </p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;apk search|grep "\-dev\-"|sed s/-dev-.*$/-dev/&gt;install.txt&#160;</code><br /><br />
-</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;for i in `cat install.txt`;do apk add $i;done&#160;</code><br /><br />
-</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;apk add perl&#160;</code><br /><br />
+</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;for i in `cat install.txt`;do sudo apk add $i;done&#160;</code><br /><br />
+</p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;sudo apk add perl&#160;</code><br /><br />
 </p>
 <h3> <span class="mw-headline" id="Other_Systems_.28Symbian.2C_Windows.29"> Other Systems (Symbian, Windows) </span></h3>
-<p>Download and install an SDK.
+<p>Download and install the SDK.
 </p>
 <h2> <span class="mw-headline" id="Dumping_System_ABI"> Dumping System ABI </span></h2>
 <p>The next step is to create an <a href="Descriptor.html" title="Operating System Descriptor">XML-descriptor</a> of target OS.
@@ -104,11 +110,11 @@
 </p>
 <!-- 
 NewPP limit report
-Preprocessor node count: 47/1000000
+Preprocessor node count: 54/1000000
 Post-expand include size: 0/2097152 bytes
 Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2655-0!*!0!!en!*!* and timestamp 20120719144105 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2655-0!*!0!!en!*!* and timestamp 20121017230252 -->
 </div></div></div></div></div></body></html>

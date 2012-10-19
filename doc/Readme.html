@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker", "wgTitle": "ABI Compliance Checker", "wgCurRevisionId": 8015, "wgArticleId": 2292, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker", "wgTitle": "ABI Compliance Checker", "wgCurRevisionId": 8115, "wgArticleId": 2292, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -85,15 +85,14 @@
 <li class="toclevel-1 tocsection-25"><a href="#Similar_Tools"><span class="tocnumber">13</span> <span class="toctext">Similar Tools</span></a></li>
 <li class="toclevel-1 tocsection-26"><a href="#Bugs"><span class="tocnumber">14</span> <span class="toctext">Bugs</span></a></li>
 <li class="toclevel-1 tocsection-27"><a href="#Maintainers"><span class="tocnumber">15</span> <span class="toctext">Maintainers</span></a></li>
-<li class="toclevel-1 tocsection-28"><a href="#Sponsors"><span class="tocnumber">16</span> <span class="toctext">Sponsors</span></a></li>
-<li class="toclevel-1 tocsection-29"><a href="#Credits"><span class="tocnumber">17</span> <span class="toctext">Credits</span></a></li>
-<li class="toclevel-1 tocsection-30"><a href="#Articles"><span class="tocnumber">18</span> <span class="toctext">Articles</span></a></li>
+<li class="toclevel-1 tocsection-28"><a href="#Credits"><span class="tocnumber">16</span> <span class="toctext">Credits</span></a></li>
+<li class="toclevel-1 tocsection-29"><a href="#Articles"><span class="tocnumber">17</span> <span class="toctext">Articles</span></a></li>
 </ul>
 </td></tr></table>
 <h2> <span class="mw-headline" id="Downloads"> Downloads </span></h2>
 <h3> <span class="mw-headline" id="Releases"> Releases </span></h3>
 <p>All releases can be downloaded from <b><a href="Changes.html" title="ABI Compliance Checker Downloads">this page</a></b> or <b><a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/downloads/">github.com</a></b>.
-</p><p>Latest release: <a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/downloads/abi-compliance-checker-1.98.3.tar.gz">1.98.3</a>
+</p><p>Latest release: <a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/downloads/abi-compliance-checker-1.98.4.tar.gz">1.98.4</a>
 </p>
 <h3> <span class="mw-headline" id="Git"> Git </span></h3>
 <p>Read-only access to the latest development version:<br />
@@ -107,13 +106,13 @@
 <p>This program is free software. You may use, redistribute and/or modify it under the terms of either the <b>GNU GPL</b> or <b>LGPL</b>.
 </p>
 <h2> <span class="mw-headline" id="Supported_Platforms"> Supported Platforms </span></h2>
-<p>GNU/Linux, FreeBSD, Mac OS X, MS Windows (Xp, Vista, 7), Haiku (BeOS).
+<p>GNU/Linux, FreeBSD, Mac OS X, MS Windows, Haiku/BeOS.
 </p>
 <h2> <span class="mw-headline" id="System_Requirements"> System Requirements </span></h2>
 <ul><li><b>Linux, FreeBSD</b>
 <ul><li> <a rel="nofollow" class="external text" href="http://gcc.gnu.org/">G++</a> (3.0-4.7, recommended 4.5 or newer)
 </li><li> <a rel="nofollow" class="external text" href="http://www.gnu.org/software/binutils/">GNU Binutils</a> (readelf, c++filt, objdump)
-</li><li> <a rel="nofollow" class="external text" href="http://www.perl.org/">Perl</a> (5.8 or newer)
+</li><li> <a rel="nofollow" class="external text" href="http://www.perl.org/">Perl 5</a> (5.8 or newer)
 </li><li> <a rel="nofollow" class="external text" href="http://ctags.sourceforge.net/">Ctags</a> (5.8 or newer)
 </li><li> WARNING: if you are using ccache program (i.e. gcc points to /usr/lib/ccache/gcc) then it should be newer than 3.1.2 or disabled.
 </li></ul>
@@ -126,7 +125,7 @@
 <ul><li><b>MS Windows</b>
 <ul><li> <a rel="nofollow" class="external text" href="http://www.mingw.org/">MinGW</a> (3.0-4.7, recommended 4.5 or newer)
 </li><li> MS Visual C++ (dumpbin, undname, cl)
-</li><li> <a rel="nofollow" class="external text" href="http://www.activestate.com/activeperl">Active Perl</a> (5.8 or newer)
+</li><li> <a rel="nofollow" class="external text" href="http://www.activestate.com/activeperl">Active Perl 5</a> (5.8 or newer)
 </li><li> Sigcheck v1.71 or newer
 </li><li> <a rel="nofollow" class="external text" href="http://ctags.sourceforge.net/">Ctags</a> (5.8 or newer)
 </li><li> Info-ZIP 3.0 (zip, unzip)
@@ -194,6 +193,8 @@
 </li></ul>
 </li><li> <b>Classes</b>
 <ul><li> added/removed base classes
+</li><li> change access level of a field or method
+</li><li> added pure virtual methods
 </li></ul>
 </li><li> <b>Enumerations</b>
 <ul><li> removed/renamed members
@@ -203,6 +204,7 @@
 <ul><li> <b>Parameters</b>
 <ul><li> added/removed parameters
 </li><li> change of a parameter type
+</li><li> removed default value
 </li></ul>
 </li><li> <b>Other</b>
 <ul><li> change of return value type
@@ -307,7 +309,7 @@ Check client application portability between libssh versions:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -l libssh -old <a href="Descriptor.html" title="Library Descriptor">0.3.4.xml</a> -new <a href="Descriptor.html" title="Library Descriptor">0.4.0.xml</a> -app /usr/bin/csync&#160;</code><br /><br />
 </p>
 <h2> <span class="mw-headline" id="Tutorial"> Tutorial </span></h2>
-<p>An excellent tutorial <a rel="nofollow" class="external text" href="http://blog.famillecollet.com/post/2010/06/20/ABI-%3A-stability-check">"ABI: stability check"</a> is available at Les RPM de Remi Blog.
+<p>An excellent tutorial <a rel="nofollow" class="external text" href="http://blog.famillecollet.com/post/2010/06/20/ABI-%3A-stability-check">"ABI: stability check"</a> is available at Les RPM de Remi Blog. See also <a rel="nofollow" class="external text" href="http://sourceware.org/glibc/wiki/Testing/ABI_checker">ABI Compliance Checker Notes</a> at glibc wiki.
 </p>
 <h2> <span class="mw-headline" id="Report_Format"> Report Format </span></h2>
 <p>The tool supports two formats of a compatibility report: visual interactive HTML (default) and XML. To generate XML report you should specify <a href="Options.html" title="ABI Compliance Checker Options">-xml</a> additional option.
@@ -325,7 +327,7 @@ Check client application portability between libssh versions:<br />
 </li><li> <b>Other Changes in Symbols</b> - The list of compatible changes in symbols;
 </li><li> <b>Problems with Implementation</b> - The list of changes in disassembled binary code. Use <a href="Options.html" title="ABI Compliance Checker Options">-check-implementation</a> option to enable this section.
 </li></ul>
-<p>Examples:
+<p>Examples of HTML-format report:
 </p>
 <ul><li> NetCDF: 4.0.1 to 4.1.1 API compatibility <a rel="nofollow" class="external text" href="http://upstream-tracker.org/compat_reports/netcdf/4.0.1_to_4.1.1/compat_report.html">report</a>
 </li><li> MySQL++: 3.0.9 to 3.1.0 binary compatibility <a rel="nofollow" class="external text" href="http://upstream-tracker.org/compat_reports/mysql++/3.0.9_to_3.1.0/abi_compat_report.html">report</a>
@@ -417,67 +419,66 @@ Check client application portability between libssh versions:<br />
 </li><li> <b>BCS</b> - The Symbian Binary Compatibility Suite,
 </li><li> <b>shlib-compat</b> - ABI compatibility checker that uses DWARF debug info,
 </li><li> <b>qbic</b> - A tool to check for binary incompatibilities in Qt4 Toolkit,
-</li><li> <b>chkshlib</b>, <b>cmpdylib</b>, <b>cmpshlib</b> - compare symbols presence.
+</li><li> <b>chkshlib</b>, <b>cmpdylib</b>, <b>cmpshlib</b> - Tools to compare symbols presence.
 </li></ol>
 <h2> <span class="mw-headline" id="Bugs"> Bugs </span></h2>
 <p>Please post your bug reports, feature requests and questions to the <a rel="nofollow" class="external text" href="http://forge.ispras.ru/projects/abi-compliance-checker">issue tracker</a> or send to <a rel="nofollow" class="external text" href="mailto:aponomarenko@rosalab.ru">this address</a>.
 </p>
 <h2> <span class="mw-headline" id="Maintainers"> Maintainers </span></h2>
-<p>The tool was initially developed by the <a rel="nofollow" class="external text" href="http://linuxtesting.org">Russian Linux Verification Center</a> at <a href="http://ispras.linuxbase.org/index.php/ISP_RAS_Company_Profile" title="ISP RAS Company Profile">ISPRAS</a> and is now developed by <a rel="nofollow" class="external text" href="http://www.rosalab.com/">ROSA Laboratory</a> in Russia. <a rel="nofollow" class="external text" href="http://andrey-ponomarenko.myopenid.com/">Andrey Ponomarenko</a> is the leader of this project.
-</p>
-<h2> <span class="mw-headline" id="Sponsors"> Sponsors </span></h2>
-<p>The development of this tool is currently sponsored by <b>Nokia</b>.<br /><br />
-<a href="/index.php/File:Logo_nokia.gif" class="image"><img alt="Logo nokia.gif" src="http://ispras.linuxbase.org/images/e/e2/Logo_nokia.gif" width="115" height="40" /></a>
-</p><p>If you want to be a sponsor and move the development of the tool in the way you need then please contact us at <a rel="nofollow" class="external text" href="mailto:aponomarenko@rosalab.ru">this</a> address.
+<p>The tool was originally developed by the <a rel="nofollow" class="external text" href="http://linuxtesting.org">Russian Linux Verification Center</a> at <a href="http://ispras.linuxbase.org/index.php/ISP_RAS_Company_Profile" title="ISP RAS Company Profile">ISPRAS</a> and since <b>1.93</b> version it's developed by the <a rel="nofollow" class="external text" href="http://www.rosalab.com/">ROSA Laboratory</a> in Russia. <a rel="nofollow" class="external text" href="http://andrey-ponomarenko.myopenid.com/">Andrey Ponomarenko</a> is the leader of this project.
 </p>
 <h2> <span class="mw-headline" id="Credits"> Credits </span></h2>
 <p>We would like to thank <a href="http://ispras.linuxbase.org/index.php/Thanks" title="Thanks">everyone</a> who has contributed to the success of this project!
 </p>
 <h2> <span class="mw-headline" id="Articles"> Articles </span></h2>
-<p>Here is the list of articles about shared libraries, ABI and binary compatibility:
+<p>Here is the list of articles about shared libraries and binary compatibility:
 </p>
-<ol><li> KDE TechBase, <a rel="nofollow" class="external text" href="http://techbase.kde.org/Policies/Binary_Compatibility_Issues_With_C++"><b>“Binary Compatibility Issues With C++”</b></a>
-</li><li> KDE TechBase, <a rel="nofollow" class="external text" href="http://techbase.kde.org/Policies/Binary_Compatibility_Examples"><b>“Binary Compatibility Examples”</b></a>
-</li><li> codesourcery.com, <a rel="nofollow" class="external text" href="http://www.codesourcery.com/public/cxx-abi/abi.html"><b>"Itanium C++ ABI"</b></a>
-</li><li> Josh Faust, <a rel="nofollow" class="external text" href="http://www.ros.org/reps/rep-0009.html"><b>"ABI Compatibility"</b></a>
-</li><li> Les RPM de Remi - Blog, <a rel="nofollow" class="external text" href="http://blog.famillecollet.com/post/2010/06/20/ABI-%3A-stability-check"><b>"ABI&#160;: stability check"</b></a>
-</li><li> Agner Fog, <a rel="nofollow" class="external text" href="http://www.agner.org/optimize/calling_conventions.pdf"><b>“Calling conventions for different C++ compilers and operating systems”</b></a>
-</li><li> Andreas Jonsson, <a rel="nofollow" class="external text" href="http://www.angelcode.com/dev/callconv/callconv.html"><b>"Calling conventions on the x86 platform"</b></a>
-</li><li> Thiago Macieira, <a rel="nofollow" class="external text" href="http://labs.qt.nokia.com/2009/08/12/some-thoughts-on-binary-compatibility/"><b>“Some thoughts on binary compatibility”</b></a>
-</li><li> Pavel Shved, Denis Silakov, <a rel="nofollow" class="external text" href="http://syrcose.ispras.ru/2009/files/02_paper.pdf"><b>"Binary Compatibility of C++ shared libraries on GNU/Linux"</b></a>
-</li><li> David J. Brown and Karl Runge, <a rel="nofollow" class="external text" href="http://www.usenix.org/publications/library/proceedings/als00/2000papers/papers/full_papers/browndavid/browndavid_html/"><b>"Library Interface Versioning in Solaris and Linux"</b></a>
-</li><li> HP.com, <a rel="nofollow" class="external text" href="http://docs.hp.com/en/950/v4vers.pdf"><b>"Steps to Version Your Shared Library"</b></a>
-</li><li> developer.apple.com, <a rel="nofollow" class="external text" href="http://developer.apple.com/tools/mpw-tools/compilers/docs/abi.html"><b>"Macintosh C/C++ ABI Overview"</b></a>
-</li><li> Chad Austin, <a rel="nofollow" class="external text" href="http://chadaustin.me/cppinterface.html"><b>“Binary-compatible C++ Interfaces”</b></a>
-</li><li> GNU.org, <a rel="nofollow" class="external text" href="http://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html"><b>"ABI Policy and Guidelines"</b></a>
-</li><li> GNU.org, <a rel="nofollow" class="external text" href="http://gcc.gnu.org/onlinedocs/gcc/Compatibility.html"><b>"Binary Compatibility"</b></a>
-</li><li> Stephen Clamage, <a rel="nofollow" class="external text" href="http://developers.sun.com/solaris/articles/CC_abi/CC_abi_content.html"><b>"Stability of the C++ ABI: Evolution of a Programing Language"</b></a>
-</li><li> Debian Library Packaging guide, <a rel="nofollow" class="external text" href="http://www.netfort.gr.jp/~dancer/column/libpkg-guide/libpkg-guide.html#binarycompat"><b>"When binary compatibility breaks"</b></a>
-</li><li> KDE TechBase, <a rel="nofollow" class="external text" href="http://techbase.kde.org/Policies/Library_Code_Policy"><b>“Library Code Policy”</b></a>
-</li><li> Ulrich Drepper, <a rel="nofollow" class="external text" href="http://people.redhat.com/drepper/dsohowto.pdf"><b>"How To Write Shared Libraries"</b></a>
-</li><li> Computer Desktop Encyclopedia, <a rel="nofollow" class="external text" href="http://lookup.computerlanguage.com/host_app/search?cid=C000401&amp;term=ABI"><b>"Application Binary Interface"</b></a>
-</li><li> Linux.org, <a rel="nofollow" class="external text" href="http://www.linux.org/docs/ldp/howto/Program-Library-HOWTO/shared-libraries.html"><b>“Program Library HOWTO”</b></a>
-</li><li> Mike Hearn, <a rel="nofollow" class="external text" href="http://plan99.net/~mike/writing-shared-libraries.html"><b>“Writing shared libraries”</b></a>
-</li><li> Sergey Ayukov, <a rel="nofollow" class="external text" href="http://www.ayukov.com/essays/linuxdll.html"><b>"Shared libraries in Linux: growing pains or fundamental problem?"</b></a>
-</li><li> Peter Potrebic, <a rel="nofollow" class="external text" href="http://2f.ru/holy-wars/fbc.html"><b>“What's the Fragile Base Class (FBC) Problem?”</b></a>
-</li><li> OoCities.org, <a rel="nofollow" class="external text" href="http://www.oocities.org/mrshrap/linker.html"><b>“The amazing world of library incompatibility”</b></a>
-</li><li> Forum.Nokia, <a rel="nofollow" class="external text" href="http://library.forum.nokia.com/index.jsp?topic=/S60_5th_Edition_Cpp_Developers_Library/GUID-35228542-8C95-4849-A73F-2B4F082F0C44/sdk/doc_source/faqSDK/faq_0444.html"><b>“The Theory of Binary Compatibility”</b></a>
-</li><li> Forum.Nokia, <a rel="nofollow" class="external text" href="http://library.developer.nokia.com/index.jsp?topic=/S60_5th_Edition_Cpp_Developers_Library/GUID-35228542-8C95-4849-A73F-2B4F082F0C44/sdk/doc_source/ToolsAndUtilities94/BuildTools/bc.guide.html"><b>“How to control binary compatibility”</b></a>
-</li><li> elpauer.org, <a rel="nofollow" class="external text" href="http://www.elpauer.org/?p=230"><b>“ABI compatibility in C++”</b></a>
-</li><li> symbian.org, <a rel="nofollow" class="external text" href="http://developer.symbian.org/wiki/index.php/Preserving_Compatibility"><b>"Preserving Compatibility"</b></a>
-</li><li> Ponomarenko A., Rubanov V., VALID 2010, <a rel="nofollow" class="external text" href="http://doi.ieeecomputersociety.org/10.1109/VALID.2010.27"><b>"Automated Verification of Shared Libraries for Backward Binary Compatibility"</b></a>
-</li><li> Thiago Macieira's blog, <a rel="nofollow" class="external text" href="http://www.macieira.org/blog/2012/01/architectures-and-abis-detailed/"><b>"Architectures and ABIs detailed"</b></a>
-</li><li> FreeStandards.org, <a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/gabi41.pdf"><b>Generic ABI (gABI) Standard</b></a>, <a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/"><b>"ELF and ABI Standards"</b></a>
-</li><li> Processor Supplement ABI (psABI) documents: <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/abi386-4.pdf">Intel386</a></b>, <b><a rel="nofollow" class="external text" href="http://www.x86-64.org/documentation/abi.pdf">AMD64</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/elfspec_ppc.pdf">PowerPC</a></b>, <b><a rel="nofollow" class="external text" href="http://download.boulder.ibm.com/ibmdl/pub/software/dw/linux390/docu/l390abi0.pdf">S/390</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/IA64-SysV-psABI.pdf">Itanium</a></b>, <b><a rel="nofollow" class="external text" href="http://infocenter.arm.com/help/topic/com.arm.doc.ihi0036b/IHI0036B_bsabi.pdf">ARM</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/mipsabi.pdf">MIPS</a></b>, <b><a rel="nofollow" class="external text" href="http://www.sparc.org/standards/psABI3rd.pdf">SPARC</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/elf-pa.pdf">PA-RISK</a></b>, <b><a rel="nofollow" class="external text" href="http://www.linux-m32r.org/cmn/m32r/M32R-elf-abi.pdf">M32R</a></b>
+<ol><li> <a rel="nofollow" class="external text" href="http://techbase.kde.org/Policies/Binary_Compatibility_Issues_With_C++"><b>“Binary Compatibility Issues With C++”</b></a>, KDE TechBase
+</li><li> <a rel="nofollow" class="external text" href="http://techbase.kde.org/Policies/Binary_Compatibility_Examples"><b>“Binary Compatibility Examples”</b></a>, KDE TechBase
+</li><li> <a rel="nofollow" class="external text" href="http://www.codesourcery.com/public/cxx-abi/abi.html"><b>"Itanium C++ ABI"</b></a>, codesourcery.com
+</li><li> <a rel="nofollow" class="external text" href="http://www.ros.org/reps/rep-0009.html"><b>"ABI Compatibility"</b></a>, Josh Faust
+</li><li> <a rel="nofollow" class="external text" href="http://blog.famillecollet.com/post/2010/06/20/ABI-%3A-stability-check"><b>"ABI&#160;: stability check"</b></a>, Les RPM de Remi - Blog
+</li><li> <a rel="nofollow" class="external text" href="http://www.agner.org/optimize/calling_conventions.pdf"><b>“Calling conventions for different C++ compilers and operating systems”</b></a>, Agner Fog
+</li><li> <a rel="nofollow" class="external text" href="http://www.angelcode.com/dev/callconv/callconv.html"><b>"Calling conventions on the x86 platform"</b></a>, Andreas Jonsson
+</li><li> <a rel="nofollow" class="external text" href="http://labs.qt.nokia.com/2009/08/12/some-thoughts-on-binary-compatibility/"><b>“Some thoughts on binary compatibility”</b></a>, Thiago Macieira
+</li><li> <a rel="nofollow" class="external text" href="http://syrcose.ispras.ru/2009/files/02_paper.pdf"><b>"Binary Compatibility of C++ shared libraries on GNU/Linux"</b></a>, Pavel Shved, Denis Silakov
+</li><li> <a rel="nofollow" class="external text" href="http://www.usenix.org/publications/library/proceedings/als00/2000papers/papers/full_papers/browndavid/browndavid_html/"><b>"Library Interface Versioning in Solaris and Linux"</b></a>, David J. Brown and Karl Runge
+</li><li> <a rel="nofollow" class="external text" href="http://docs.hp.com/en/950/v4vers.pdf"><b>"Steps to Version Your Shared Library"</b></a>, hp.com
+</li><li> <a rel="nofollow" class="external text" href="http://developer.apple.com/tools/mpw-tools/compilers/docs/abi.html"><b>"Macintosh C/C++ ABI Overview"</b></a>, developer.apple.com
+</li><li> <a rel="nofollow" class="external text" href="http://chadaustin.me/cppinterface.html"><b>“Binary-compatible C++ Interfaces”</b></a>, Chad Austin
+</li><li> <a rel="nofollow" class="external text" href="http://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html"><b>"ABI Policy and Guidelines"</b></a>, gnu.org
+</li><li> <a rel="nofollow" class="external text" href="http://gcc.gnu.org/onlinedocs/gcc/Compatibility.html"><b>"Binary Compatibility"</b></a>, gnu.org
+</li><li> <a rel="nofollow" class="external text" href="http://developers.sun.com/solaris/articles/CC_abi/CC_abi_content.html"><b>"Stability of the C++ ABI: Evolution of a Programing Language"</b></a>, Stephen Clamage
+</li><li> <a rel="nofollow" class="external text" href="http://www.netfort.gr.jp/~dancer/column/libpkg-guide/libpkg-guide.html#binarycompat"><b>"When binary compatibility breaks"</b></a>, Debian Library Packaging guide
+</li><li> <a rel="nofollow" class="external text" href="http://techbase.kde.org/Policies/Library_Code_Policy"><b>“Library Code Policy”</b></a>, KDE TechBase
+</li><li> <a rel="nofollow" class="external text" href="http://people.redhat.com/drepper/dsohowto.pdf"><b>"How To Write Shared Libraries"</b></a>, Ulrich Drepper
+</li><li> <a rel="nofollow" class="external text" href="http://lookup.computerlanguage.com/host_app/search?cid=C000401&amp;term=ABI"><b>"Application Binary Interface"</b></a>, Computer Desktop Encyclopedia
+</li><li> <a rel="nofollow" class="external text" href="http://www.linux.org/docs/ldp/howto/Program-Library-HOWTO/shared-libraries.html"><b>“Program Library HOWTO”</b></a>, linux.org
+</li><li> <a rel="nofollow" class="external text" href="http://plan99.net/~mike/writing-shared-libraries.html"><b>“Writing shared libraries”</b></a>, Mike Hearn
+</li><li> <a rel="nofollow" class="external text" href="http://www.ayukov.com/essays/linuxdll.html"><b>"Shared libraries in Linux: growing pains or fundamental problem?"</b></a>, Sergey Ayukov
+</li><li> <a rel="nofollow" class="external text" href="http://2f.ru/holy-wars/fbc.html"><b>“What's the Fragile Base Class (FBC) Problem?”</b></a>, Peter Potrebic
+</li><li> <a rel="nofollow" class="external text" href="http://www.oocities.org/mrshrap/linker.html"><b>“The amazing world of library incompatibility”</b></a>, oocities.org
+</li><li> <a rel="nofollow" class="external text" href="http://library.forum.nokia.com/index.jsp?topic=/S60_5th_Edition_Cpp_Developers_Library/GUID-35228542-8C95-4849-A73F-2B4F082F0C44/sdk/doc_source/faqSDK/faq_0444.html"><b>“The Theory of Binary Compatibility”</b></a>, Forum.Nokia
+</li><li> <a rel="nofollow" class="external text" href="http://library.developer.nokia.com/index.jsp?topic=/S60_5th_Edition_Cpp_Developers_Library/GUID-35228542-8C95-4849-A73F-2B4F082F0C44/sdk/doc_source/ToolsAndUtilities94/BuildTools/bc.guide.html"><b>“How to control binary compatibility”</b></a>, Forum.Nokia
+</li><li> <a rel="nofollow" class="external text" href="http://www.elpauer.org/?p=230"><b>“ABI compatibility in C++”</b></a>, elpauer.org
+</li><li> <a rel="nofollow" class="external text" href="http://blogs.gentoo.org/mgorny/2012/08/20/the-impact-of-cxx-templates-on-library-abi/"><b>“The impact of C++ templates on library ABI”</b></a>, Michał Górny
+</li><li> <a rel="nofollow" class="external text" href="http://sourceware.org/glibc/wiki/Testing/ABI_checker"><b>“ABI Compliance Checker Notes”</b></a>, sourceware.org
+</li><li> <a rel="nofollow" class="external text" href="http://developer.symbian.org/wiki/index.php/Preserving_Compatibility"><b>"Preserving Compatibility"</b></a>, symbian.org
+</li><li> <a rel="nofollow" class="external text" href="http://doi.ieeecomputersociety.org/10.1109/VALID.2010.27"><b>"Automated Verification of Shared Libraries for Backward Binary Compatibility"</b></a>, A. Ponomarenko and V. Rubanov, VALID 2010
+</li><li> <a rel="nofollow" class="external text" href="http://www.springerlink.com/content/905067689q7n0166/"><b>"Backward compatibility of software interfaces: Steps towards automatic verification"</b></a>, A. Ponomarenko and V. Rubanov, Programming and Computer Software 2012
+</li><li> <a rel="nofollow" class="external text" href="http://www.macieira.org/blog/2012/01/architectures-and-abis-detailed/"><b>"Architectures and ABIs detailed"</b></a>, Thiago Macieira's blog
+</li><li> <a rel="nofollow" class="external text" href="http://accu.org/index.php/journals/1718"><b>"Interface Versioning in C++"</b></a>, ACCU
+</li><li> <a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/gabi41.pdf"><b>"Generic ABI Standard"</b></a>, <a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/"><b>"ELF and ABI Standards"</b></a>, freestandards.org
+</li><li> Processor ABI standards: <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/abi386-4.pdf">Intel386</a></b>, <b><a rel="nofollow" class="external text" href="http://www.x86-64.org/documentation/abi.pdf">AMD64</a></b>, <b><a rel="nofollow" class="external text" href="http://infocenter.arm.com/help/topic/com.arm.doc.ihi0042d/IHI0042D_aapcs.pdf">ARM</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/elfspec_ppc.pdf">PowerPC</a></b>, <b><a rel="nofollow" class="external text" href="http://download.boulder.ibm.com/ibmdl/pub/software/dw/linux390/docu/l390abi0.pdf">S/390</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/IA64-SysV-psABI.pdf">Itanium</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/mipsabi.pdf">MIPS</a></b>, <b><a rel="nofollow" class="external text" href="http://www.sparc.org/standards/psABI3rd.pdf">SPARC</a></b>, <b><a rel="nofollow" class="external text" href="http://refspecs.freestandards.org/elf/elf-pa.pdf">PA-RISK</a></b>, <b><a rel="nofollow" class="external text" href="http://www.linux-m32r.org/cmn/m32r/M32R-elf-abi.pdf">M32R</a></b>
 </li></ol>
 
 <!-- 
 NewPP limit report
-Preprocessor node count: 148/1000000
+Preprocessor node count: 144/1000000
 Post-expand include size: 0/2097152 bytes
 Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2292-0!*!0!!en!2!* and timestamp 20120719143434 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2292-0!*!0!!en!*!* and timestamp 20121018090115 -->
 </div></div></div></div></div></body></html>

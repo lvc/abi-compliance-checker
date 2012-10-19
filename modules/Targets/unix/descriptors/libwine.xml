@@ -1,0 +1,5 @@
+<headers>
+    wine/debug.h
+    wine/library.h
+    wine/unicode.h
+</headers>

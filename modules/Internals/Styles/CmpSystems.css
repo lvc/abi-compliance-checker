@@ -1,9 +1,8 @@
 body {
     font-family:Arial, sans-serif;
     font-size:14px;
-    background:#ffffff;
+    background:#FFFFFF;
     color:Black;
-    padding-left:15px;
 }
 hr {
     color:Black;
@@ -12,31 +11,55 @@ hr {
     border:0;
 }
 h1 {
-    margin-bottom:3px;
-    padding-bottom:3px;
     font-size:26px;
     white-space:nowrap;
 }
-table.wikitable {
-    border-collapse:collapse;
-    margin:1em 1em 1em 0;
-    background:#f9f9f9;
-    border:1px #aaaaaa solid;
+h2 {
+    margin-bottom:0px;
+    padding-bottom:0px;
+    font-size:20px;
+    white-space:nowrap;
 }
-table.wikitable td, th {
-    border:1px #aaaaaa solid;
+table.summary, table.wikitable {
+    border-collapse:collapse;
+    border:1px outset black;
+}
+table.summary td, table.summary th {
+    border:1px inset gray;
+    padding: 3px 5px 3px 5px;
+    white-space:nowrap;
+}
+table.summary th {
+    background-color:#EEEEEE;
+    font-weight:100;
+    text-align:left;
+    padding: 3px;
+    font-size:15px;
+}
+table.summary td {
+    text-align:right;
+    padding-left:10px;
+    padding: 3px 5px 3px 10px;
+    font-size:16px;
+}
+table.wikitable td, table.wikitable th {
+    border:1px inset gray;
     text-align:center;
-    padding:0.2em;
-    padding-left:5px;
-    padding-right:5px;
+    padding: 3px;
     white-space:nowrap;
 }
 table.wikitable th {
-    background:#f2f2f2;
+    background-color:#EEEEEE;
+    font-size:15px;
+}
+table.wikitable td {
+    font-size:16px;
 }
 table.wikitable td.left {
     text-align:left;
-    background-color:#f2f2f2;
+    font-size:16px;
+    padding-left:5px;
+    background-color:#F9F9F9;
 }
 td.passed {
     background-color:#CCFFCC;
@@ -54,8 +77,7 @@ a.default {
     color:#336699;
 }
 th.severity {
-    width:85px;
-    color:Black;
+    width:55px;
 }
 sup {
     font-size:10px;

@@ -1,0 +1,11 @@
+<defines>
+    #define __STDC_CONSTANT_MACROS
+</defines>
+
+<skip_headers>
+    /mythtv/
+</skip_headers>
+
+<skip_including>
+    dxva2.h
+</skip_including>

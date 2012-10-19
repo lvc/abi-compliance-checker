@@ -1,0 +1,6 @@
+<skip_including>
+    checksumtool.h
+    poddecodertool.h
+    stringsextracttool.h
+    structtool.h
+</skip_including>

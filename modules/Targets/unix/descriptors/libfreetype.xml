@@ -1,8 +1,8 @@
-<non_self_compiled>
+<skip_including>
     ftmac.h
     ftmodule.h
     fterrdef.h
-</non_self_compiled>
+</skip_including>
 
 <include_preamble>
     ft2build.h

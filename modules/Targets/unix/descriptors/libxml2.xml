@@ -1,0 +1,8 @@
+<skip_headers>
+    /gnome-xml/
+    /wx/
+</skip_headers>
+
+<include_preamble>
+    tree.h
+</include_preamble>

@@ -1,0 +1,3 @@
+<skip_headers>
+    resolv.h
+</skip_headers>

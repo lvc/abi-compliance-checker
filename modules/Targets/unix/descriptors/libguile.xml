@@ -1,0 +1,4 @@
+<skip_including>
+    null-threads.h
+    gdb_interface.h
+</skip_including>

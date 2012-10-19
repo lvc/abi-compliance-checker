@@ -1,3 +1,4 @@
 <skip_headers>
     db_185.h
+    /db2/
 </skip_headers>

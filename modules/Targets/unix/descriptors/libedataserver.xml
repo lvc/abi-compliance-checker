@@ -1,4 +1,4 @@
-<non_self_compiled>
+<skip_including>
     e-component-listener.h
     e-sexp.h
-</non_self_compiled>
+</skip_including>

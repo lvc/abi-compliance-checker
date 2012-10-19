@@ -20,11 +20,11 @@
     multiset.h
 </skip_headers>
 
-<non_self_compiled>
+<skip_including>
     /backward/
     /bits/
     /debug/
     /tr1/
     /ext/
     c++config.h
-</non_self_compiled>
+</skip_including>

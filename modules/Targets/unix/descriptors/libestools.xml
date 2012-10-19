@@ -1,0 +1,12 @@
+<headers>
+    /EST/
+</headers>
+
+<skip_including>
+    EST_SCFG_Chart.h
+    EST_tilt.h
+</skip_including>
+
+<include_preamble>
+    EST_types.h
+</include_preamble>

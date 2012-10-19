@@ -1,0 +1,5 @@
+<skip_headers>
+    /libgda-3.0/
+    /dovecot/
+    /pqxx/
+</skip_headers>

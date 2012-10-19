@@ -1,0 +1,13 @@
+<skip_headers>
+    /scribus/
+    /gtk-3.0/
+</skip_headers>
+
+<include_preamble>
+    stdint.h
+    gadget.h
+</include_preamble>
+
+<defines>
+    #define UINT64_C(c)   c ## ULL
+</defines>

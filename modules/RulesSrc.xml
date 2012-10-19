@@ -21,6 +21,24 @@
 
 <rule>
     <id>
+        Used_Reserved_Field
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Fields
+    </kind>
+    <change>
+        Reserved field @target has been replaced by @new_value.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
         Field_Type
     </id>
     <severity>
@@ -330,7 +348,7 @@
         Field_BaseType
     </id>
     <severity>
-        Medium
+        Low
     </severity>
     <kind>
         Fields
