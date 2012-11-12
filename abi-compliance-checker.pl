@@ -7410,8 +7410,19 @@ sub checkCTags($)
     if(not $CTags) {
         return;
     }
+    
+    if($OSgroup eq "macos")
+    {
+        my $Info = `$CTags --version 2>\"$TMP_DIR/null\"`;
+        if($Info!~/exuberant/i)
+        {
+            printMsg("WARNING", "incompatible version of \'ctags\' program");
+            return;
+        }
+    }
+    
     my $Out = $TMP_DIR."/ctags.txt";
-    system("$CTags --c-kinds=pxn -f \"$Out\" \"$Path\"");
+    system("$CTags --c-kinds=pxn -f \"$Out\" \"$Path\" 2>\"$TMP_DIR/null\"");
     if($Debug) {
         copy($Out, $DEBUG_PATH{$Version}."/ctags.txt");
     }
@@ -7562,6 +7573,9 @@ sub getDump()
         my $RegExp_C = join("|", keys(%CppKeywords_C));
         my $RegExp_F = join("|", keys(%CppKeywords_F));
         my $RegExp_O = join("|", keys(%CppKeywords_O));
+        
+        my $Detected = undef;
+        
         while($MContent=~s/(\A|\n[^\#\/\n][^\n]*?|\n)(\*\s*|\s+|\@|\,|\()($RegExp_C|$RegExp_F)(\s*(\,|\)|\;|\-\>|\.|\:\s*\d))/$1$2c99_$3$4/g)
         { # MATCH:
           # int foo(int new, int class, int (*new)(int));
@@ -7569,6 +7583,7 @@ sub getDump()
           # DO NOT MATCH:
           # #pragma GCC visibility push(default)
             $CppMode{$Version} = 1;
+            $Detected = "$1$2$3$4" if(not defined $Detected);
         }
         if($MContent=~s/([^\w\s]|\w\s+)(?<!operator )(delete)(\s*\()/$1c99_$2$3/g)
         { # MATCH:
@@ -7577,6 +7592,7 @@ sub getDump()
           # DO NOT MATCH:
           # void operator delete(...)
             $CppMode{$Version} = 1;
+            $Detected = "$1$2$3" if(not defined $Detected);
         }
         if($MContent=~s/(\s+)($RegExp_O)(\s*(\;|\:))/$1c99_$2$3/g)
         { # MATCH:
@@ -7586,6 +7602,7 @@ sub getDump()
           # return *this;
           # throw;
             $CppMode{$Version} = 1;
+            $Detected = "$1$2$3" if(not defined $Detected);
         }
         if($MContent=~s/(\s+)(operator)(\s*(\(\s*\)\s*[^\(\s]|\(\s*[^\)\s]))/$1c99_$2$3/g)
         { # MATCH:
@@ -7593,6 +7610,7 @@ sub getDump()
           # DO NOT MATCH:
           # int operator()(...);
             $CppMode{$Version} = 1;
+            $Detected = "$1$2$3" if(not defined $Detected);
         }
         if($MContent=~s/([^\w\(\,\s]\s*|\s+)(operator)(\s*(\,\s*[^\(\s]|\)))/$1c99_$2$3/g)
         { # MATCH:
@@ -7601,6 +7619,7 @@ sub getDump()
           # DO NOT MATCH:
           # int operator,(...);
             $CppMode{$Version} = 1;
+            $Detected = "$1$2$3" if(not defined $Detected);
         }
         if($MContent=~s/(\*\s*|\w\s+)(bool)(\s*(\,|\)))/$1c99_$2$3/g)
         { # MATCH:
@@ -7608,6 +7627,7 @@ sub getDump()
           # DO NOT MATCH:
           # void setTabEnabled(int index, bool);
             $CppMode{$Version} = 1;
+            $Detected = "$1$2$3" if(not defined $Detected);
         }
         if($MContent=~s/(\w)(\s*[^\w\(\,\s]\s*|\s+)(this|throw)(\s*[\,\)])/$1$2c99_$3$4/g)
         { # MATCH:
@@ -7617,12 +7637,15 @@ sub getDump()
           # DO NOT MATCH:
           # foo(X, this);
             $CppMode{$Version} = 1;
+            $Detected = "$1$2$3$4" if(not defined $Detected);
         }
         
         if($CppMode{$Version} == 1)
         {
-            if($Debug) {
-                printMsg("INFO", "Detected: $1$2$3$4");
+            if($Debug)
+            {
+                $Detected=~s/\A\s+//g;
+                printMsg("INFO", "Detected code: \"$Detected\"");
             }
         }
         
@@ -7719,7 +7742,8 @@ sub getDump()
             next if(not $STDCXX_TESTING and $CName=~/\Astd::/);
             next if(($CName=~tr![:]!!)>2);
             next if($SkipTypes{$Version}{$CName});
-            if($CName=~/\A(.+)::[^:]+\Z/)
+            if($CName=~/\A(.+)::[^:]+\Z/
+            and $TUnit_Classes{$Version}{$1})
             { # will be added by name space
                 next;
             }
@@ -19440,29 +19464,35 @@ sub compareInit()
     and $Descriptor{2}{"Headers"} and not $Descriptor{2}{"Libs"}) {
         exitStatus("Error", "can't compare $SLIB_TYPE libraries with headers");
     }
-    if(not $Descriptor{1}{"Headers"}) {
+    if(not $Descriptor{1}{"Headers"})
+    {
         if($CheckHeadersOnly_Opt) {
             exitStatus("Error", "can't find header files info in descriptor d1");
         }
     }
-    if(not $Descriptor{2}{"Headers"}) {
+    if(not $Descriptor{2}{"Headers"})
+    {
         if($CheckHeadersOnly_Opt) {
             exitStatus("Error", "can't find header files info in descriptor d2");
         }
     }
     if(not $Descriptor{1}{"Headers"}
-    or not $Descriptor{2}{"Headers"}) {
-        if(not $CheckObjectsOnly_Opt) {
+    or not $Descriptor{2}{"Headers"})
+    {
+        if(not $CheckObjectsOnly_Opt)
+        {
             printMsg("WARNING", "comparing $SLIB_TYPE libraries only");
             $CheckObjectsOnly = 1;
         }
     }
-    if(not $Descriptor{1}{"Libs"}) {
+    if(not $Descriptor{1}{"Libs"})
+    {
         if($CheckObjectsOnly_Opt) {
             exitStatus("Error", "can't find $SLIB_TYPE libraries info in descriptor d1");
         }
     }
-    if(not $Descriptor{2}{"Libs"}) {
+    if(not $Descriptor{2}{"Libs"})
+    {
         if($CheckObjectsOnly_Opt) {
             exitStatus("Error", "can't find $SLIB_TYPE libraries info in descriptor d2");
         }
