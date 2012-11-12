@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.98.4
+# ABI Compliance Checker (ACC) 1.98.5
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -23,7 +23,7 @@
 #    - Ctags (5.8 or newer)
 #
 #  Mac OS X
-#    - Xcode (gcc, otool, c++filt)
+#    - Xcode (g++, c++filt, nm)
 #    - Ctags (5.8 or newer)
 #
 #  MS Windows
@@ -59,8 +59,8 @@ use Data::Dumper;
 use Config;
 use Fcntl;
 
-my $TOOL_VERSION = "1.98.4";
-my $ABI_DUMP_VERSION = "2.19.1";
+my $TOOL_VERSION = "1.98.5";
+my $ABI_DUMP_VERSION = "2.19.2";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.0";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -84,9 +84,10 @@ $CheckObjectsOnly_Opt, $AppPath, $StrictCompat, $DumpVersion, $ParamNamesPath,
 $OutputReportPath, $OutputDumpPath, $ShowRetVal, $SystemRoot_Opt, $DumpSystem,
 $CmpSystems, $TargetLibsPath, $Debug, $CrossPrefix, $UseStaticLibs, $NoStdInc,
 $TargetComponent_Opt, $TargetSysInfo, $TargetHeader, $ExtendedCheck, $Quiet,
-$SkipHeadersPath, $Cpp2003, $LogMode, $StdOut, $ListAffected, $ReportFormat,
+$SkipHeadersPath, $CppCompat, $LogMode, $StdOut, $ListAffected, $ReportFormat,
 $UserLang, $TargetHeadersPath, $BinaryOnly, $SourceOnly, $BinaryReportPath,
-$SourceReportPath, $UseXML, $Browse, $OpenReport, $SortDump, $DumpFormat);
+$SourceReportPath, $UseXML, $Browse, $OpenReport, $SortDump, $DumpFormat,
+$ExtraInfo);
 
 my $CmdName = get_filename($0);
 my %OS_LibExt = (
@@ -238,7 +239,7 @@ GetOptions("h|help!" => \$Help,
   "test!" => \$TestTool,
   "test-dump!" => \$TestDump,
   "debug!" => \$Debug,
-  "cpp-compatible!" => \$Cpp2003,
+  "cpp-compatible!" => \$CppCompat,
   "p|params=s" => \$ParamNamesPath,
   "relpath1|relpath=s" => \$RelativeDirectory{1},
   "relpath2=s" => \$RelativeDirectory{2},
@@ -255,7 +256,8 @@ GetOptions("h|help!" => \$Help,
   "l-full|lib-full=s" => \$TargetLibraryFName,
   "component=s" => \$TargetComponent_Opt,
   "b|browse=s" => \$Browse,
-  "open!" => \$OpenReport
+  "open!" => \$OpenReport,
+  "extra-info=s" => \$ExtraInfo
 ) or ERR_MESSAGE();
 
 sub ERR_MESSAGE()
@@ -341,11 +343,10 @@ INFORMATION OPTIONS:
       Print the tool version ($TOOL_VERSION) and don't do anything else.
 
 GENERAL OPTIONS:
-  -l|-lib|-library <name>
+  -l|-lib|-library NAME
       Library name (without version).
-      It affects only on the path and the title of the report.
 
-  -d1|-old|-o <path>
+  -d1|-old|-o PATH
       Descriptor of 1st (old) library version.
       It may be one of the following:
       
@@ -382,10 +383,10 @@ GENERAL OPTIONS:
       For more information, please see:
         http://ispras.linuxbase.org/index.php/Library_Descriptor
 
-  -d2|-new|-n <path>
+  -d2|-new|-n PATH
       Descriptor of 2nd (new) library version.
 
-  -dump|-dump-abi <descriptor path(s)>
+  -dump|-dump-abi PATH
       Dump library ABI to gzipped TXT format file. You can transfer it
       anywhere and pass instead of the descriptor. Also it can be used
       for debugging the tool. Compatible dump versions: ".majorVersion($ABI_DUMP_VERSION).".0<=V<=$ABI_DUMP_VERSION
@@ -406,7 +407,7 @@ EXTRA OPTIONS:
   -d|-descriptor-template
       Create XML-descriptor template ./VERSION.xml
 
-  -app|-application <path>
+  -app|-application PATH
       This option allows to specify the application that should be checked
       for portability to the new library version.
 
@@ -414,17 +415,17 @@ EXTRA OPTIONS:
       Check static libraries instead of the shared ones. The <libs> section
       of the XML-descriptor should point to static libraries location.
 
-  -cross-gcc|-gcc-path <path>
+  -cross-gcc|-gcc-path PATH
       Path to the cross GCC compiler to use instead of the usual (host) GCC.
 
-  -cross-prefix|-gcc-prefix <prefix>
+  -cross-prefix|-gcc-prefix PREFIX
       GCC toolchain prefix.
 
-  -sysroot <dirpath>
+  -sysroot DIR
       Specify the alternative root directory. The tool will search for include
-      paths in the <dirpath>/usr/include and <dirpath>/usr/lib directories.
+      paths in the DIR/usr/include and DIR/usr/lib directories.
 
-  -v1|-version1 <num>
+  -v1|-version1 NUM
       Specify 1st library version outside the descriptor. This option is needed
       if you have prefered an alternative descriptor type (see -d1 option).
 
@@ -433,7 +434,7 @@ EXTRA OPTIONS:
               VERSION
           </version>
 
-  -v2|-version2 <num>
+  -v2|-version2 NUM
       Specify 2nd library version outside the descriptor.
 
   -s|-strict
@@ -470,11 +471,11 @@ EXTRA OPTIONS:
   -show-retval
       Show the symbol's return type in the report.
 
-  -symbols-list <path>
+  -symbols-list PATH
       This option allows to specify a file with a list of symbols (mangled
       names in C++) that should be checked, other symbols will not be checked.
 
-  -skip-headers <path>
+  -skip-headers PATH
       The file with the list of header files, that should not be checked.
 
   -use-dumps
@@ -484,17 +485,17 @@ EXTRA OPTIONS:
   -nostdinc
       Do not search the GCC standard system directories for header files.
 
-  -dump-system <name> -sysroot <dirpath>
-      Find all the shared libraries and header files in <dirpath> directory,
+  -dump-system NAME -sysroot DIR
+      Find all the shared libraries and header files in DIR directory,
       create XML descriptors and make ABI dumps for each library. The result
       set of ABI dumps can be compared (--cmp-systems) with the other one
       created for other version of operating system in order to check them for
       compatibility. Do not forget to specify -cross-gcc option if your target
       system requires some specific version of GCC compiler (different from
       the host GCC). The system ABI dump will be generated to:
-          sys_dumps/<name>/<arch>
+          sys_dumps/NAME/ARCH
           
-  -dump-system <descriptor.xml>
+  -dump-system DESCRIPTOR.xml
       The same as the previous option but takes an XML descriptor of the target
       system as input, where you should describe it:
           
@@ -544,26 +545,26 @@ EXTRA OPTIONS:
               /* Additional GCC options, one per line */
           </gcc_options>
 
-  -sysinfo <dir>
+  -sysinfo DIR
       This option may be used with -dump-system to dump ABI of operating
       systems and configure the dumping process.
       Default:
           modules/Targets/{unix, symbian, windows}
 
-  -cmp-systems -d1 sys_dumps/<name1>/<arch> -d2 sys_dumps/<name2>/<arch>
+  -cmp-systems -d1 sys_dumps/NAME1/ARCH -d2 sys_dumps/NAME2/ARCH
       Compare two system ABI dumps. Create compatibility reports for each
       library and the common HTML report including the summary of test
       results for all checked libraries. Report will be generated to:
-          sys_compat_reports/<name1>_to_<name2>/<arch>
+          sys_compat_reports/NAME1_to_NAME2/ARCH
 
-  -libs-list <path>
+  -libs-list PATH
       The file with a list of libraries, that should be dumped by
       the -dump-system option or should be checked by the -cmp-systems option.
 
-  -header <name>
+  -header NAME
       Check/Dump ABI of this header only.
 
-  -headers-list <path>
+  -headers-list PATH
       The file with a list of headers, that should be checked/dumped.
 
   -ext|-extended
@@ -585,13 +586,13 @@ EXTRA OPTIONS:
       Print analysis results (compatibility reports and ABI dumps) to stdout
       instead of creating a file. This would allow piping data to other programs.
 
-  -report-format <fmt>
+  -report-format FMT
       Change format of compatibility report.
       Formats:
         htm - HTML format (default)
         xml - XML format
 
-  -dump-format <fmt>
+  -dump-format FMT
       Change format of ABI dump.
       Formats:
         perl - Data::Dumper format (default)
@@ -600,7 +601,7 @@ EXTRA OPTIONS:
   -xml
       Alias for: --report-format=xml or --dump-format=xml
 
-  -lang <lang>
+  -lang LANG
       Set library language (C or C++). You can use this option if the tool
       cannot auto-detect a language. This option may be useful for checking
       C-library headers (--lang=C) in --headers-only or --extended modes.
@@ -608,12 +609,12 @@ EXTRA OPTIONS:
   -binary|-bin|-abi
       Show \"Binary\" compatibility problems only.
       Generate report to:
-        compat_reports/<library name>/<v1>_to_<v2>/abi_compat_report.html
+        compat_reports/LIB_NAME/V1_to_V2/abi_compat_report.html
       
   -source|-src|-api
       Show \"Source\" compatibility problems only.
       Generate report to:
-        compat_reports/<library name>/<v1>_to_<v2>/src_compat_report.html
+        compat_reports/LIB_NAME/V1_to_V2/src_compat_report.html
 
 OTHER OPTIONS:
   -test
@@ -627,16 +628,16 @@ OTHER OPTIONS:
   -debug
       Debugging mode. Print debug info on the screen. Save intermediate
       analysis stages in the debug directory:
-          debug/<library>/<version>/
+          debug/LIB_NAME/VERSION/
 
       Also consider using --dump option for debugging the tool.
 
   -cpp-compatible
-      If your header file is written in C language and can be compiled by
-      the C++ compiler (i.e. doesn't contain C++-keywords and other bad
-      things), then you can tell ACC about this and speedup the analysis.
+      If your header files are written in C language and can be compiled
+      by the G++ compiler (i.e. don't use C++ keywords), then you can tell
+      the tool about this and speedup the analysis.
 
-  -p|-params <path>
+  -p|-params PATH
       Path to file with the function parameter names. It can be used
       for improving report view if the library header files have no
       parameter names. File format:
@@ -645,55 +646,55 @@ OTHER OPTIONS:
             func2;param1;param2;param3 ...
              ...
 
-  -relpath <path>
-      Replace {RELPATH} macros to <path> in the XML-descriptor used
+  -relpath PATH
+      Replace {RELPATH} macros to PATH in the XML-descriptor used
       for dumping the library ABI (see -dump option).
   
-  -relpath1 <path>
-      Replace {RELPATH} macros to <path> in the 1st XML-descriptor (-d1).
+  -relpath1 PATH
+      Replace {RELPATH} macros to PATH in the 1st XML-descriptor (-d1).
 
-  -relpath2 <path>
-      Replace {RELPATH} macros to <path> in the 2nd XML-descriptor (-d2).
+  -relpath2 PATH
+      Replace {RELPATH} macros to PATH in the 2nd XML-descriptor (-d2).
 
-  -dump-path <path>
+  -dump-path PATH
       Specify a *.abi.$AR_EXT or *.abi file path where to generate an ABI dump.
       Default: 
-          abi_dumps/<library>/<library>_<version>.abi.$AR_EXT
+          abi_dumps/LIB_NAME/LIB_NAME_VERSION.abi.$AR_EXT
 
   -sort
       Enable sorting of data in ABI dumps.
 
-  -report-path <path>
+  -report-path PATH
       Path to compatibility report.
       Default: 
-          compat_reports/<library name>/<v1>_to_<v2>/compat_report.html
+          compat_reports/LIB_NAME/V1_to_V2/compat_report.html
 
-  -bin-report-path <path>
+  -bin-report-path PATH
       Path to \"Binary\" compatibility report.
       Default: 
-          compat_reports/<library name>/<v1>_to_<v2>/abi_compat_report.html
+          compat_reports/LIB_NAME/V1_to_V2/abi_compat_report.html
 
-  -src-report-path <path>
+  -src-report-path PATH
       Path to \"Source\" compatibility report.
       Default: 
-          compat_reports/<library name>/<v1>_to_<v2>/src_compat_report.html
+          compat_reports/LIB_NAME/V1_to_V2/src_compat_report.html
 
-  -log-path <path>
+  -log-path PATH
       Log path for all messages.
       Default:
-          logs/<library>/<version>/log.txt
+          logs/LIB_NAME/VERSION/log.txt
 
-  -log1-path <path>
+  -log1-path PATH
       Log path for 1st version of a library.
       Default:
-          logs/<library name>/<v1>/log.txt
+          logs/LIB_NAME/V1/log.txt
 
-  -log2-path <path>
+  -log2-path PATH
       Log path for 2nd version of a library.
       Default:
-          logs/<library name>/<v2>/log.txt
+          logs/LIB_NAME/V2/log.txt
 
-  -logging-mode <mode>
+  -logging-mode MODE
       Change logging mode.
       Modes:
         w - overwrite old logs (default)
@@ -709,28 +710,31 @@ OTHER OPTIONS:
           abi_affected.txt
           src_affected.txt
 
-  -component <name>
+  -component NAME
       The component name in the title and summary of the HTML report.
       Default:
           library
       
-  -l-full|-lib-full <name>
-      Change library name in the report title to <name>. By default
+  -l-full|-lib-full NAME
+      Change library name in the report title to NAME. By default
       will be displayed a name specified by -l option.
 
-  -b|-browse <program>
+  -b|-browse PROGRAM
       Open report(s) in the browser (firefox, opera, etc.).
 
   -open
       Open report(s) in the default browser.
+      
+  -extra-info DIR
+      Dump extra info to DIR.
 
 REPORT:
     Compatibility report will be generated to:
-        compat_reports/<library name>/<v1>_to_<v2>/compat_report.html
+        compat_reports/LIB_NAME/V1_to_V2/compat_report.html
 
     Log will be generated to:
-        logs/<library name>/<v1>/log.txt
-        logs/<library name>/<v2>/log.txt
+        logs/LIB_NAME/V1/log.txt
+        logs/LIB_NAME/V2/log.txt
 
 EXIT CODES:
     0 - Compatible. The tool has run without any errors.
@@ -1063,6 +1067,8 @@ my %StdcxxMangling = (
     "3std13basic_ostreamIcE"=>"So",
     "3std14basic_iostreamIcE"=>"Sd"
 );
+
+my $DEFAULT_STD_PARMS = "std::(allocator|less|char_traits|regex_traits)";
 
 my %ConstantSuffix = (
     "unsigned int"=>"u",
@@ -1399,6 +1405,7 @@ my %Func_ShortName;
 my %AddIntParams;
 my %Interface_Impl;
 my %GlobalDataObject;
+my %WeakSymbols;
 
 # Headers
 my %Include_Preamble;
@@ -1429,7 +1436,7 @@ my %TUnit_Classes;
 my %TUnit_Funcs;
 my %TUnit_Vars;
 
-my %C99Mode = (
+my %CppMode = (
   "1"=>0,
   "2"=>0 );
 my %AutoPreambleMode = (
@@ -1444,6 +1451,7 @@ my %Cpp0xMode = (
 
 # Shared Objects
 my %RegisteredObjects;
+my %RegisteredObjects_Short;
 my %RegisteredSONAMEs;
 my %RegisteredObject_Dirs;
 
@@ -3889,7 +3897,7 @@ sub mangle_symbol_GCC($$)
         }
         $Mangled .= $MangledNS;
     }
-    my ($ShortName, $TmplParams) = template_base($SymbolInfo{$LibVersion}{$InfoId}{"ShortName"});
+    my ($ShortName, $TmplParams) = template_Base($SymbolInfo{$LibVersion}{$InfoId}{"ShortName"});
     my @TParams = ();
     if(my @TPos = keys(%{$SymbolInfo{$LibVersion}{$InfoId}{"TParam"}}))
     { # parsing mode
@@ -3900,7 +3908,7 @@ sub mangle_symbol_GCC($$)
     elsif($TmplParams)
     { # remangling mode
       # support for old ABI dumps
-        @TParams = separate_params($TmplParams, 0);
+        @TParams = separate_Params($TmplParams, 0, 0);
     }
     if($SymbolInfo{$LibVersion}{$InfoId}{"Constructor"}) {
         $Mangled .= "C1";
@@ -3935,7 +3943,17 @@ sub mangle_symbol_GCC($$)
         if(@TParams)
         { # templates
             $Mangled .= "I";
-            foreach my $TParam (@TParams) {
+            my $FP = $TParams[0];
+            foreach my $TPos (0 .. $#TParams)
+            {
+                my $TParam = $TParams[$TPos];
+                if($TPos>=1)
+                {
+                    if($TParam=~/\A$DEFAULT_STD_PARMS<\Q$FP\E>\Z/)
+                    { # default allocators are not mangled
+                        next;
+                    }
+                }
                 $Mangled .= mangle_template_param($TParam, $LibVersion, \%Repl);
             }
             $Mangled .= "E";
@@ -3998,7 +4016,7 @@ sub correct_incharge($$$)
     return $Mangled;
 }
 
-sub template_base($)
+sub template_Base($)
 { # NOTE: std::_Vector_base<mysqlpp::mysql_type_info>::_Vector_impl
   # NOTE: operators: >>, <<
     my $Name = $_[0];
@@ -4066,7 +4084,7 @@ sub mangle_param($$$)
     if(not $BaseType_Name) {
         return "";
     }
-    my ($ShortName, $TmplParams) = template_base($BaseType_Name);
+    my ($ShortName, $TmplParams) = template_Base($BaseType_Name);
     my $Suffix = get_BaseTypeQual($PTid, $LibVersion);
     while($Suffix=~s/\s*(const|volatile|restrict)\Z//g){};
     while($Suffix=~/(&|\*|const)\Z/)
@@ -4106,7 +4124,7 @@ sub mangle_param($$$)
         elsif($TmplParams)
         { # remangling mode
           # support for old ABI dumps
-            @TParams = separate_params($TmplParams, 0);
+            @TParams = separate_Params($TmplParams, 0, 0);
         }
         my $MangledNS = "";
         my ($SubNS, $SName) = get_sub_ns($ShortName);
@@ -4646,7 +4664,8 @@ sub getSymbolInfo($)
     if(not $SymbolInfo{$Version}{$InfoId}{"Destructor"})
     { # destructors have an empty parameter list
         my $Skip = setFuncParams($InfoId);
-        if($Skip) {
+        if($Skip)
+        {
             delete($SymbolInfo{$Version}{$InfoId});
             return;
         }
@@ -4801,6 +4820,10 @@ sub getSymbolInfo($)
     }
     if($SymbolInfo{$Version}{$InfoId}{"MnglName"}=~/\A_ZN(K|)V/) {
         $SymbolInfo{$Version}{$InfoId}{"Volatile"} = 1;
+    }
+    
+    if($WeakSymbols{$Version}{$SymbolInfo{$Version}{$InfoId}{"MnglName"}}) {
+        $SymbolInfo{$Version}{$InfoId}{"Weak"} = 1;
     }
 }
 
@@ -6382,6 +6405,12 @@ sub selectSystemHeader_I($$)
             return "";
         }
     }
+    if($OSgroup ne "hpux")
+    {
+        if($Header eq "sys/stream.h") {
+            return "";
+        }
+    }
     if($ObsoleteHeaders{$HName}) {
         return "";
     }
@@ -6534,7 +6563,7 @@ sub getTreeStr($)
         if($Info=~/strg[ ]*:[ ]*([^ ]*)/)
         {
             my $Str = $1;
-            if($C99Mode{$Version}
+            if($CppMode{$Version}
             and $Str=~/\Ac99_(.+)\Z/) {
                 if($CppKeywords_A{$1}) {
                     $Str=$1;
@@ -6810,7 +6839,8 @@ sub get_Signature($$)
         else {
             $Func_Signature = $ShortName;
         }
-        @Param_Types_FromUnmangledName = get_s_params($tr_name{$MnglName}, 0);
+        my ($Short, $Params) = split_Signature($tr_name{$MnglName});
+        @Param_Types_FromUnmangledName = separate_Params($Params, 0, 1);
     }
     else {
         $Func_Signature = $MnglName;
@@ -7455,6 +7485,11 @@ sub getDump()
     close(TMP_HEADER);
     my $IncludeString = getIncString(getIncPaths(@PreambleHeaders, @Headers), "GCC");
     
+    if($ExtraInfo)
+    { # extra information for other tools
+        writeFile($ExtraInfo."/include-string", $IncludeString);
+    }
+    
     if(not keys(%{$TargetHeaders{$Version}}))
     { # Target headers
         addTargetHeaders($Version);
@@ -7518,7 +7553,7 @@ sub getDump()
         }
     }
     if(($COMMON_LANGUAGE{$Version} eq "C" or $CheckHeadersOnly)
-    and $C99Mode{$Version}!=-1 and not $Cpp2003)
+    and $CppMode{$Version}!=-1 and not $CppCompat)
     { # rename C++ keywords in C code
         if(not $MContent)
         { # preprocessing
@@ -7533,7 +7568,7 @@ sub getDump()
           # unsigned private: 8;
           # DO NOT MATCH:
           # #pragma GCC visibility push(default)
-            $C99Mode{$Version} = 1;
+            $CppMode{$Version} = 1;
         }
         if($MContent=~s/([^\w\s]|\w\s+)(?<!operator )(delete)(\s*\()/$1c99_$2$3/g)
         { # MATCH:
@@ -7541,7 +7576,7 @@ sub getDump()
           # int explicit(...);
           # DO NOT MATCH:
           # void operator delete(...)
-            $C99Mode{$Version} = 1;
+            $CppMode{$Version} = 1;
         }
         if($MContent=~s/(\s+)($RegExp_O)(\s*(\;|\:))/$1c99_$2$3/g)
         { # MATCH:
@@ -7550,14 +7585,14 @@ sub getDump()
           # bool X;
           # return *this;
           # throw;
-            $C99Mode{$Version} = 1;
+            $CppMode{$Version} = 1;
         }
         if($MContent=~s/(\s+)(operator)(\s*(\(\s*\)\s*[^\(\s]|\(\s*[^\)\s]))/$1c99_$2$3/g)
         { # MATCH:
           # int operator(...);
           # DO NOT MATCH:
           # int operator()(...);
-            $C99Mode{$Version} = 1;
+            $CppMode{$Version} = 1;
         }
         if($MContent=~s/([^\w\(\,\s]\s*|\s+)(operator)(\s*(\,\s*[^\(\s]|\)))/$1c99_$2$3/g)
         { # MATCH:
@@ -7565,14 +7600,14 @@ sub getDump()
           # int foo(int operator, int other);
           # DO NOT MATCH:
           # int operator,(...);
-            $C99Mode{$Version} = 1;
+            $CppMode{$Version} = 1;
         }
         if($MContent=~s/(\*\s*|\w\s+)(bool)(\s*(\,|\)))/$1c99_$2$3/g)
         { # MATCH:
           # int foo(gboolean *bool);
           # DO NOT MATCH:
           # void setTabEnabled(int index, bool);
-            $C99Mode{$Version} = 1;
+            $CppMode{$Version} = 1;
         }
         if($MContent=~s/(\w)(\s*[^\w\(\,\s]\s*|\s+)(this|throw)(\s*[\,\)])/$1$2c99_$3$4/g)
         { # MATCH:
@@ -7581,7 +7616,14 @@ sub getDump()
           # int baz(int throw);
           # DO NOT MATCH:
           # foo(X, this);
-            $C99Mode{$Version} = 1;
+            $CppMode{$Version} = 1;
+        }
+        
+        if($CppMode{$Version} == 1)
+        {
+            if($Debug) {
+                printMsg("INFO", "Detected: $1$2$3$4");
+            }
         }
         
         # remove typedef enum NAME NAME;
@@ -7593,18 +7635,18 @@ sub getDump()
             if($S eq $FwdTypedefs[$N+1])
             {
                 $MContent=~s/typedef\s+enum\s+\Q$S\E\s+\Q$S\E;//g;
-                $C99Mode{$Version}=1;
+                $CppMode{$Version}=1;
             }
             $N+=2;
         }
         
-        if($C99Mode{$Version}==1)
+        if($CppMode{$Version}==1)
         { # try to change C++ "keyword" to "c99_keyword"
-            printMsg("INFO", "Using C99 compatibility mode");
+            printMsg("INFO", "Using C++ compatibility mode");
             $MHeaderPath = $TMP_DIR."/dump$Version.i";
         }
     }
-    if($C99Mode{$Version}==1
+    if($CppMode{$Version}==1
     or $MinGWMode{$Version}==1)
     { # compile the corrected preprocessor output
         writeFile($MHeaderPath, $MContent);
@@ -7616,7 +7658,7 @@ sub getDump()
     if($COMMON_LANGUAGE{$Version} eq "C++")
     { # add classes and namespaces to the dump
         my $CHdump = "-fdump-class-hierarchy -c";
-        if($C99Mode{$Version}==1
+        if($CppMode{$Version}==1
         or $MinGWMode{$Version}==1) {
             $CHdump .= " -fpreprocessed";
         }
@@ -7698,7 +7740,7 @@ sub getDump()
     writeLog($Version, "Temporary header file \'$TmpHeaderPath\' with the following content will be compiled to create GCC translation unit dump:\n".readFile($TmpHeaderPath)."\n");
     # create TU dump
     my $TUdump = "-fdump-translation-unit -fkeep-inline-functions -c";
-    if($C99Mode{$Version}==1
+    if($CppMode{$Version}==1
     or $MinGWMode{$Version}==1) {
         $TUdump .= " -fpreprocessed";
     }
@@ -7711,11 +7753,11 @@ sub getDump()
         if(my $Errors = readFile($TMP_DIR."/tu_errors"))
         { # try to recompile
           # FIXME: handle other errors and try to recompile
-            if($C99Mode{$Version}==1
+            if($CppMode{$Version}==1
             and $Errors=~/c99_/)
             { # disable c99 mode and try again
-                $C99Mode{$Version}=-1;
-                printMsg("INFO", "Disabling C99 compatibility mode");
+                $CppMode{$Version}=-1;
+                printMsg("INFO", "Disabling C++ compatibility mode");
                 resetLogging($Version);
                 $TMP_DIR = tempdir(CLEANUP=>1);
                 return getDump();
@@ -12724,7 +12766,7 @@ sub showVal($$$)
             return $Unmangled;
         }
     }
-    elsif($TName=~/\A(char(| const)\*|std::(string|basic_string<char>)(|&))\Z/)
+    elsif($TName=~/\A(char(| const)\*|std::(string(| const)|basic_string<char>(|const))(|&))\Z/)
     { # strings
         return "\"$Value\"";
     }
@@ -13524,7 +13566,8 @@ sub highLight_Signature_PPos_Italic($$$$$)
     $Begin.=" " if($Begin!~/ \Z/);
     $End = cut_f_attrs($Signature);
     my @Parts = ();
-    my @SParts = get_s_params($Signature, 1);
+    my ($Short, $Params) = split_Signature($Signature);
+    my @SParts = separate_Params($Params, 1, 1);
     foreach my $Pos (0 .. $#SParts)
     {
         my $Part = $SParts[$Pos];
@@ -13582,20 +13625,24 @@ sub highLight_Signature_PPos_Italic($$$$$)
     return $Signature.(($SymbolVersion)?"<span class='sym_ver'>&#160;$VersionSpec&#160;$SymbolVersion</span>":"");
 }
 
-sub get_s_params($$)
+sub split_Signature($)
 {
-    my ($Signature, $Comma) = @_;
-    my @Parts = ();
-    my $ShortName = substr($Signature, 0, find_center($Signature, "("));
-    $Signature=~s/\A\Q$ShortName\E\(//g;
-    cut_f_attrs($Signature);
-    $Signature=~s/\)\Z//;
-    return separate_params($Signature, $Comma);
+    my $Signature = $_[0];
+    if(my $ShortName = substr($Signature, 0, find_center($Signature, "(")))
+    {
+        $Signature=~s/\A\Q$ShortName\E\(//g;
+        cut_f_attrs($Signature);
+        $Signature=~s/\)\Z//;
+        return ($ShortName, $Signature);
+    }
+    
+    # error
+    return ($Signature, "");
 }
 
-sub separate_params($$)
+sub separate_Params($$$)
 {
-    my ($Params, $Comma) = @_;
+    my ($Params, $Comma, $Sp) = @_;
     my @Parts = ();
     my %B = ( "("=>0, "<"=>0, ")"=>0, ">"=>0 );
     my $Part = 0;
@@ -13603,7 +13650,7 @@ sub separate_params($$)
     {
         my $S = substr($Params, $Pos, 1);
         if(defined $B{$S}) {
-            $B{$S}+=1;
+            $B{$S} += 1;
         }
         if($S eq "," and
         $B{"("}==$B{")"} and $B{"<"}==$B{">"})
@@ -13616,6 +13663,14 @@ sub separate_params($$)
         }
         else {
             $Parts[$Part] .= $S;
+        }
+    }
+    if(not $Sp)
+    { # remove spaces
+        foreach (@Parts)
+        {
+            s/\A //g;
+            s/ \Z//g;
         }
     }
     return @Parts;
@@ -16267,7 +16322,7 @@ sub readSymbols($)
         }
     }
     
-    # clean memory
+   # clean memory
    %SystemObjects = ();
 }
 
@@ -16289,16 +16344,57 @@ sub getSymbolSize($$)
     return 0;
 }
 
-sub canonifyName($)
+sub canonifyName($$)
 { # make TIFFStreamOpen(char const*, std::basic_ostream<char, std::char_traits<char> >*)
   # to be TIFFStreamOpen(char const*, std::basic_ostream<char>*)
-    my $Name = $_[0];
-    my $Rem = "std::(allocator|less|char_traits|regex_traits)";
-    while($Name=~/([^<>,]+),\s*$Rem<([^<>,]+)>\s*/ and $1 eq $3)
+    my ($Name, $Type) = @_;
+    
+    # single
+    while($Name=~/([^<>,]+),\s*$DEFAULT_STD_PARMS<([^<>,]+)>\s*/ and $1 eq $3)
     {
         my $P = $1;
-        $Name=~s/\Q$P\E,\s*$Rem<\Q$P\E>\s*/$P/g;
+        $Name=~s/\Q$P\E,\s*$DEFAULT_STD_PARMS<\Q$P\E>\s*/$P/g;
     }
+    
+    # double
+    if($Name=~/$DEFAULT_STD_PARMS/)
+    {
+        if($Type eq "F")
+        {
+            my ($ShortName, $FuncParams) = split_Signature($Name);
+            
+            foreach my $FParam (separate_Params($FuncParams, 0, 0))
+            {
+                if(index($FParam, "<")!=-1)
+                {
+                    $FParam=~s/>([^<>]+)\Z/>/; # remove quals
+                    my $FParam_N = canonifyName($FParam, "T");
+                    if($FParam_N ne $FParam) {
+                        $Name=~s/\Q$FParam\E/$FParam_N/g;
+                    }
+                }
+            }
+        }
+        elsif($Type eq "T")
+        {
+            my ($ShortTmpl, $TmplParams) = template_Base($Name);
+            
+            my @TParams = separate_Params($TmplParams, 0, 0);
+            my $Pos = 0;
+            while($Pos <= $#TParams-1)
+            {
+                my $TParam1 = canonifyName($TParams[$Pos], "T");
+                my $TParam2 = canonifyName($TParams[$Pos+1], "T");
+                
+                if($TParam2=~/\A$DEFAULT_STD_PARMS<\Q$TParam1\E >\Z/) {
+                    $Name=~s/\Q$TParam1, $TParam2\E/$TParam1/g;
+                }
+                
+                $Pos+=2;
+            }
+        }
+    }
+    
     return $Name;
 }
 
@@ -16331,7 +16427,7 @@ sub translateSymbols(@)
         {
             if(my $Unmangled = pop(@UnmangledNames))
             {
-                $tr_name{$MnglName} = formatName(canonifyName($Unmangled), "S");
+                $tr_name{$MnglName} = formatName(canonifyName($Unmangled, "F"), "S");
                 if(not $mangled_name_gcc{$tr_name{$MnglName}}) {
                     $mangled_name_gcc{$tr_name{$MnglName}} = $MnglName;
                 }
@@ -16421,14 +16517,14 @@ sub readSymbols_App($)
     my @Imported = ();
     if($OSgroup eq "macos")
     {
-        my $OtoolCmd = get_CmdPath("otool");
-        if(not $OtoolCmd) {
-            exitStatus("Not_Found", "can't find \"otool\"");
+        my $NM = get_CmdPath("nm");
+        if(not $NM) {
+            exitStatus("Not_Found", "can't find \"nm\"");
         }
-        open(APP, "$OtoolCmd -IV \"$Path\" 2>\"$TMP_DIR/null\" |");
+        open(APP, "$NM -g \"$Path\" 2>\"$TMP_DIR/null\" |");
         while(<APP>)
         {
-            if(/[^_]+\s+_?([\w\$]+)\s*\Z/) {
+            if(/ U _([\w\$]+)\s*\Z/) {
                 push(@Imported, $1);
             }
         }
@@ -16633,13 +16729,13 @@ sub get_LibPath_I($$)
             return "";
         }
     }
-    if(my @Paths = sort keys(%{$RegisteredObjects{$LibVersion}{$Name}}))
+    if(defined $RegisteredObjects{$LibVersion}{$Name})
     { # registered paths
-        return $Paths[0];
+        return $RegisteredObjects{$LibVersion}{$Name};
     }
-    if(my @Paths = sort keys(%{$RegisteredSONAMEs{$LibVersion}{$Name}}))
+    if(defined $RegisteredSONAMEs{$LibVersion}{$Name})
     { # registered paths
-        return $Paths[0];
+        return $RegisteredSONAMEs{$LibVersion}{$Name};
     }
     if(my $DefaultPath = $DyLib_DefaultPath{$Name})
     { # ldconfig default paths
@@ -16718,29 +16814,31 @@ sub readSymbols_Lib($$$$$$)
     }
     if($OStarget eq "macos")
     { # Mac OS X: *.dylib, *.a
-        my $OtoolCmd = get_CmdPath("otool");
-        if(not $OtoolCmd) {
-            exitStatus("Not_Found", "can't find \"otool\"");
+        my $NM = get_CmdPath("nm");
+        if(not $NM)
+        {
+            print STDERR "ERROR: can't find \"nm\"\n";
+            exit(1);
         }
-        $OtoolCmd .= " -TV \"$Lib_Path\" 2>\"$TMP_DIR/null\"";
+        $NM .= " -g \"$Lib_Path\" 2>\"$TMP_DIR/null\"";
         if($DebugPath)
         { # debug mode
           # write to file
-            system($OtoolCmd." >\"$DebugPath\"");
+            system($NM." >\"$DebugPath\"");
             open(LIB, $DebugPath);
         }
         else
         { # write to pipe
-            open(LIB, $OtoolCmd." |");
+            open(LIB, $NM." |");
         }
         while(<LIB>)
         {
-            if(/[^_]+\s+_([\w\$]+)\s*\Z/)
+            if(/ [STD] _([\w\$]+)\s*\Z/)
             {
                 my $realname = $1;
                 if($IsNeededLib)
                 {
-                    if(not defined $RegisteredObjects{$Lib_ShortName})
+                    if(not defined $RegisteredObjects_Short{$Lib_ShortName})
                     {
                         $DepSymbol_Library{$LibVersion}{$realname} = $Lib_Name;
                         $DepLibrary_Symbol{$LibVersion}{$Lib_Name}{$realname} = 1;
@@ -16764,10 +16862,19 @@ sub readSymbols_Lib($$$$$$)
             }
         }
         close(LIB);
+        
         if($Deps)
         {
             if($LIB_TYPE eq "dynamic")
             { # dependencies
+                
+                my $OtoolCmd = get_CmdPath("otool");
+                if(not $OtoolCmd)
+                {
+                    print STDERR "ERROR: can't find \"otool\"\n";
+                    exit(1);
+                }
+                
                 open(LIB, "$OtoolCmd -L \"$Lib_Path\" 2>\"$TMP_DIR/null\" |");
                 while(<LIB>)
                 {
@@ -16808,7 +16915,7 @@ sub readSymbols_Lib($$$$$$)
                 my $realname = $1;
                 if($IsNeededLib)
                 {
-                    if(not defined $RegisteredObjects{$Lib_ShortName})
+                    if(not defined $RegisteredObjects_Short{$Lib_ShortName})
                     {
                         $DepSymbol_Library{$LibVersion}{$realname} = $Lib_Name;
                         $DepLibrary_Symbol{$LibVersion}{$Lib_Name}{$realname} = 1;
@@ -16895,6 +17002,7 @@ sub readSymbols_Lib($$$$$$)
                 if($Bind eq "WEAK"
                 and $Weak eq "-Weak")
                 { # skip WEAK symbols
+                    $WeakSymbols{$LibVersion}{$Symbol} = 1;
                     next;
                 }
                 my $Short = $Symbol;
@@ -16906,7 +17014,7 @@ sub readSymbols_Lib($$$$$$)
                 }
                 if($IsNeededLib)
                 {
-                    if(not defined $RegisteredObjects{$Lib_ShortName})
+                    if(not defined $RegisteredObjects_Short{$Lib_ShortName})
                     {
                         $DepSymbol_Library{$LibVersion}{$Symbol} = $Lib_Name;
                         $DepLibrary_Symbol{$LibVersion}{$Lib_Name}{$Symbol} = ($Type eq "OBJECT")?-$Size:1;
@@ -17177,12 +17285,12 @@ sub registerObject($$)
 {
     my ($Path, $LibVersion) = @_;
     my $Name = get_filename($Path);
-    $RegisteredObjects{$LibVersion}{$Name}{$Path} = 1;
+    $RegisteredObjects{$LibVersion}{$Name} = $Path;
     if(my $SONAME = getSONAME($Path)) {
-        $RegisteredSONAMEs{$LibVersion}{$SONAME}{$Path} = 1;
+        $RegisteredSONAMEs{$LibVersion}{$SONAME} = $Path;
     }
     if(my $SName = parse_libname($Name, "name", $OStarget)) {
-        $RegisteredObjects{$LibVersion}{$SName}{$Path} = 1;
+        $RegisteredObjects_Short{$LibVersion}{$SName} = $Path;
     }
 }
 
@@ -18614,13 +18722,13 @@ sub checkVersionNum($$)
             $UsedAltDescr = 1;
             $VerNum = parse_libname($Part, "version", $OStarget);
             if(not $VerNum) {
-                $VerNum = readStringVersion($Part);
+                $VerNum = readStrVer($Part);
             }
         }
         elsif(is_header($Part, 2, $LibVersion) or -d $Part)
         {
             $UsedAltDescr = 1;
-            $VerNum = readStringVersion($Part);
+            $VerNum = readStrVer($Part);
         }
         if($VerNum ne "")
         {
@@ -18645,7 +18753,7 @@ sub checkVersionNum($$)
     }
 }
 
-sub readStringVersion($)
+sub readStrVer($)
 {
     my $Str = $_[0];
     return "" if(not $Str);
@@ -19111,16 +19219,15 @@ sub create_ABI_Dump()
         if(not -s $DPath) {
             exitStatus("Error", "can't create ABI dump because something is going wrong with the Data::Dumper module");
         }
-        if($Archive)
-        {
-            my $PkgPath = createArchive($DPath, $DDir);
-            printMsg("INFO", "library ABI has been dumped to:\n  $PkgPath");
-        }
-        else {
-            printMsg("INFO", "library ABI has been dumped to:\n  $DumpPath");
+        if($Archive) {
+            $DumpPath = createArchive($DPath, $DDir);
         }
         
-        printMsg("INFO", "you can transfer this dump everywhere and use instead of the ".$Descriptor{1}{"Version"}." version descriptor");
+        if(not $OutputDumpPath)
+        {
+            printMsg("INFO", "library ABI has been dumped to:\n  $DumpPath");
+            printMsg("INFO", "you can transfer this dump everywhere and use instead of the ".$Descriptor{1}{"Version"}." version descriptor");
+        }
     }
 }
 
