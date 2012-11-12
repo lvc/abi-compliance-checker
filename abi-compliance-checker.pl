@@ -1068,7 +1068,7 @@ my %StdcxxMangling = (
     "3std14basic_iostreamIcE"=>"Sd"
 );
 
-my $DEFAULT_STD_PARMS = "std::(allocator|less|char_traits|regex_traits)";
+my $DEFAULT_STD_PARMS = "std::(allocator|less|char_traits|regex_traits|(i|o)streambuf_iterator)";
 
 my %ConstantSuffix = (
     "unsigned int"=>"u",
@@ -2882,7 +2882,7 @@ sub get_TemplateParam($$)
             }
         }
         if($Pos>=1 and
-        $PName=~/\Astd::(allocator|less|((char|regex)_traits)|((i|o)streambuf_iterator))\</)
+        $PName=~/\A$DEFAULT_STD_PARMS\</)
         { # template<typename _Tp, typename _Alloc = std::allocator<_Tp> >
           # template<typename _Key, typename _Compare = std::less<_Key>
           # template<typename _CharT, typename _Traits = std::char_traits<_CharT> >
@@ -3943,17 +3943,7 @@ sub mangle_symbol_GCC($$)
         if(@TParams)
         { # templates
             $Mangled .= "I";
-            my $FP = $TParams[0];
-            foreach my $TPos (0 .. $#TParams)
-            {
-                my $TParam = $TParams[$TPos];
-                if($TPos>=1)
-                {
-                    if($TParam=~/\A$DEFAULT_STD_PARMS<\Q$FP\E>\Z/)
-                    { # default allocators are not mangled
-                        next;
-                    }
-                }
+            foreach my $TParam (@TParams) {
                 $Mangled .= mangle_template_param($TParam, $LibVersion, \%Repl);
             }
             $Mangled .= "E";
@@ -6731,6 +6721,7 @@ sub get_SignatureNoInfo($$)
     my $Signature = $tr_name{$MnglName}?$tr_name{$MnglName}:$MnglName;
     if($Symbol=~/\A(_Z|\?)/)
     { # C++
+        # some standard typedefs
         $Signature=~s/\Qstd::basic_string<char, std::char_traits<char>, std::allocator<char> >\E/std::string/g;
         $Signature=~s/\Qstd::map<std::string, std::string, std::less<std::string >, std::allocator<std::pair<std::string const, std::string > > >\E/std::map<std::string, std::string>/g;
     }
