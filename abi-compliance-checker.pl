@@ -6734,7 +6734,7 @@ sub get_SignatureNoInfo($$)
         $Signature=~s/\Qstd::basic_string<char, std::char_traits<char>, std::allocator<char> >\E/std::string/g;
         $Signature=~s/\Qstd::map<std::string, std::string, std::less<std::string >, std::allocator<std::pair<std::string const, std::string > > >\E/std::map<std::string, std::string>/g;
     }
-    if(not $CheckObjectsOnly or $OSgroup=~/linux|bsd|beos/)
+    if(not $CheckObjectsOnly or $OSgroup=~/linux|bsd|beos/i)
     { # ELF format marks data as OBJECT
         if($GlobalDataObject{$LibVersion}{$Symbol}) {
             $Signature .= " [data]";
@@ -7279,7 +7279,7 @@ my %C_Structure = map {$_=>1} (
     "timeLocale",
     "tcp_debug",
     "rpc_createerr",
-# Other C structures appearing in every dump
+ # Other
     "timespec",
     "random_data",
     "drand48_data",
@@ -7292,7 +7292,17 @@ my %C_Structure = map {$_=>1} (
     "_pthread_cleanup_buffer",
     "fd_set",
     "siginfo",
-    "mallinfo"
+    "mallinfo",
+ # Mac
+    "_timex",
+    "_class_t",
+    "_category_t",
+    "_class_ro_t",
+    "_protocol_t",
+    "_message_ref_t",
+    "_super_message_ref_t",
+    "_ivar_t",
+    "_ivar_list_t"
 );
 
 sub getCompileCmd($$$)
@@ -7411,8 +7421,8 @@ sub checkCTags($)
         return;
     }
     
-    if($OSgroup eq "macos")
-    {
+    if($OSgroup ne "linux")
+    { # macos, freebsd, etc.
         my $Info = `$CTags --version 2>\"$TMP_DIR/null\"`;
         if($Info!~/exuberant/i)
         {
@@ -7740,12 +7750,22 @@ sub getDump()
         {
             next if($C_Structure{$CName});
             next if(not $STDCXX_TESTING and $CName=~/\Astd::/);
-            next if(($CName=~tr![:]!!)>2);
             next if($SkipTypes{$Version}{$CName});
-            if($CName=~/\A(.+)::[^:]+\Z/
-            and $TUnit_Classes{$Version}{$1})
-            { # will be added by name space
-                next;
+            if($OSgroup eq "linux")
+            {
+                next if(($CName=~tr![:]!!)>2);
+                if($CName=~/\A(.+)::[^:]+\Z/)
+                { # will be added by name space
+                    next;
+                }
+            }
+            else
+            {
+                if($CName=~/\A(.+)::[^:]+\Z/
+                and $TUnit_Classes{$Version}{$1})
+                { # classes inside other classes
+                    next;
+                }
             }
             if(defined $TUnit_Funcs{$Version}{$CName})
             { # the same name for a function and type
@@ -18052,7 +18072,7 @@ sub detect_lib_default_paths()
                 }
             }
         }
-        elsif($OSgroup=~/linux/i) {
+        elsif($OSgroup eq "linux") {
             printMsg("WARNING", "can't find ldconfig");
         }
     }
