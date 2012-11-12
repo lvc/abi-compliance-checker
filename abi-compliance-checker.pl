@@ -17286,8 +17286,11 @@ sub registerObject($$)
     my ($Path, $LibVersion) = @_;
     my $Name = get_filename($Path);
     $RegisteredObjects{$LibVersion}{$Name} = $Path;
-    if(my $SONAME = getSONAME($Path)) {
-        $RegisteredSONAMEs{$LibVersion}{$SONAME} = $Path;
+    if($OSgroup=~/linux|bsd/i)
+    {
+        if(my $SONAME = getSONAME($Path)) {
+            $RegisteredSONAMEs{$LibVersion}{$SONAME} = $Path;
+        }
     }
     if(my $SName = parse_libname($Name, "name", $OStarget)) {
         $RegisteredObjects_Short{$LibVersion}{$SName} = $Path;

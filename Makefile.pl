@@ -181,7 +181,8 @@ sub scenario()
     {
         if(-e $EXE_PATH."/".$TOOL_SNAME or -e $MODULES_PATH)
         { # check installed
-            if(not $Remove) {
+            if(not $Remove)
+            {
                 print STDERR "ERROR: you should remove old version first (`sudo perl $0 -remove --prefix=$PREFIX`)\n";
                 exit(1);
             }
