@@ -16490,7 +16490,7 @@ sub translateSymbols(@)
         {
             if(my $Unmangled = pop(@UnmangledNames))
             {
-                $tr_name{$MnglName} = canonifyName($Unmangled, "F");
+                $tr_name{$MnglName} = canonifyName($Unmangled, "S");
                 if(not $mangled_name_gcc{$tr_name{$MnglName}}) {
                     $mangled_name_gcc{$tr_name{$MnglName}} = $MnglName;
                 }
