@@ -1334,6 +1334,7 @@ my $TargetLibraryShortName = parse_libname($TargetLibraryName, "shortest", $OSgr
 # Constants (#defines)
 my %Constants;
 my %SkipConstants;
+my %EnumConstants;
 
 # Types
 my %TypeInfo;
@@ -2147,8 +2148,10 @@ sub getInfo($)
     setTemplateParams_All();
     getTypeInfo_All();
     simplifyNames();
+    simplifyConstants();
     getVarInfo_All();
     getSymbolInfo_All();
+    
     
     # clean memory
     %LibInfo = ();
@@ -2212,6 +2215,19 @@ sub readTUDump($)
     
     # clean memory
     undef @Lines;
+}
+
+sub simplifyConstants()
+{
+    foreach my $Constant (keys(%{$Constants{$Version}}))
+    {
+        if($Constants{$Version}{$Constant}{"Value"} eq $Constant)
+        {
+            if(defined $EnumConstants{$Version}{$Constant}) {
+                $Constants{$Version}{$Constant}{"Value"} = $EnumConstants{$Version}{$Constant}{"Value"};
+            }
+        }
+    }
 }
 
 sub simplifyNames()
@@ -3670,6 +3686,22 @@ sub getTrivialTypeAttr($)
             }
         }
     }
+    
+    if($TypeAttr{"Type"} eq "Enum")
+    {
+        if(not $TypeAttr{"NameSpace"})
+        {
+            foreach my $Pos (keys(%{$TypeAttr{"Memb"}}))
+            {
+                my $MName = $TypeAttr{"Memb"}{$Pos}{"name"};
+                $EnumConstants{$Version}{$MName} = {
+                    "Value"=>$TypeAttr{"Memb"}{$Pos}{"value"},
+                    "Header"=>$TypeAttr{"Header"}
+                };
+            }
+        }
+    }
+    
     return %TypeAttr;
 }
 
@@ -4736,7 +4768,7 @@ sub getSymbolInfo($)
     if(isInline($InfoId)) {
         $SymbolInfo{$Version}{$InfoId}{"InLine"} = 1;
     }
-    if(hasThrow($FuncInfoId)) {
+    if(hasThrow($InfoId)) {
         $SymbolInfo{$Version}{$InfoId}{"Throw"} = 1;
     }
     if($LibInfo{$Version}{"info"}{$InfoId}=~/ artificial /i) {
@@ -16038,7 +16070,8 @@ sub get_Report_Problems($$)
     if($Priority eq "Low")
     {
         $Report .= get_Report_ChangedConstants($Level);
-        if($ReportFormat eq "html") {
+        if($ReportFormat eq "html")
+        {
             if($CheckImpl and $Level eq "Binary") {
                 $Report .= get_Report_Impl();
             }
@@ -16138,6 +16171,7 @@ sub checkPreprocessedUnit($)
             if($Line=~/\A\#\s*define\s+(\w+)\s+(.+)\s*\Z/)
             {
                 my ($Name, $Value) = ($1, $2);
+                # next if($Name eq $Value);
                 if(not $Constants{$Version}{$Name}{"Access"})
                 {
                     $Constants{$Version}{$Name}{"Access"} = "public";
