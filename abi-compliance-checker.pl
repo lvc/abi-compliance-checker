@@ -1068,7 +1068,7 @@ my %StdcxxMangling = (
     "3std14basic_iostreamIcE"=>"Sd"
 );
 
-my $DEFAULT_STD_PARMS = "std::(allocator|less|char_traits|regex_traits|(i|o)streambuf_iterator)";
+my $DEFAULT_STD_PARMS = "std::(allocator|less|char_traits|regex_traits|istreambuf_iterator|ostreambuf_iterator)";
 
 my %ConstantSuffix = (
     "unsigned int"=>"u",
@@ -4736,6 +4736,9 @@ sub getSymbolInfo($)
     if(isInline($InfoId)) {
         $SymbolInfo{$Version}{$InfoId}{"InLine"} = 1;
     }
+    if(hasThrow($FuncInfoId)) {
+        $SymbolInfo{$Version}{$InfoId}{"Throw"} = 1;
+    }
     if($LibInfo{$Version}{"info"}{$InfoId}=~/ artificial /i) {
         $SymbolInfo{$Version}{$InfoId}{"Artificial"} = 1;
     }
@@ -4824,6 +4827,17 @@ sub isInline($)
     {
         if($Info=~/ undefined /i) {
             return 0;
+        }
+    }
+    return 1;
+}
+
+sub hasThrow($)
+{
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/type[ ]*:[ ]*@(\d+) /) {
+            return getTreeAttr_Unql($1, "unql");
         }
     }
     return 1;
@@ -5074,6 +5088,17 @@ sub getTreeAttr_Chain($)
     if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
     {
         if($Info=~/chain[ ]*:[ ]*@(\d+) /) {
+            return $1;
+        }
+    }
+    return "";
+}
+
+sub getTreeAttr_Unql($)
+{
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/unql[ ]*:[ ]*@(\d+) /) {
             return $1;
         }
     }
@@ -9015,7 +9040,8 @@ sub findMethod_Class($$$)
     { # search for interface with the same parameters suffix (overridden)
         if($TargetSuffix eq get_symbol_suffix($Candidate, 1))
         {
-            if($CompleteSignature{$LibVersion}{$VirtFunc}{"Destructor"}) {
+            if($CompleteSignature{$LibVersion}{$VirtFunc}{"Destructor"})
+            {
                 if($CompleteSignature{$LibVersion}{$Candidate}{"Destructor"})
                 {
                     if(($VirtFunc=~/D0E/ and $Candidate=~/D0E/)
@@ -9025,7 +9051,8 @@ sub findMethod_Class($$$)
                     }
                 }
             }
-            else {
+            else
+            {
                 if($TargetShortName eq $CompleteSignature{$LibVersion}{$Candidate}{"ShortName"}) {
                     return $Candidate;
                 }
@@ -16394,7 +16421,7 @@ sub canonifyName($$)
     # double
     if($Name=~/$DEFAULT_STD_PARMS/)
     {
-        if($Type eq "F")
+        if($Type eq "S")
         {
             my ($ShortName, $FuncParams) = split_Signature($Name);
             
@@ -16415,21 +16442,22 @@ sub canonifyName($$)
             my ($ShortTmpl, $TmplParams) = template_Base($Name);
             
             my @TParams = separate_Params($TmplParams, 0, 0);
-            my $Pos = 0;
-            while($Pos <= $#TParams-1)
+            if($#TParams>=1)
             {
-                my $TParam1 = canonifyName($TParams[$Pos], "T");
-                my $TParam2 = canonifyName($TParams[$Pos+1], "T");
-                
-                if($TParam2=~/\A$DEFAULT_STD_PARMS<\Q$TParam1\E >\Z/) {
-                    $Name=~s/\Q$TParam1, $TParam2\E/$TParam1/g;
+                my $FParam = $TParams[0];
+                foreach my $Pos (1 .. $#TParams)
+                {
+                    my $TParam = $TParams[$Pos];
+                    if($TParam=~/\A$DEFAULT_STD_PARMS<\Q$FParam\E\s*>\Z/) {
+                        $Name=~s/\Q$FParam, $TParam\E\s*/$FParam/g;
+                    }
                 }
-                
-                $Pos+=2;
             }
         }
     }
-    
+    if($Type eq "S") {
+        return formatName($Name, "S");
+    }
     return $Name;
 }
 
@@ -16462,7 +16490,7 @@ sub translateSymbols(@)
         {
             if(my $Unmangled = pop(@UnmangledNames))
             {
-                $tr_name{$MnglName} = formatName(canonifyName($Unmangled, "F"), "S");
+                $tr_name{$MnglName} = canonifyName($Unmangled, "F");
                 if(not $mangled_name_gcc{$tr_name{$MnglName}}) {
                     $mangled_name_gcc{$tr_name{$MnglName}} = $MnglName;
                 }
