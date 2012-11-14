@@ -2221,11 +2221,9 @@ sub simplifyConstants()
 {
     foreach my $Constant (keys(%{$Constants{$Version}}))
     {
-        if($Constants{$Version}{$Constant}{"Value"} eq $Constant)
-        {
-            if(defined $EnumConstants{$Version}{$Constant}) {
-                $Constants{$Version}{$Constant}{"Value"} = $EnumConstants{$Version}{$Constant}{"Value"};
-            }
+        my $Value = $Constants{$Version}{$Constant}{"Value"};
+        if(defined $EnumConstants{$Version}{$Value}) {
+            $Constants{$Version}{$Constant}{"Value"} = $EnumConstants{$Version}{$Constant}{"Value"};
         }
     }
 }
@@ -3560,7 +3558,7 @@ sub getTrivialName($$)
             {
                 $TypeAttr{"NameSpace"} = getNameSpace(getTypeDeclId($TypeId));
                 if(not $TypeAttr{"NameSpace"}
-                or isNotAnon($TypeAttr{"NameSpace"})) {
+                or not isAnon($TypeAttr{"NameSpace"})) {
                     last;
                 }
             }
@@ -3576,7 +3574,7 @@ sub getTrivialName($$)
             }
         }
     }
-    if($TypeAttr{"NameSpace"} and isNotAnon($TypeAttr{"Name"})) {
+    if($TypeAttr{"NameSpace"} and not isAnon($TypeAttr{"Name"})) {
         $TypeAttr{"Name"} = $TypeAttr{"NameSpace"}."::".$TypeAttr{"Name"};
     }
     $TypeAttr{"Name"} = formatName($TypeAttr{"Name"}, "T");
@@ -7000,10 +6998,6 @@ sub getFuncTypeId($)
         }
     }
     return 0;
-}
-
-sub isNotAnon($) {
-    return (not isAnon($_[0]));
 }
 
 sub isAnon($)
@@ -13252,7 +13246,9 @@ sub checkFormatChange($$$)
                     my $MT2 = $TypeInfo{2}{$Type2_Pure{"Memb"}{$Pos}{"type"}}{"Name"};
                     if($MT1 ne $MT2)
                     { # different types
-                        return 1;
+                        if(not isAnon($MT1) and not isAnon($MT2)) {
+                            return 1;
+                        }
                     }
                     if($Level eq "Source")
                     {
@@ -16171,7 +16167,6 @@ sub checkPreprocessedUnit($)
             if($Line=~/\A\#\s*define\s+(\w+)\s+(.+)\s*\Z/)
             {
                 my ($Name, $Value) = ($1, $2);
-                # next if($Name eq $Value);
                 if(not $Constants{$Version}{$Name}{"Access"})
                 {
                     $Constants{$Version}{$Name}{"Access"} = "public";
