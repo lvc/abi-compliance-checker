@@ -16880,22 +16880,20 @@ sub readSymbols_Lib($$$$$$)
     
     push(@RecurLib, $Lib_Name);
     my (%Value_Interface, %Interface_Value, %NeededLib) = ();
-    my $Lib_ShortName = parse_libname($Lib_Name, "short", $OStarget);
-    if($IsNeededLib)
-    { # change short name to use later for needed libraries
-        $Lib_ShortName = parse_libname($Lib_Name, "name+ext", $OStarget);
-    }
-    else
-    { # libstdc++ and libc are always used by other libs
-      # if you test one of these libs then you not need
-      # to find them in the system for reusing
-        if($Lib_ShortName eq "libstdc++")
-        { # libstdc++.so.6
-            $STDCXX_TESTING = 1;
-        }
-        elsif($Lib_ShortName eq "libc")
-        { # libc-2.11.3.so
-            $GLIBC_TESTING = 1;
+    my $Lib_ShortName = parse_libname($Lib_Name, "name+ext", $OStarget);
+    
+    if(not $IsNeededLib)
+    { # special cases: libstdc++ and libc
+        if(my $ShortName = parse_libname($Lib_Name, "short", $OStarget))
+        {
+            if($ShortName eq "libstdc++")
+            { # libstdc++.so.6
+                $STDCXX_TESTING = 1;
+            }
+            elsif($ShortName eq "libc")
+            { # libc-2.11.3.so
+                $GLIBC_TESTING = 1;
+            }
         }
     }
     my $DebugPath = "";
@@ -16930,7 +16928,7 @@ sub readSymbols_Lib($$$$$$)
                 my $realname = $1;
                 if($IsNeededLib)
                 {
-                    if(not defined $RegisteredObjects_Short{$Lib_ShortName})
+                    if(not defined $RegisteredObjects_Short{$LibVersion}{$Lib_ShortName})
                     {
                         $DepSymbol_Library{$LibVersion}{$realname} = $Lib_Name;
                         $DepLibrary_Symbol{$LibVersion}{$Lib_Name}{$realname} = 1;
@@ -17007,7 +17005,7 @@ sub readSymbols_Lib($$$$$$)
                 my $realname = $1;
                 if($IsNeededLib)
                 {
-                    if(not defined $RegisteredObjects_Short{$Lib_ShortName})
+                    if(not defined $RegisteredObjects_Short{$LibVersion}{$Lib_ShortName})
                     {
                         $DepSymbol_Library{$LibVersion}{$realname} = $Lib_Name;
                         $DepLibrary_Symbol{$LibVersion}{$Lib_Name}{$realname} = 1;
@@ -17106,7 +17104,7 @@ sub readSymbols_Lib($$$$$$)
                 }
                 if($IsNeededLib)
                 {
-                    if(not defined $RegisteredObjects_Short{$Lib_ShortName})
+                    if(not defined $RegisteredObjects_Short{$LibVersion}{$Lib_ShortName})
                     {
                         $DepSymbol_Library{$LibVersion}{$Symbol} = $Lib_Name;
                         $DepLibrary_Symbol{$LibVersion}{$Lib_Name}{$Symbol} = ($Type eq "OBJECT")?-$Size:1;
@@ -17384,8 +17382,8 @@ sub registerObject($$)
             $RegisteredSONAMEs{$LibVersion}{$SONAME} = $Path;
         }
     }
-    if(my $SName = parse_libname($Name, "name", $OStarget)) {
-        $RegisteredObjects_Short{$LibVersion}{$SName} = $Path;
+    if(my $Short = parse_libname($Name, "name+ext", $OStarget)) {
+        $RegisteredObjects_Short{$LibVersion}{$Short} = $Path;
     }
 }
 
