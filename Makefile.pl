@@ -173,9 +173,11 @@ sub scenario()
         print "-- Removing $EXE_PATH/$TOOL_SNAME\n";
         unlink($EXE_PATH."/".$TOOL_SNAME);
         
-        # remove modules
-        print "-- Removing $MODULES_PATH\n";
-        rmtree($MODULES_PATH);
+        if(-d $MODULES_PATH)
+        { # remove modules
+            print "-- Removing $MODULES_PATH\n";
+            rmtree($MODULES_PATH);
+        }
     }
     if($Install or $Update)
     {

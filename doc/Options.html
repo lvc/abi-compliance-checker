@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker_Options", "wgTitle": "ABI Compliance Checker Options", "wgCurRevisionId": 8011, "wgArticleId": 2442, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker_Options", "wgTitle": "ABI Compliance Checker Options", "wgCurRevisionId": 8158, "wgArticleId": 2442, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -61,18 +61,18 @@
 </li></ul>
 <div style="padding-left:40px;">Print the tool version and don't do anything else.</div><br />
 <h2> <span class="mw-headline" id="General_Options"> General Options </span></h2>
-<ul><li><b>-l|-lib|-library &lt;name&gt;</b>
+<ul><li><b>-l|-lib|-library NAME</b>
 </li></ul>
 <div style="padding-left:40px;">Library name (without version). It affects only on the path and the title of the report.</div><br />
-<ul><li><b>-d1|-old|-o &lt;path&gt;</b>
+<ul><li><b>-d1|-old|-o PATH</b>
 </li></ul>
 <div style="padding-left:40px;">Path to the <a href="Descriptor.html" title="Library Descriptor">descriptor</a> of 1st (old) library version.</div><br />
-<ul><li><b>-d2|-new|-n &lt;path&gt;</b>
+<ul><li><b>-d2|-new|-n PATH</b>
 </li></ul>
 <div style="padding-left:40px;">Path to the <a href="Descriptor.html" title="Library Descriptor">descriptor</a> of 2nd (new) library version.</div><br />
-<ul><li><b>-dump|-dump-abi &lt;descriptor.xml&gt;</b>
+<ul><li><b>-dump|-dump-abi PATH</b>
 </li></ul>
-<div style="padding-left:40px;">Dump library ABI to gzipped TXT format file. You can transfer it anywhere and pass instead of the XML-descriptor. Also it may be used for debugging the tool.</div><br />
+<div style="padding-left:40px;">Create library ABI dump for the input XML descriptor. You can transfer it anywhere and pass instead of the descriptor. Also it can be used for debugging the tool.</div><br />
 <ul><li><b>-old-dumps</b>
 </li></ul>
 <div style="padding-left:40px;">Enable support for old-version ABI dumps.</div><br />
@@ -80,25 +80,25 @@
 <ul><li><b>-d|-descriptor-template</b>
 </li></ul>
 <div style="padding-left:40px;">Create XML-descriptor template ./VERSION.xml</div><br />
-<ul><li><b>-app|-application &lt;path&gt;</b>
+<ul><li><b>-app|-application PATH</b>
 </li></ul>
 <div style="padding-left:40px;">This option allow to specify the application that should be tested for portability to the new library version.</div><br />
 <ul><li><b>-static-libs</b>
 </li></ul>
 <div style="padding-left:40px;">Check static libraries instead of the shared ones. The &lt;libs&gt; section of the XML-descriptor should point to static libraries location.</div><br />
-<ul><li><b>-cross-gcc|-gcc-path &lt;path&gt;</b>
+<ul><li><b>-cross-gcc|-gcc-path PATH</b>
 </li></ul>
 <div style="padding-left:40px;">Path to the cross GCC compiler to use instead of the usual (host) GCC.</div><br />
-<ul><li><b>-cross-prefix|-gcc-prefix &lt;prefix&gt;</b>
+<ul><li><b>-cross-prefix|-gcc-prefix PREFIX</b>
 </li></ul>
 <div style="padding-left:40px;">GCC toolchain prefix.</div><br />
-<ul><li><b>-sysroot &lt;dirpath&gt;</b>
+<ul><li><b>-sysroot DIR</b>
 </li></ul>
-<div style="padding-left:40px;">Specify the alternative root directory. The tool will search for include paths in the &lt;dirpath&gt;/usr/include and &lt;dirpath&gt;/usr/lib directories.</div><br />
-<ul><li><b>-v1|-version1 &lt;num&gt;</b>
+<div style="padding-left:40px;">Specify the alternative root directory. The tool will search for include paths in the DIR/usr/include and DIR/usr/lib directories.</div><br />
+<ul><li><b>-v1|-version1 NUM</b>
 </li></ul>
 <div style="padding-left:40px;">Specify 1st library version outside the descriptor.</div><br />
-<ul><li><b>-v2|-version2 &lt;num&gt;</b>
+<ul><li><b>-v2|-version2 NUM</b>
 </li></ul>
 <div style="padding-left:40px;">Specify 2nd library version outside the descriptor.</div><br />
 <ul><li><b>-s|-strict</b>
@@ -116,7 +116,7 @@
 <ul><li><b>-show-retval</b>
 </li></ul>
 <div style="padding-left:40px;">Show the symbol's return type in the report.</div><br />
-<ul><li><b>-symbols-list &lt;path&gt;</b>
+<ul><li><b>-symbols-list PATH</b>
 </li></ul>
 <div style="padding-left:40px;">This option allow to specify a file with a list of interfaces (mangled names in C++) that should be checked, other library interfaces will not be checked.</div><br />
 <ul><li><b>-use-dumps</b>
@@ -125,25 +125,25 @@
 <ul><li><b>-nostdinc</b>
 </li></ul>
 <div style="padding-left:40px;">Do not search the GCC standard system directories for header files.</div><br />
-<ul><li><b>-dump-system &lt;name&gt;</b>
+<ul><li><b>-dump-system NAME -sysroot DIR</b>
 </li></ul>
-<div style="padding-left:40px;">Find all the shared libraries and header files in &lt;dirpath&gt; directory, create XML descriptors and make ABI dumps for each library. The result set of ABI dumps can be compared (--cmp-systems) with the other one created for other version of operating system in order to check them for compatibility. Do not forget to specify -cross-gcc option if your target system requires some specific version of GCC compiler (different from the host GCC). The system ABI dump will be generated to: sys_dumps/&lt;name&gt;/&lt;arch&gt;.</div><br />
-<ul><li><b>-dump-system &lt;descriptor.xml&gt;</b>
+<div style="padding-left:40px;">Find all the shared libraries and header files in DIR directory, create XML descriptors and make ABI dumps for each library. The result set of ABI dumps can be compared (-cmp-systems) with the other one created for other version of operating system in order to check them for compatibility. Do not forget to specify -cross-gcc option if your target system requires some specific version of GCC compiler (different from the host GCC). The system ABI dump will be generated to: sys_dumps/NAME/ARCH.</div><br />
+<ul><li><b>-dump-system PATH</b>
 </li></ul>
 <div style="padding-left:40px;">The same as the previous option but takes an <a href="Descriptor.html" title="Operating System Descriptor">XML descriptor</a> of the target system.</div><br />
-<ul><li><b>-sysinfo &lt;dir&gt;</b>
+<ul><li><b>-sysinfo DIR</b>
 </li></ul>
 <div style="padding-left:40px;">This option may be used with -dump-system to dump ABI of operating systems and configure the dumping process. Default: modules/SysInfo/&lt;target&gt; {unix, symbian, windows}</div><br />
 <ul><li><b>-cmp-systems</b>
 </li></ul>
-<div style="padding-left:40px;">Compare two system ABI dumps. Create compatibility reports for each library and the common HTML report including the summary of test results for all checked libraries. Report will be generated to: sys_compat_reports/&lt;name1&gt;_to_&lt;name2&gt;/&lt;arch&gt;.</div><br />
-<ul><li><b>-libs-list &lt;path&gt;</b>
+<div style="padding-left:40px;">Compare two system ABI dumps. Create compatibility reports for each library and the common HTML report including the summary of test results for all checked libraries. Report will be generated to: sys_compat_reports/NAME1_to_NAME2/ARCH.</div><br />
+<ul><li><b>-libs-list PATH</b>
 </li></ul>
 <div style="padding-left:40px;">The file with a list of libraries, that should be dumped by the -dump-system option or should be checked by the -cmp-systems option.</div><br />
-<ul><li><b>-header &lt;name&gt;</b>
+<ul><li><b>-header NAME</b>
 </li></ul>
 <div style="padding-left:40px;">Check/Dump ABI of this header only.</div><br />
-<ul><li><b>-headers-list &lt;path&gt;</b>
+<ul><li><b>-headers-list PATH</b>
 </li></ul>
 <div style="padding-left:40px;">The file with a list of headers, that should be checked/dumped.</div><br />
 <ul><li><b>-ext|-extended</b>
@@ -155,27 +155,24 @@
 <ul><li><b>-stdout</b>
 </li></ul>
 <div style="padding-left:40px;">Print analysis results (compatibility reports and ABI dumps) to stdout instead of creating a file. This would allow piping data to other programs.</div><br />
-<ul><li><b>-report-format &lt;fmt&gt;</b>
+<ul><li><b>-report-format FORMAT</b>
 </li></ul>
 <div style="padding-left:40px;">Change format of compatibility report: html (default) or xml.</div><br />
-<ul><li><b>-dump-format &lt;fmt&gt;</b>
+<ul><li><b>-dump-format FORMAT</b>
 </li></ul>
 <div style="padding-left:40px;">Change format of ABI dump: perl (default) or xml.</div><br />
 <ul><li><b>-xml</b>
 </li></ul>
 <div style="padding-left:40px;">Alias for: --report-format=xml or --dump-format=xml</div><br />
-<ul><li><b>-lang &lt;lang&gt;</b>
+<ul><li><b>-lang LANG</b>
 </li></ul>
-<div style="padding-left:40px;">Set library language (C or C++). You can use this option if the tool cannot auto-detect a language. This option may be useful for checking C-library headers (--lang=C) in --headers-only or --extended modes.</div><br />
+<div style="padding-left:40px;">Set library language (C or C++). You can use this option if the tool cannot auto-detect a language. This option may be useful for checking C-library headers (--lang=C) in -headers-only or -extended modes.</div><br />
 <ul><li><b>-binary|-bin|-abi</b>
 </li></ul>
-<div style="padding-left:40px;">Show binary-compatibility problems only. Generate report to: compat_reports/&lt;library name&gt;/&lt;v1&gt;_to_&lt;v2&gt;/abi_compat_report.html</div><br />
+<div style="padding-left:40px;">Show binary-compatibility problems only. Generate report to: compat_reports/LIB_NAME/V1_to_V2/abi_compat_report.html</div><br />
 <ul><li><b>-source|-src|-api</b>
 </li></ul>
-<div style="padding-left:40px;">Show source-compatibility problems only. Generate report to: compat_reports/&lt;library name&gt;/&lt;v1&gt;_to_&lt;v2&gt;/src_compat_report.html</div><br />
-<p>library name&gt;/
-div style='padding-left:40px;'&gt;Show the symbol's return type in the report.
-</p>
+<div style="padding-left:40px;">Show source-compatibility problems only. Generate report to: compat_reports/LIB_NAME/V1_to_V2/src_compat_report.html</div><br />
 <h2> <span class="mw-headline" id="Other_Options"> Other Options </span></h2>
 <ul><li><b>-test</b>
 </li></ul>
@@ -185,76 +182,85 @@ div style='padding-left:40px;'&gt;Show the symbol's return type in the report.
 <div style="padding-left:40px;">Test ability to create, restore and compare ABI dumps.</div><br />
 <ul><li><b>-debug</b>
 </li></ul>
-<div style="padding-left:40px;">Debugging mode. Print debug info on the screen. Save intermediate analysis stages in the debug directory: debug/&lt;library&gt;/&lt;version&gt;/.</div><br />
+<div style="padding-left:40px;">Debugging mode. Print debug info on the screen. Save intermediate analysis stages in the debug directory: debug/LIB_NAME/VER/.</div><br />
 <ul><li><b>-cpp-compatible</b>
 </li></ul>
 <div style="padding-left:40px;">If your header file is written in C language and can be compiled by the C++ compiler (i.e. doesn't contain C++-keywords), then you can tell ACC about this and speedup the analysis.</div><br />
-<ul><li><b>-p|-params &lt;path&gt;</b>
+<ul><li><b>-p|-params PATH</b>
 </li></ul>
 <div style="padding-left:40px;">Path to file with the function parameter names. It can be used for improving report view if the library header files don't contain parameter names. File format:</div><br />
 <div style="padding-left:70px;">func1;param1;param2;param3 ...<br />
 <p>func2;param1;param2;param3 ...<br />
 </p>
 &#160;&#160;...</div><br />
-<ul><li><b>-relpath &lt;path&gt;</b>
+<ul><li><b>-relpath PATH</b>
 </li></ul>
-<div style="padding-left:40px;">Replace {RELPATH} macros to &lt;path&gt; in the XML-descriptor used for dumping the library ABI (see -dump option).</div><br />
-<ul><li><b>-relpath1 &lt;path&gt;</b>
+<div style="padding-left:40px;">Replace {RELPATH} macros to PATH in the XML-descriptor used for dumping the library ABI (see -dump option).</div><br />
+<ul><li><b>-relpath1 PATH</b>
 </li></ul>
-<div style="padding-left:40px;">Replace {RELPATH} macros to &lt;path&gt; in the 1st XML-descriptor (see -d1 option).</div><br />
-<ul><li><b>-relpath2 &lt;path&gt;</b>
+<div style="padding-left:40px;">Replace {RELPATH} macros to PATH in the 1st XML-descriptor (see -d1 option).</div><br />
+<ul><li><b>-relpath2 PATH</b>
 </li></ul>
-<div style="padding-left:40px;">Replace {RELPATH} macros to &lt;path&gt; in the 2nd XML-descriptor (see -d2 option).</div><br />
-<ul><li><b>-dump-path &lt;path&gt;</b>
+<div style="padding-left:40px;">Replace {RELPATH} macros to PATH in the 2nd XML-descriptor (see -d2 option).</div><br />
+<ul><li><b>-dump-path PATH</b>
 </li></ul>
-<div style="padding-left:40px;">Specify a *.abi.tar.gz or *.abi file path where to generate an ABI dump. Default path: abi_dumps/&lt;library&gt;/&lt;library&gt;_&lt;version&gt;.abi.tar.gz</div><br />
+<div style="padding-left:40px;">Specify a *.abi.tar.gz or *.abi file path where to generate an ABI dump. Default path: abi_dumps/LIB_NAME/LIB_NAME_VERSION.abi.tar.gz</div><br />
 <ul><li><b>-sort</b>
 </li></ul>
 <div style="padding-left:40px;">Enable sorting of data in ABI dumps.</div><br />
-<ul><li><b>-report-path &lt;path&gt;</b>
+<ul><li><b>-report-path PATH</b>
 </li></ul>
 <div style="padding-left:40px;">Specify the file path where to generate the compatibility report. Default report path: compat_reports/&lt;library name&gt;/&lt;v1&gt;_to_&lt;v2&gt;/abi_compat_report.html</div><br />
-<ul><li><b>-bin-report-path &lt;path&gt;</b>
+<ul><li><b>-bin-report-path PATH</b>
 </li></ul>
-<div style="padding-left:40px;">Path to binary-compatibility report. Default: compat_reports/&lt;library name&gt;/&lt;v1&gt;_to_&lt;v2&gt;/abi_compat_report.html</div><br />
-<ul><li><b>-src-report-path &lt;path&gt;</b>
+<div style="padding-left:40px;">Path to binary-compatibility report. Default: compat_reports/LIB_NAME/V1_to_V2/abi_compat_report.html</div><br />
+<ul><li><b>-src-report-path PATH</b>
 </li></ul>
-<div style="padding-left:40px;">Path to source-compatibility report. Default: compat_reports/&lt;library name&gt;/&lt;v1&gt;_to_&lt;v2&gt;/src_compat_report.html</div><br />
-<ul><li><b>-log-path &lt;path&gt;</b>
+<div style="padding-left:40px;">Path to source-compatibility report. Default: compat_reports/LIB_NAME/V1_to_V2/src_compat_report.html</div><br />
+<ul><li><b>-log-path PATH</b>
 </li></ul>
-<div style="padding-left:40px;">Log path for all messages. Default log path: logs/&lt;library&gt;/&lt;version&gt;/log.txt</div><br />
-<ul><li><b>-log1-path &lt;path&gt;</b>
+<div style="padding-left:40px;">Log path for all messages. Default log path: logs/LIB_NAME/VER/log.txt</div><br />
+<ul><li><b>-log1-path PATH</b>
 </li></ul>
-<div style="padding-left:40px;">Log path for 1st version of a library. Default log path: logs/&lt;library name&gt;/&lt;v1&gt;/log.txt</div><br />
-<ul><li><b>-log2-path &lt;path&gt;</b>
+<div style="padding-left:40px;">Log path for 1st version of a library. Default log path: logs/LIB_NAME/V1/log.txt</div><br />
+<ul><li><b>-log2-path PATH</b>
 </li></ul>
-<div style="padding-left:40px;">Log path for 2nd version of a library. Default log path: logs/&lt;library name&gt;/&lt;v1&gt;/log.txt</div><br />
-<ul><li><b>-logging-mode &lt;mode&gt;</b>
+<div style="padding-left:40px;">Log path for 2nd version of a library. Default log path: logs/LIB_NAME/V1/log.txt</div><br />
+<ul><li><b>-logging-mode MODE</b>
 </li></ul>
 <div style="padding-left:40px;">Change logging mode. Modes: w - overwrite old logs (default), a - append old logs, n - do not write any logs</div><br />
 <ul><li><b>-list-affected</b>
 </li></ul>
 <div style="padding-left:40px;">Generate file with the list of incompatible symbols beside the HTML compatibility report. Use 'c++filt @file' command from GNU Binutils to unmangle C++ symbols in the generated file. Default name: abi_affected.txt</div><br />
-<ul><li><b>-component &lt;name&gt;</b>
+<ul><li><b>-component NAME</b>
 </li></ul>
 <div style="padding-left:40px;">The component name in the title and summary of the HTML report. Default: library</div><br />
-<ul><li><b>-l-full|-lib-full &lt;name&gt;</b>
+<ul><li><b>-l-full|-lib-full NAME</b>
 </li></ul>
 <div style="padding-left:40px;">Change library name in the report title to &lt;name&gt;. By default will be displayed a name specified by -l option.</div><br />
-<ul><li><b>-b|-browse &lt;program&gt;</b>
+<ul><li><b>-b|-browse PROGRAM</b>
 </li></ul>
 <div style="padding-left:40px;">Open report(s) in the browser (firefox, opera, etc.).</div><br />
 <ul><li><b>-open</b>
 </li></ul>
 <div style="padding-left:40px;">Open report(s) in the default browser.</div><br />
+<ul><li><b>-extra-info DIR</b>
+</li></ul>
+<div style="padding-left:40px;">Dump extra info to DIR.</div><br />
+<ul><li><b>-extra-dump</b>
+</li></ul>
+<div style="padding-left:40px;">Create extended ABI dump containing all symbols from the translation unit.</div><br />
+<ul><li><b>-force</b>
+</li></ul>
+<div style="padding-left:40px;">Try to use this option if the tool doesn't work.</div><br />
 
 <!-- 
 NewPP limit report
-Preprocessor node count: 78/1000000
+Preprocessor node count: 81/1000000
 Post-expand include size: 0/2097152 bytes
 Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2442-0!*!0!!en!*!* and timestamp 20121018004357 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2442-0!*!0!!en!*!* and timestamp 20121130122707 -->
 </div></div></div></div></div></body></html>

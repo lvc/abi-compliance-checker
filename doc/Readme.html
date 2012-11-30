@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker", "wgTitle": "ABI Compliance Checker", "wgCurRevisionId": 8115, "wgArticleId": 2292, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker", "wgTitle": "ABI Compliance Checker", "wgCurRevisionId": 8162, "wgArticleId": 2292, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -92,7 +92,7 @@
 <h2> <span class="mw-headline" id="Downloads"> Downloads </span></h2>
 <h3> <span class="mw-headline" id="Releases"> Releases </span></h3>
 <p>All releases can be downloaded from <b><a href="Changes.html" title="ABI Compliance Checker Downloads">this page</a></b> or <b><a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/downloads/">github.com</a></b>.
-</p><p>Latest release: <a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/downloads/abi-compliance-checker-1.98.4.tar.gz">1.98.4</a>
+</p><p>Latest release: <a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/downloads/abi-compliance-checker-1.98.5.tar.gz">1.98.5</a>
 </p>
 <h3> <span class="mw-headline" id="Git"> Git </span></h3>
 <p>Read-only access to the latest development version:<br />
@@ -118,7 +118,7 @@
 </li></ul>
 </li></ul>
 <ul><li><b>Mac OS X</b>
-<ul><li> <a rel="nofollow" class="external text" href="http://developer.apple.com/technologies/tools/xcode.html">Xcode</a> (gcc, otool, c++filt)
+<ul><li> <a rel="nofollow" class="external text" href="http://developer.apple.com/technologies/tools/xcode.html">Xcode</a> (gcc, c++filt, otool, nm)
 </li><li> <a rel="nofollow" class="external text" href="http://ctags.sourceforge.net/">Ctags</a> (5.8 or newer)
 </li></ul>
 </li></ul>
@@ -223,6 +223,9 @@ You can see detailed problem descriptions in the visual interactive HTML-format 
 <code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;cd abi-compliance-checker-x.y.z/&#160;</code><br /><br />
 <code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;sudo perl Makefile.pl -install --prefix=PREFIX [/usr, /usr/local, ...]&#160;</code>
 </p><p>This command will install an <code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker&#160;</code> program in the <code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;PREFIX/bin&#160;</code> system directory and private modules into the <code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;PREFIX/share&#160;</code>.
+</p><p>To verify that the tool is installed correctly and it works on your host run:<br />
+<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;cd tmp/&#160;</code><br /><br />
+<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -test&#160;</code><br /><br />
 </p>
 <h2> <span class="mw-headline" id="Usage"> Usage </span></h2>
 <p>For using the tool, you should provide the <a href="Descriptor.html" title="Library Descriptor"><b>XML descriptors</b></a> for two library versions: <a href="Descriptor.html" title="Library Descriptor"><b>v1.xml</b></a> and <a href="Descriptor.html" title="Library Descriptor"><b>v2.xml</b></a> files. Library descriptor is a simple XML-file that specifies version number, paths to header files and shared libraries and other optional information. An example of the descriptor is the following (0.3.4.xml):
@@ -474,11 +477,11 @@ Check client application portability between libssh versions:<br />
 
 <!-- 
 NewPP limit report
-Preprocessor node count: 144/1000000
+Preprocessor node count: 146/1000000
 Post-expand include size: 0/2097152 bytes
 Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2292-0!*!0!!en!*!* and timestamp 20121018090115 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2292-0!*!0!!en!*!* and timestamp 20121130123119 -->
 </div></div></div></div></div></body></html>

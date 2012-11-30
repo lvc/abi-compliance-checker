@@ -1016,43 +1016,13 @@ sub printVer($)
     return $_[0];
 }
 
-sub getPrefix($)
+sub getPrefix_S($)
 {
-    my $Prefix = getPrefix_I($_[0]);
+    my $Prefix = getPrefix($_[0]);
     if(not $Prefix or defined $NonPrefix{lc($Prefix)}) {
         return "NONE";
     }
     return $Prefix;
-}
-
-sub getPrefix_I($)
-{
-    my $Str = $_[0];
-    if($Str=~/\A([_]*[A-Z][a-z]{1,5})[A-Z]/)
-    { # XmuValidArea: Xmu
-        return $1;
-    }
-    elsif($Str=~/\A([_]*[a-z]+)[A-Z]/)
-    { # snfReadFont: snf
-        return $1;
-    }
-    elsif($Str=~/\A([_]*[A-Z]{2,})[A-Z][a-z]+([A-Z][a-z]+|\Z)/)
-    { # XRRTimes: XRR
-        return $1;
-    }
-    elsif($Str=~/\A([_]*[a-z]{1,2}\d+)[a-z\d]*_[a-z]+/i)
-    { # H5HF_delete: H5
-        return $1;
-    }
-    elsif($Str=~/\A([_]*[a-z0-9]{2,}_)[a-z]+/i)
-    { # alarm_event_add: alarm_
-        return $1;
-    }
-    elsif($Str=~/\A(([a-z])\2{1,})/i)
-    { # ffopen
-        return $1;
-    }
-    return "";
 }
 
 sub problem_title($)
@@ -1690,7 +1660,7 @@ sub dumpSystem($)
                             next;
                         }
                         $SysLib_Symbols{$LPath}{$Sym} = 1;
-                        if(my $Prefix = getPrefix($Sym))
+                        if(my $Prefix = getPrefix_S($Sym))
                         {
                             $PrefixToLib{$Prefix}{$LName} += 1;
                             $LibPrefix{$LPath}{$Prefix} += 1;
@@ -1717,7 +1687,7 @@ sub dumpSystem($)
                     next;
                 }
                 $SysLib_Symbols{$LPath}{$Symbol} = 1;
-                if(my $Prefix = getPrefix($Symbol))
+                if(my $Prefix = getPrefix_S($Symbol))
                 {
                     $PrefixToLib{$Prefix}{$LName} += 1;
                     $LibPrefix{$LPath}{$Prefix} += 1;
@@ -2028,7 +1998,7 @@ sub dumpSystem($)
             if(not $DupLibs{$LPath}
             and not $VersionedLibs{$LPath}
             and keys(%{$SymbolCounter{$Symbol}})>=2
-            and my $Prefix = getPrefix($Symbol))
+            and my $Prefix = getPrefix_S($Symbol))
             { # duplicated symbols
                 if($PrefixToLib{$Prefix}
                 and $PrefixToLib{$Prefix} ne $LName

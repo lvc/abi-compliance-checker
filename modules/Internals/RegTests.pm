@@ -45,6 +45,26 @@ sub testCpp()
     my $DECL_SPEC = ($OSgroup eq "windows")?"__declspec( dllexport )":"";
     my $EXTERN = ($OSgroup eq "windows")?"extern ":""; # add "extern" for CL compiler
     
+    # Class outside namespace
+    $HEADER1 .= "
+        class $DECL_SPEC OutsideNS {
+        public:
+            int someMethod();
+            int field;
+        };";
+    $SOURCE1 .= "
+        int OutsideNS::someMethod() { return 0; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC OutsideNS {
+        public:
+            int someMethod();
+            int field;
+            int field2;
+        };";
+    $SOURCE2 .= "
+        int OutsideNS::someMethod() { return 0; }";
+    
     # Begin namespace
     $HEADER1 .= "namespace TestNS {\n";
     $HEADER2 .= "namespace TestNS {\n";
@@ -4442,8 +4462,13 @@ sub runTests($$$$$$$$)
     writeFile("$Path_v1/Makefile", $MkContent);
     writeFile("$Path_v2/Makefile", $MkContent);
     system("cd $Path_v1 && $BuildCmd >build-log.txt 2>&1");
-    if($?) {
-        exitStatus("Error", "can't compile $LibName v.1: \'$Path_v1/build-log.txt\'");
+    if($?)
+    {
+        my $Msg = "can't compile $LibName v.1: \'$Path_v1/build-log.txt\'";
+        if(readFile("$Path_v1/build-log.txt")=~/error trying to exec \W+cc1plus\W+/) {
+            $Msg .= "\nDid you install G++?";
+        }
+        exitStatus("Error", $Msg);
     }
     system("cd $Path_v2 && $BuildCmd >build-log.txt 2>&1");
     if($?) {
