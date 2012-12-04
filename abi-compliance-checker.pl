@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.98.5
+# ABI Compliance Checker (ACC) 1.98.6
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -59,7 +59,7 @@ use Data::Dumper;
 use Config;
 use Fcntl;
 
-my $TOOL_VERSION = "1.98.5";
+my $TOOL_VERSION = "1.98.6";
 my $ABI_DUMP_VERSION = "2.19.2";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.0";
@@ -1379,6 +1379,7 @@ my %ClassMethods;
 my %ClassNames;
 my %Class_SubClasses;
 my %OverriddenMethods;
+my %TypedefToAnon;
 my $MAX_ID = 0;
 
 # Typedefs
@@ -2170,6 +2171,11 @@ sub getInfo($)
     
     # processing info
     setTemplateParams_All();
+    
+    if($ExtraInfo) {
+        setAnonTypedef_All();
+    }
+    
     getTypeInfo_All();
     simplifyNames();
     simplifyConstants();
@@ -2186,6 +2192,7 @@ sub getInfo($)
     %MissedTypedef = ();
     %Typedef_Tr = ();
     %Typedef_Eq = ();
+    %TypedefToAnon = ();
     
     # clean cache
     delete($Cache{"getTypeAttr"});
@@ -2319,6 +2326,19 @@ sub simplifyNames()
         $TypeName = formatName($TypeName, "T");
         $TypeInfo{$Version}{$TypeId}{"Name"} = $TypeName;
         $TName_Tid{$Version}{$TypeName} = $TypeId;
+    }
+}
+
+sub setAnonTypedef_All()
+{
+    foreach my $InfoId (keys(%{$LibInfo{$Version}{"info"}}))
+    {
+        if($LibInfo{$Version}{"info_type"}{$InfoId} eq "type_decl")
+        {
+            if(isAnon(getNameByInfo($InfoId))) {
+                $TypedefToAnon{getTypeId($InfoId)} = 1;
+            }
+        }
     }
 }
 
@@ -3135,8 +3155,7 @@ sub getTreeTypeName($)
                 return "int";
             }
         }
-        elsif($Info=~/name[ ]*:[ ]*@(\d+) /)
-        {
+        elsif($Info=~/name[ ]*:[ ]*@(\d+) /) {
             return getNameByInfo($1);
         }
     }
@@ -3726,6 +3745,12 @@ sub getTrivialTypeAttr($)
             }
         }
     }
+    if($ExtraInfo)
+    {
+        if(defined $TypedefToAnon{$TypeId}) {
+            $TypeAttr{"AnonTypedef"} = 1;
+        }
+    }
     
     return %TypeAttr;
 }
@@ -3780,12 +3805,10 @@ sub setBaseClasses($$)
                 return 1;
             }
             my $BaseInfo = $LibInfo{$Version}{"info"}{$BInfoId};
-            if($Access=~/prot/)
-            {
+            if($Access=~/prot/) {
                 $TypeAttr->{"Base"}{$ClassId}{"access"} = "protected";
             }
-            elsif($Access=~/priv/)
-            {
+            elsif($Access=~/priv/) {
                 $TypeAttr->{"Base"}{$ClassId}{"access"} = "private";
             }
             $TypeAttr->{"Base"}{$ClassId}{"pos"} = "$Pos";
@@ -3794,7 +3817,7 @@ sub setBaseClasses($$)
                 $TypeAttr->{"Base"}{$ClassId}{"virtual"} = 1;
             }
             $Class_SubClasses{$Version}{$ClassId}{$TypeId}=1;
-            $Pos+=1;
+            $Pos += 1;
         }
     }
     return 0;
@@ -4931,40 +4954,40 @@ sub setTypeMemb($$)
     my ($Pos, $UnnamedPos) = (0, 0);
     if($TypeType eq "Enum")
     {
-        my $TypeMembInfoId = getTreeAttr_Csts($TypeId);
-        while($TypeMembInfoId)
+        my $MInfoId = getTreeAttr_Csts($TypeId);
+        while($MInfoId)
         {
-            $TypeAttr->{"Memb"}{$Pos}{"value"} = getEnumMembVal($TypeMembInfoId);
-            my $MembName = getTreeStr(getTreeAttr_Purp($TypeMembInfoId));
+            $TypeAttr->{"Memb"}{$Pos}{"value"} = getEnumMembVal($MInfoId);
+            my $MembName = getTreeStr(getTreeAttr_Purp($MInfoId));
             $TypeAttr->{"Memb"}{$Pos}{"name"} = $MembName;
-            $EnumMembName_Id{$Version}{getTreeAttr_Valu($TypeMembInfoId)} = ($TypeAttr->{"NameSpace"})?$TypeAttr->{"NameSpace"}."::".$MembName:$MembName;
-            $TypeMembInfoId = getNextElem($TypeMembInfoId);
+            $EnumMembName_Id{$Version}{getTreeAttr_Valu($MInfoId)} = ($TypeAttr->{"NameSpace"})?$TypeAttr->{"NameSpace"}."::".$MembName:$MembName;
+            $MInfoId = getNextElem($MInfoId);
             $Pos += 1;
         }
     }
     elsif($TypeType=~/\A(Struct|Class|Union)\Z/)
     {
-        my $TypeMembInfoId = getTreeAttr_Flds($TypeId);
-        while($TypeMembInfoId)
+        my $MInfoId = getTreeAttr_Flds($TypeId);
+        while($MInfoId)
         {
-            my $IType = $LibInfo{$Version}{"info_type"}{$TypeMembInfoId};
-            my $MInfo = $LibInfo{$Version}{"info"}{$TypeMembInfoId};
+            my $IType = $LibInfo{$Version}{"info_type"}{$MInfoId};
+            my $MInfo = $LibInfo{$Version}{"info"}{$MInfoId};
             if(not $IType or $IType ne "field_decl")
             { # search for fields, skip other stuff in the declaration
-                $TypeMembInfoId = getNextElem($TypeMembInfoId);
+                $MInfoId = getNextElem($MInfoId);
                 next;
             }
-            my $StructMembName = getTreeStr(getTreeAttr_Name($TypeMembInfoId));
+            my $StructMembName = getTreeStr(getTreeAttr_Name($MInfoId));
             if(index($StructMembName, "_vptr.")!=-1)
             { # virtual tables
-                $TypeMembInfoId = getNextElem($TypeMembInfoId);
+                $MInfoId = getNextElem($MInfoId);
                 next;
             }
             if(not $StructMembName)
             { # unnamed fields
                 if(index($TypeAttr->{"Name"}, "_type_info_pseudo")==-1)
                 {
-                    my $UnnamedTid = getTreeAttr_Type($TypeMembInfoId);
+                    my $UnnamedTid = getTreeAttr_Type($MInfoId);
                     my $UnnamedTName = getNameByInfo(getTypeDeclId($UnnamedTid));
                     if(isAnon($UnnamedTName))
                     { # rename unnamed fields to unnamed0, unnamed1, ...
@@ -4974,10 +4997,10 @@ sub setTypeMemb($$)
             }
             if(not $StructMembName)
             { # unnamed fields and base classes
-                $TypeMembInfoId = getNextElem($TypeMembInfoId);
+                $MInfoId = getNextElem($MInfoId);
                 next;
             }
-            my $MembTypeId = getTreeAttr_Type($TypeMembInfoId);
+            my $MembTypeId = getTreeAttr_Type($MInfoId);
             if(defined $MissedTypedef{$Version}{$MembTypeId})
             {
                 if(my $AddedTid = $MissedTypedef{$Version}{$MembTypeId}{"Tid"}) {
@@ -4986,7 +5009,7 @@ sub setTypeMemb($$)
             }
             $TypeAttr->{"Memb"}{$Pos}{"type"} = $MembTypeId;
             $TypeAttr->{"Memb"}{$Pos}{"name"} = $StructMembName;
-            if((my $Access = getTreeAccess($TypeMembInfoId)) ne "public")
+            if((my $Access = getTreeAccess($MInfoId)) ne "public")
             { # marked only protected and private, public by default
                 $TypeAttr->{"Memb"}{$Pos}{"access"} = $Access;
             }
@@ -4994,10 +5017,10 @@ sub setTypeMemb($$)
             { # mutable fields
                 $TypeAttr->{"Memb"}{$Pos}{"mutable"} = 1;
             }
-            if(my $Algn = getAlgn($TypeMembInfoId)) {
+            if(my $Algn = getAlgn($MInfoId)) {
                 $TypeAttr->{"Memb"}{$Pos}{"algn"} = $Algn;
             }
-            if(my $BFSize = getBitField($TypeMembInfoId))
+            if(my $BFSize = getBitField($MInfoId))
             { # in bits
                 $TypeAttr->{"Memb"}{$Pos}{"bitfield"} = $BFSize;
             }
@@ -5006,7 +5029,7 @@ sub setTypeMemb($$)
                 $TypeAttr->{"Memb"}{$Pos}{"algn"} /= $BYTE_SIZE;
             }
             
-            $TypeMembInfoId = getNextElem($TypeMembInfoId);
+            $MInfoId = getNextElem($MInfoId);
             $Pos += 1;
         }
     }
@@ -5717,23 +5740,35 @@ sub parse_includes($$)
 {
     my ($Content, $Path) = @_;
     my %Includes = ();
-    while($Content=~s/#([ \t]*)(include|include_next|import)([ \t]*)(<|")([^<>"]+)(>|")//)
+    while($Content=~s/^[ \t]*#[ \t]*(include|include_next|import)[ \t]*(.+?)[ \t]*$//m)
     { # C/C++: include, Objective C/C++: import directive
-        my ($Header, $Method) = ($5, $4);
-        $Header = path_format($Header, $OSgroup);
-        if($Method eq "\"" or is_abs($Header))
-        {
-            if(-e joinPath(get_dirname($Path), $Header))
-            { # relative path exists
-                $Includes{$Header} = -1;
+        my $Header = $2;
+        my $Method = substr($Header, 0, 1);
+        if($Method eq "\"" or $Method eq "<")
+        { # default
+            substr($Header, 0, 1, "");
+            substr($Header, length($Header)-1, 1, "");
+            $Header = path_format($Header, $OSgroup);
+            if($Method eq "\"" or is_abs($Header))
+            {
+                if(-e joinPath(get_dirname($Path), $Header))
+                { # relative path exists
+                    $Includes{$Header} = -1;
+                }
+                else
+                { # include "..." that doesn't exist is equal to include <...>
+                    $Includes{$Header} = 2;
+                }
             }
-            else
-            { # include "..." that doesn't exist is equal to include <...>
-                $Includes{$Header} = 2;
+            else {
+                $Includes{$Header} = 1;
             }
         }
-        else {
-            $Includes{$Header} = 1;
+        else
+        {
+            if($ExtraInfo) {
+                $Includes{$Header} = 0;
+            }
         }
     }
     return \%Includes;
@@ -7603,7 +7638,8 @@ sub getDump()
         if($IncludeString) {
             writeFile($ExtraInfo."/include-string", $IncludeString);
         }
-        writeFile($ExtraInfo."/includes", Dumper($RecursiveIncludes{$Version}));
+        writeFile($ExtraInfo."/recursive-includes", Dumper($RecursiveIncludes{$Version}));
+        writeFile($ExtraInfo."/direct-includes", Dumper($Header_Includes{$Version}));
     }
     
     if(not keys(%{$TargetHeaders{$Version}}))
@@ -8063,7 +8099,7 @@ sub callPreprocessor($$$)
     return $Out;
 }
 
-sub cmd_find(@)
+sub cmd_find($;$$$$)
 { # native "find" is much faster than File::Find (~6x)
   # also the File::Find doesn't support --maxdepth N option
   # so using the cross-platform wrapper for the native one
@@ -8142,7 +8178,7 @@ sub cmd_find(@)
         { # regex
             @Files = grep { /\A$Name\Z/ } @Files;
         }
-        return split(/\n/, $Res);
+        return @Files;
     }
 }
 
@@ -12919,6 +12955,16 @@ sub getQualModel($$)
     return @Model;
 }
 
+my %StringTypes = map {$_=>1} (
+    "char*",
+    "char const*"
+);
+
+my %CharTypes = map {$_=>1} (
+    "char",
+    "char const"
+);
+
 sub showVal($$$)
 {
     my ($Value, $TypeId, $LibVersion) = @_;
@@ -12930,13 +12976,17 @@ sub showVal($$$)
             return $Unmangled;
         }
     }
-    elsif($TName=~/\A(char(| const)\*|std::(string(| const)|basic_string<char>(|const))(|&))\Z/)
+    elsif(defined $StringTypes{$TName} or $TName=~/string/i)
     { # strings
         return "\"$Value\"";
     }
-    elsif($TName=~/\Achar(| const)\Z/)
+    elsif(defined $CharTypes{$TName})
     { # characters
         return "\'$Value\'";
+    }
+    if($Value eq "")
+    { # other
+        return "\'\'";
     }
     return $Value;
 }
@@ -16238,16 +16288,20 @@ sub checkPreprocessedUnit($)
                 $CurHeader = path_format($1, $OSgroup);
                 $CurHeaderName = get_filename($CurHeader);
             }
-            if(not $Include_Neighbors{$Version}{$CurHeaderName}
-            and not $Registered_Headers{$Version}{$CurHeader})
-            { # not a target
-                next;
+            if(not $ExtraInfo)
+            {
+                if(not $Include_Neighbors{$Version}{$CurHeaderName}
+                and not $Registered_Headers{$Version}{$CurHeader})
+                { # not a target
+                    next;
+                }
+                if(not is_target_header($CurHeaderName, 1)
+                and not is_target_header($CurHeaderName, 2))
+                { # user-defined header
+                    next;
+                }
             }
-            if(not is_target_header($CurHeaderName, 1)
-            and not is_target_header($CurHeaderName, 2))
-            { # user-defined header
-                next;
-            }
+            
             if($Line=~/\A\#\s*define\s+(\w+)\s+(.+)\s*\Z/)
             {
                 my ($Name, $Value) = ($1, $2);
@@ -16270,7 +16324,13 @@ sub checkPreprocessedUnit($)
         or $Constant=~/_h\Z/i
         or isBuiltIn($Constants{$Version}{$Constant}{"Header"}))
         { # skip private constants
-            delete($Constants{$Version}{$Constant});
+            if($ExtraInfo)
+            { # save
+                delete($Constants{$Version}{$Constant}{"Access"});
+            }
+            else {
+                delete($Constants{$Version}{$Constant});
+            }
         }
         else {
             delete($Constants{$Version}{$Constant}{"Access"});
@@ -16482,11 +16542,8 @@ sub readSymbols($)
         }
     }
     
-    foreach my $LibPath (sort {length($a)<=>length($b)} @LibPaths)
-    {
+    foreach my $LibPath (@LibPaths) {
         readSymbols_Lib($LibVersion, $LibPath, 0, "+Weak", 1, 1);
-        
-        
     }
     
     if($CheckUndefined)
@@ -17210,10 +17267,8 @@ sub readSymbols_Lib($$$$$$)
     if($OStarget eq "macos")
     { # Mac OS X: *.dylib, *.a
         my $NM = get_CmdPath("nm");
-        if(not $NM)
-        {
-            print STDERR "ERROR: can't find \"nm\"\n";
-            exit(1);
+        if(not $NM) {
+            exitStatus("Not_Found", "can't find \"nm\"");
         }
         $NM .= " -g \"$Lib_Path\" 2>\"$TMP_DIR/null\"";
         if($DebugPath)
@@ -17276,10 +17331,8 @@ sub readSymbols_Lib($$$$$$)
             { # dependencies
                 
                 my $OtoolCmd = get_CmdPath("otool");
-                if(not $OtoolCmd)
-                {
-                    print STDERR "ERROR: can't find \"otool\"\n";
-                    exit(1);
+                if(not $OtoolCmd) {
+                    exitStatus("Not_Found", "can't find \"otool\"");
                 }
                 
                 open(LIB, "$OtoolCmd -L \"$Lib_Path\" 2>\"$TMP_DIR/null\" |");
@@ -17584,7 +17637,7 @@ sub detectSystemObjects()
 sub getSOPaths($)
 {
     my $LibVersion = $_[0];
-    my @SoPaths = ();
+    my @Paths = ();
     foreach my $Dest (split(/\s*\n\s*/, $Descriptor{$LibVersion}{"Libs"}))
     {
         if(not -e $Dest) {
@@ -17592,10 +17645,10 @@ sub getSOPaths($)
         }
         my @SoPaths_Dest = getSOPaths_Dest($Dest, $LibVersion);
         foreach (@SoPaths_Dest) {
-            push(@SoPaths, $_);
+            push(@Paths, $_);
         }
     }
-    return sort @SoPaths;
+    return sort @Paths;
 }
 
 sub skip_lib($$)
@@ -18585,17 +18638,14 @@ sub detect_default_paths($)
     # check environment variables
     if($OSgroup eq "beos")
     {
-        if(my @Paths = @{$SystemPaths{"bin"}})
+        foreach (my @Paths = @{$SystemPaths{"bin"}})
         {
-            foreach (@Paths)
-            {
-                if($_ eq ".") {
-                    next;
-                }
-                # search for /boot/develop/abi/x86/gcc4/tools/gcc-4.4.4-haiku-101111/bin/
-                if(my @Dirs = sort cmd_find($_, "d", "bin")) {
-                    push_U($SystemPaths{"bin"}, sort {get_depth($a)<=>get_depth($b)} @Dirs);
-                }
+            if($_ eq ".") {
+                next;
+            }
+            # search for /boot/develop/abi/x86/gcc4/tools/gcc-4.4.4-haiku-101111/bin/
+            if(my @Dirs = sort cmd_find($_, "d", "bin")) {
+                push_U($SystemPaths{"bin"}, sort {get_depth($a)<=>get_depth($b)} @Dirs);
             }
         }
         if($HSearch)
@@ -20381,8 +20431,7 @@ sub scenario()
             unlink($COMMON_LOG_PATH);
         }
     }
-    if($ExtraInfo)
-    {
+    if($ExtraInfo) {
         $CheckUndefined = 1;
     }
     if($TestTool and $UseDumps)
