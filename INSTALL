@@ -9,8 +9,8 @@ All rights reserved.
 RELEASE INFORMATION
 
 Project:           ABI Compliance Checker (ACC)
-Version:           1.98.6
-Date:              2012-12-04
+Version:           1.98.7
+Date:              2012-12-14
 
 
 This file explains how to install and setup environment
@@ -56,7 +56,7 @@ Content:
 
 3.1 Setup environment
 
-   1. Add path to g++.exe (C:\MinGW\bin\) to your system PATH variable
+   1. Add tool locations to the PATH environment variable
    2. Run vsvars32.bat script (C:\Microsoft Visual Studio 9.0\Common7\Tools\)
 
 

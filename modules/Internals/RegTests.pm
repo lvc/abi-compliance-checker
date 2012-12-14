@@ -4285,7 +4285,7 @@ sub testC()
     $SOURCE2 .= "
         int* testRegression(int *pointer, char const *name, ...) { return 0; }";
     
-    runTests("libsample_c", "C", $HEADER1, $SOURCE1, $HEADER2, $SOURCE2, "OpaqueType", "internalTypeUse");
+    runTests("libsample_c", "C", $HEADER1, $SOURCE1, $HEADER2, $SOURCE2, "struct OpaqueType", "internalTypeUse");
 }
 
 sub runTests($$$$$$$$)

@@ -1338,6 +1338,15 @@ sub get_binversion($)
     return "";
 }
 
+sub readBytes($)
+{
+    sysopen(FILE, $_[0], O_RDONLY);
+    sysread(FILE, my $Header, 4);
+    close(FILE);
+    my @Bytes = map { sprintf('%02x', ord($_)) } split (//, $Header);
+    return join("", @Bytes);
+}
+
 sub dumpSystem($)
 { # -dump-system option handler
   # should be used with -sysroot and -cross-gcc options
@@ -2567,7 +2576,7 @@ sub dumpSystem($)
         if(-s "$TMP_DIR/$LName.stderr")
         {
             appendFile("$SYS_DUMP_PATH/logs/$LName.txt", readFile("$TMP_DIR/$LName.stderr"));
-            if(get_CoreError($?>>8) eq "Invalid_Dump") {
+            if(get_CodeError($?>>8) eq "Invalid_Dump") {
                 printMsg("INFO", "Empty");
             }
             else {

@@ -69,14 +69,9 @@ div.h_list {
     font-size:15px;
     padding-left:5px;
 }
-span.ns_title {
-    color:#408080;
-    font-size:15px;
-}
 span.ns {
     color:#408080;
     font-size:15px;
-    font-weight:bold;
 }
 div.lib_list {
     font-size:15px;
@@ -182,9 +177,8 @@ table.summary td {
 table.code_view {
     cursor:text;
     margin-top:7px;
-    width:50%;
-    margin-left:20px;
-    font-family:Consolas, 'DejaVu Sans Mono', 'Droid Sans Mono', Monaco, Monospace;
+    margin-left:15px;
+    font-family:Monaco, Consolas, 'DejaVu Sans Mono', 'Droid Sans Mono', Monospace;
     font-size:14px;
     padding:10px;
     border:1px solid #e0e8e5;

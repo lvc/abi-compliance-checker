@@ -26,6 +26,7 @@
 use Getopt::Long;
 Getopt::Long::Configure ("posix_default", "no_ignore_case");
 use File::Path qw(mkpath rmtree);
+use File::Spec qw(catfile file_name_is_absolute);
 use File::Copy qw(copy);
 use File::Basename qw(dirname);
 use Cwd qw(abs_path);
@@ -96,12 +97,6 @@ sub scenario()
         print $HELP_MSG;
         exit(0);
     }
-    if($Config{"osname"}!~/linux|freebsd|openbsd|netbsd|macos|darwin|rhapsody/)
-    {
-        print STDERR "The tool is ready-to-use without the need to install.\n";
-        print STDERR "This Makefile is for GNU/Linux, FreeBSD and Mac OS X.\n";
-        exit(1);
-    }
     if(not $Install and not $Update and not $Remove)
     {
         print STDERR "ERROR: command is not selected (-install, -update or -remove)\n";
@@ -112,7 +107,9 @@ sub scenario()
     }
     if(not $PREFIX)
     { # default prefix
-        $PREFIX = "/usr/local";
+        if($Config{"osname"}!~/win/i) {
+            $PREFIX = "/usr/local";
+        }
     }
     if(my $Var = $ENV{"DESTDIR"})
     {
@@ -124,7 +121,7 @@ sub scenario()
         if($DESTDIR ne "/") {
             $DESTDIR=~s/[\/]+\Z//g;
         }
-        if($DESTDIR!~/\A\//)
+        if(not isAbs($DESTDIR))
         {
             print STDERR "ERROR: destdir is not absolute path\n";
             exit(1);
@@ -143,7 +140,7 @@ sub scenario()
     }
     else
     {
-        if($PREFIX!~/\A\//)
+        if(not isAbs($PREFIX))
         {
             print STDERR "ERROR: prefix is not absolute path\n";
             exit(1);
@@ -158,9 +155,10 @@ sub scenario()
     print "INSTALL PREFIX: $PREFIX\n";
     
     # paths
-    my $EXE_PATH = "$PREFIX/bin";
-    my $MODULES_PATH = "$PREFIX/share/$TOOL_SNAME";
-    my $REL_PATH = "../share/$TOOL_SNAME";
+    my $EXE_PATH = catFile($PREFIX, "bin");
+    my $MODULES_PATH = catFile($PREFIX, "share", $TOOL_SNAME);
+    my $REL_PATH = catFile("..", "share", $TOOL_SNAME);
+    my $TOOL_PATH = catFile($EXE_PATH, $TOOL_SNAME);
     
     if(not -w $PREFIX)
     {
@@ -169,9 +167,11 @@ sub scenario()
     }
     if($Remove or $Update)
     {
-        # remove executable
-        print "-- Removing $EXE_PATH/$TOOL_SNAME\n";
-        unlink($EXE_PATH."/".$TOOL_SNAME);
+        if(-e $EXE_PATH."/".$TOOL_SNAME)
+        { # remove executable
+            print "-- Removing $TOOL_PATH\n";
+            unlink($EXE_PATH."/".$TOOL_SNAME);
+        }
         
         if(-d $MODULES_PATH)
         { # remove modules
@@ -185,7 +185,7 @@ sub scenario()
         { # check installed
             if(not $Remove)
             {
-                print STDERR "ERROR: you should remove old version first (`sudo perl $0 -remove --prefix=$PREFIX`)\n";
+                print STDERR "ERROR: you should remove old version first (`perl $0 -remove --prefix=$PREFIX`)\n";
                 exit(1);
             }
         }
@@ -193,17 +193,21 @@ sub scenario()
         # configure
         my $Content = readFile($ARCHIVE_DIR."/".$TOOL_SNAME.".pl");
         if($DESTDIR) { # relative path
-            $Content=~s/ACC_MODULES_INSTALL_PATH/$REL_PATH/;
+            $Content=~s/MODULES_INSTALL_PATH/$REL_PATH/;
         }
         else { # absolute path
-            $Content=~s/ACC_MODULES_INSTALL_PATH/$MODULES_PATH/;
+            $Content=~s/MODULES_INSTALL_PATH/$MODULES_PATH/;
         }
         
         # copy executable
-        print "-- Installing $EXE_PATH/$TOOL_SNAME\n";
+        print "-- Installing $TOOL_PATH\n";
         mkpath($EXE_PATH);
         writeFile($EXE_PATH."/".$TOOL_SNAME, $Content);
         chmod(0775, $EXE_PATH."/".$TOOL_SNAME);
+        
+        if($Config{"osname"}=~/win/i) {
+            writeFile($EXE_PATH."/".$TOOL_SNAME.".cmd", "\@perl \"$TOOL_PATH\" \%*");
+        }
         
         # copy modules
         if(-d $ARCHIVE_DIR."/modules")
@@ -214,11 +218,19 @@ sub scenario()
         }
         
         # check PATH
-        if($ENV{"PATH"}!~/(\A|:)\Q$EXE_PATH\E(\Z|:)/) {
+        if($ENV{"PATH"}!~/(\A|[:;])\Q$EXE_PATH\E[\/\\]?(\Z|[:;])/) { 
             print "WARNING: your PATH variable doesn't include \'$EXE_PATH\'\n";
         }
     }
     exit(0);
+}
+
+sub catFile(@) {
+    return File::Spec->catfile(@_);
+}
+
+sub isAbs($) {
+    return File::Spec->file_name_is_absolute($_[0]);
 }
 
 sub copyDir($$)

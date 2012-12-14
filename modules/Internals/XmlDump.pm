@@ -23,6 +23,9 @@
 ###########################################################################
 use strict;
 
+my $TAG_ID = 0;
+my $INDENT = "    ";
+
 sub createXmlDump($)
 {
     my $ABI = $_[0];
@@ -785,6 +788,94 @@ sub readXmlDump($)
     $ABI{"ABI_COMPLIANCE_CHECKER_VERSION"} = $RInfo{"acc"};
     
     return \%ABI;
+}
+
+sub parseTag_E($$$)
+{
+    my ($CodeRef, $Tag, $Info) = @_;
+    if(not $Tag or not $CodeRef
+    or not $Info) {
+        return undef;
+    }
+    if(${$CodeRef}=~s/\<\Q$Tag\E(\s+([^<>]+)|)\>((.|\n)*?)\<\/\Q$Tag\E\>//)
+    {
+        my ($Ext, $Content) = ($2, $3);
+        $Content=~s/\A\s+//g;
+        $Content=~s/\s+\Z//g;
+        if($Ext)
+        {
+            while($Ext=~s/(\w+)\=\"([^\"]*)\"//)
+            {
+                my ($K, $V) = ($1, $2);
+                $Info->{$K} = xmlSpecChars_R($V);
+            }
+        }
+        if(substr($Content, 0, 1) ne "<") {
+            $Content = xmlSpecChars_R($Content);
+        }
+        return $Content;
+    }
+    return undef;
+}
+
+sub addTag(@)
+{
+    my $Tag = shift(@_);
+    my $Val = shift(@_);
+    my @Ext = @_;
+    my $Content = openTag($Tag, @Ext);
+    chomp($Content);
+    $Content .= xmlSpecChars($Val);
+    $Content .= "</$Tag>\n";
+    $TAG_ID-=1;
+    
+    return $Content;
+}
+
+sub openTag(@)
+{
+    my $Tag = shift(@_);
+    my @Ext = @_;
+    my $Content = "";
+    foreach (1 .. $TAG_ID) {
+        $Content .= $INDENT;
+    }
+    $TAG_ID+=1;
+    if(@Ext)
+    {
+        $Content .= "<".$Tag;
+        my $P = 0;
+        while($P<=$#Ext-1)
+        {
+            $Content .= " ".$Ext[$P];
+            $Content .= "=\"".xmlSpecChars($Ext[$P+1])."\"";
+            $P+=2;
+        }
+        $Content .= ">\n";
+    }
+    else {
+        $Content .= "<".$Tag.">\n";
+    }
+    return $Content;
+}
+
+sub closeTag($)
+{
+    my $Tag = $_[0];
+    my $Content = "";
+    $TAG_ID-=1;
+    foreach (1 .. $TAG_ID) {
+        $Content .= $INDENT;
+    }
+    $Content .= "</".$Tag.">\n";
+    return $Content;
+}
+
+sub checkTags()
+{
+    if($TAG_ID!=0) {
+        printMsg("WARNING", "the number of opened tags is not equal to number of closed tags");
+    }
 }
 
 return 1;

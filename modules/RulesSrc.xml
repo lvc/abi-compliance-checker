@@ -15,7 +15,7 @@
         Field @target has been renamed to @new_value.
     </change>
     <effect>
-        Recompilation of a client program may be broken with the error message: @type_type @type_name has no member named @target.
+        Recompilation of a client program may be broken with the error message: @type_name has no member named @target.
     </effect>
 </rule>
 
@@ -249,7 +249,7 @@
         Field @target has been removed from this type.
     </change>
     <effect>
-        Recompilation of a client program may be broken with the error message: '@type_type @type_name' has no member named '@target'.
+        Recompilation of a client program may be broken with the error message: '@type_name' has no member named '@target'.
     </effect>
 </rule>
 

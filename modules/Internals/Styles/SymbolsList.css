@@ -34,14 +34,9 @@ span.h_name {
     font-size:14px;
     font-weight:bold;
 }
-span.ns_title {
-    color:#408080;
-    font-size:15px;
-}
 span.ns {
     color:#408080;
     font-size:15px;
-    font-weight:bold;
 }
 span.lib_name {
     color:Green;
