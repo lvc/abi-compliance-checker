@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker_Options", "wgTitle": "ABI Compliance Checker Options", "wgCurRevisionId": 8158, "wgArticleId": 2442, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker_Options", "wgTitle": "ABI Compliance Checker Options", "wgCurRevisionId": 8247, "wgArticleId": 2442, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -210,7 +210,7 @@
 <div style="padding-left:40px;">Enable sorting of data in ABI dumps.</div><br />
 <ul><li><b>-report-path PATH</b>
 </li></ul>
-<div style="padding-left:40px;">Specify the file path where to generate the compatibility report. Default report path: compat_reports/&lt;library name&gt;/&lt;v1&gt;_to_&lt;v2&gt;/abi_compat_report.html</div><br />
+<div style="padding-left:40px;">Specify the file path where to generate the compatibility report. Default report path: compat_reports/LIB_NAME/V1_to_V2/abi_compat_report.html</div><br />
 <ul><li><b>-bin-report-path PATH</b>
 </li></ul>
 <div style="padding-left:40px;">Path to binary-compatibility report. Default: compat_reports/LIB_NAME/V1_to_V2/abi_compat_report.html</div><br />
@@ -237,7 +237,7 @@
 <div style="padding-left:40px;">The component name in the title and summary of the HTML report. Default: library</div><br />
 <ul><li><b>-l-full|-lib-full NAME</b>
 </li></ul>
-<div style="padding-left:40px;">Change library name in the report title to &lt;name&gt;. By default will be displayed a name specified by -l option.</div><br />
+<div style="padding-left:40px;">Change library name in the report title to NAME. By default will be displayed a name specified by -l option.</div><br />
 <ul><li><b>-b|-browse PROGRAM</b>
 </li></ul>
 <div style="padding-left:40px;">Open report(s) in the browser (firefox, opera, etc.).</div><br />
@@ -253,14 +253,20 @@
 <ul><li><b>-force</b>
 </li></ul>
 <div style="padding-left:40px;">Try to use this option if the tool doesn't work.</div><br />
+<ul><li><b>-tolerance LEVEL</b>
+</li></ul>
+<div style="padding-left:40px;">Apply a set of heuristics to successfully compile input header files. You can enable several tolerance levels by joining them into one string (e.g. 13, 124, etc.). Levels: 1 - skip non-Linux headers (e.g. win32_*.h, etc.), 2 - skip internal headers (e.g. *_p.h, impl/*.h, etc.), 3 - skip headers that iclude non-Linux headers, 4 - skip headers included by others.</div><br />
+<ul><li><b>-tolerant</b>
+</li></ul>
+<div style="padding-left:40px;">Enable highest tolerance level [1234].</div><br />
 
 <!-- 
 NewPP limit report
-Preprocessor node count: 81/1000000
+Preprocessor node count: 83/1000000
 Post-expand include size: 0/2097152 bytes
 Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2442-0!*!0!!en!*!* and timestamp 20121214090740 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2442-0!*!0!!en!*!* and timestamp 20130207091345 -->
 </div></div></div></div></div></body></html>

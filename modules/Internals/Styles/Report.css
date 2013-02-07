@@ -101,10 +101,6 @@ span.sym_p {
     font-weight:normal;
     white-space:normal;
 }
-span.sym_kind {
-    color:Black;
-    font-weight:normal;
-}
 div.affect {
     padding-left:15px;
     padding-bottom:4px;
@@ -200,6 +196,11 @@ span.mangled {
 span.sym_ver {
     color:#333333;
     white-space:nowrap;
+    font-family:"DejaVu Sans Mono", Monospace;
+}
+span.attr {
+    color:#333333;
+    font-weight:100;
 }
 span.color_p {
     font-style:italic;

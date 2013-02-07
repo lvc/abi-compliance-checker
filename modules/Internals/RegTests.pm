@@ -4,7 +4,7 @@
 # Copyright (C) 2009-2010 The Linux Foundation
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-# Copyright (C) 2011-2012 ROSA Laboratory
+# Copyright (C) 2011-2013 ROSA Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -715,9 +715,9 @@ sub testCpp()
             int i;
             double j;
         };
-        $DECL_SPEC int parameterTypeFormat(struct DType param);";
+        $DECL_SPEC int parameterTypeFormat_Safe(struct DType param);";
     $SOURCE1 .= "
-        int parameterTypeFormat(struct DType param) { return 0; }";
+        int parameterTypeFormat_Safe(struct DType param) { return 0; }";
     
     $HEADER2 .= "
         class DType
@@ -725,9 +725,40 @@ sub testCpp()
             int i;
             double j;
         };
-        $DECL_SPEC int parameterTypeFormat(class DType param);";
+        $DECL_SPEC int parameterTypeFormat_Safe(class DType param);";
     $SOURCE2 .= "
-        int parameterTypeFormat(class DType param) { return 0; }";
+        int parameterTypeFormat_Safe(class DType param) { return 0; }";
+    
+    # Field_Type_Format
+    $HEADER1 .= "
+        struct DType1
+        {
+            int i;
+            double j[7];
+        };
+        struct FieldTypeFormat
+        {
+            int i;
+            struct DType1 j;
+        };
+        $DECL_SPEC int fieldTypeFormat(struct FieldTypeFormat param);";
+    $SOURCE1 .= "
+        int fieldTypeFormat(struct FieldTypeFormat param) { return 0; }";
+    
+    $HEADER2 .= "
+        struct DType2
+        {
+            double i[7];
+            int j;
+        };
+        struct FieldTypeFormat
+        {
+            int i;
+            struct DType2 j;
+        };
+        $DECL_SPEC int fieldTypeFormat(struct FieldTypeFormat param);";
+    $SOURCE2 .= "
+        int fieldTypeFormat(struct FieldTypeFormat param) { return 0; }";
     
     # Removed_Virtual_Method (inline)
     $HEADER1 .= "
@@ -877,6 +908,16 @@ sub testCpp()
         $DECL_SPEC int addedFunc(FUNCPTR_TYPE*const** f);";
     $SOURCE2 .= "
         int addedFunc(FUNCPTR_TYPE*const** f) { return 0; }";
+    
+    # Added (3)
+    $HEADER2 .= "
+        struct DStruct
+        {
+            int i, j, k;
+        };
+        int addedFunc3(struct DStruct* p);";
+    $SOURCE2 .= "
+        int addedFunc3(struct DStruct* p) { return 0; }";
     
     # Added_Virtual_Method
     $HEADER1 .= "
@@ -2525,7 +2566,7 @@ sub testCpp()
     $SOURCE2 .= "
         int unnamedTypeSize(UnnamedTypeSize param) { return 0; }";
     
-    # constants
+    # Changed_Constant
     $HEADER1 .= "
         #define PUBLIC_CONSTANT \"old_value\"";
     $HEADER2 .= "
@@ -2616,6 +2657,18 @@ sub testCpp()
     $SOURCE2 .= "
         int parameterTypedefChange(TYPEDEF_TYPE param) { return 1; }";
 
+    # Parameter_Default_Value_Changed (safe)
+    # Converted from void* to const char*
+    $HEADER1 .= "
+        $DECL_SPEC int paramDefaultValue_Converted(const char* arg = 0); ";
+    $SOURCE1 .= "
+        int paramDefaultValue_Converted(const char* arg) { return 0; }";
+    
+    $HEADER2 .= "
+        $DECL_SPEC int paramDefaultValue_Converted(const char* arg = (const char*)((void*) 0)); ";
+    $SOURCE2 .= "
+        int paramDefaultValue_Converted(const char* arg) { return 0; }";
+    
     # Parameter_Default_Value_Changed
     # Integer
     $HEADER1 .= "
@@ -3066,7 +3119,7 @@ sub testC()
         struct DType1
         {
             int i;
-            double j;
+            double j[7];
         };
         $DECL_SPEC int parameterTypeFormat(struct DType1 param);";
     $SOURCE1 .= "
@@ -3075,12 +3128,33 @@ sub testC()
     $HEADER2 .= "
         struct DType2
         {
-            double i;
+            double i[7];
             int j;
         };
         $DECL_SPEC int parameterTypeFormat(struct DType2 param);";
     $SOURCE2 .= "
         int parameterTypeFormat(struct DType2 param) { return 0; }";
+    
+    # Field_Type_Format
+    $HEADER1 .= "
+        struct FieldTypeFormat
+        {
+            int i;
+            struct DType1 j;
+        };
+        $DECL_SPEC int fieldTypeFormat(struct FieldTypeFormat param);";
+    $SOURCE1 .= "
+        int fieldTypeFormat(struct FieldTypeFormat param) { return 0; }";
+    
+    $HEADER2 .= "
+        struct FieldTypeFormat
+        {
+            int i;
+            struct DType2 j;
+        };
+        $DECL_SPEC int fieldTypeFormat(struct FieldTypeFormat param);";
+    $SOURCE2 .= "
+        int fieldTypeFormat(struct FieldTypeFormat param) { return 0; }";
     
     # Parameter_Type_Format (struct to union)
     $HEADER1 .= "
@@ -4161,7 +4235,7 @@ sub testC()
     $SOURCE2 .= "
         int unnamedTypeSize(UnnamedTypeSize param) { return 0; }";
     
-    # Changed_Constant
+    # Changed_Constant (#define)
     $HEADER1 .= "
         #define PUBLIC_CONSTANT \"old_value\"";
     $HEADER2 .= "
@@ -4180,6 +4254,46 @@ sub testC()
     $HEADER2 .= "
         #define PRIVATE_CONSTANT \"new_value\"
         #undef PRIVATE_CONSTANT";
+    
+    # Changed_Constant (enum)
+    $HEADER1 .= "
+        enum {
+            SOME_CONSTANT=0x1
+        };";
+    $HEADER2 .= "
+        enum {
+            SOME_CONSTANT=0x2
+        };";
+    
+    # Added_Constant (#define)
+    $HEADER2 .= "
+        #define ADDED_CNST \"value\"";
+        
+    # Added_Constant (enum)
+    $HEADER1 .= "
+        enum {
+            CONSTANT1
+        };";
+    $HEADER2 .= "
+        enum {
+            CONSTANT1,
+            ADDED_CONSTANT
+        };";
+        
+    # Removed_Constant (#define)
+    $HEADER1 .= "
+        #define REMOVED_CNST \"value\"";
+    
+    # Removed_Constant (enum)
+    $HEADER1 .= "
+        enum {
+            CONSTANT2,
+            REMOVED_CONSTANT
+        };";
+    $HEADER2 .= "
+        enum {
+            CONSTANT2
+        };";
     
     # Added_Field (union)
     $HEADER1 .= "
@@ -4528,6 +4642,14 @@ sub runTests($$$$$$$$)
         printMsg("INFO", "running @Cmd");
     }
     system(@Cmd);
+    
+    my $ECode = $?>>8;
+    
+    if($ECode!~/\A[0-1]\Z/)
+    { # error
+        exitStatus("Error", "analysis has failed");
+    }
+    
     my $RPath = "compat_reports/$LibName/1.0_to_2.0/compat_report.$ReportFormat";
     my $NProblems = 0;
     if($ReportFormat eq "xml")

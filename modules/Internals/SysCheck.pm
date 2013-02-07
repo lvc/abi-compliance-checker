@@ -4,7 +4,7 @@
 # Copyright (C) 2009-2010 The Linux Foundation
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-# Copyright (C) 2011-2012 ROSA Laboratory
+# Copyright (C) 2011-2013 ROSA Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -24,6 +24,7 @@
 use strict;
 use File::Temp qw(tempdir);
 use Cwd qw(abs_path cwd);
+use Fcntl;
 
 my ($Debug, $Quiet, $LogMode, $CheckHeadersOnly, $SystemRoot, $MODULES_DIR, $GCC_PATH,
 $CrossPrefix, $TargetSysInfo, $TargetLibraryName, $CrossGcc, $UseStaticLibs, $NoStdInc,

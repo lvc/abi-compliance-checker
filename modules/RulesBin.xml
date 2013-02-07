@@ -1527,7 +1527,25 @@
         Base type has been changed from @old_value to @new_value.
     </change>
     <effect>
-        Possible incorrect initialization of parameters by applications.
+        Replacement of the base data type may indicate a change in its semantic meaning.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Typedef_BaseType_Format
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Base type has been changed from @old_value to @new_value of different format.
+    </change>
+    <effect>
+        The fields or parameters of such data type may be incorrectly initialized or accessed by old client applications.
     </effect>
 </rule>
 
@@ -1866,7 +1884,7 @@
         Parameter_BaseType_And_Size
     </id>
     <severity>
-        Low
+        Medium
     </severity>
     <kind>
         Parameters
@@ -1875,7 +1893,7 @@
         Base type of @param_pos parameter @target has been changed from @old_value (@old_size) to @new_value (@new_size).
     </change>
     <effect>
-        Memory stored by pointer may be incorrectly initialized by applications.
+        This parameter may be incorrectly initialized by applications.
     </effect>
 </rule>
 
@@ -2711,6 +2729,42 @@
     </change>
     <effect>
         Applications will pass an old value of this constant as the parameter to the new-version library functions, that expect a new one. This may result in crash of incorrect behavior of applications.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Added_Constant
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Constants
+    </kind>
+    <change>
+        The constant @target with value @new_value has been added.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Removed_Constant
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Constants
+    </kind>
+    <change>
+        The constant @target with value @old_value has been removed.
+    </change>
+    <effect>
+        The value of this constant may no longer be properly handled by new-version library functions.
     </effect>
 </rule>
 

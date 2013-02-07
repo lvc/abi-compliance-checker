@@ -204,7 +204,7 @@
         Added_Field
     </id>
     <severity>
-        Safe
+        Low
     </severity>
     <kind>
         Fields
@@ -213,7 +213,7 @@
         Field @target has been added to this type.
     </change>
     <effect>
-        No effect.
+        This field will not be initialized or used by old client applications.
     </effect>
 </rule>
 
@@ -391,6 +391,24 @@
     </kind>
     <change>
         Base type has been changed from @old_value to @new_value.
+    </change>
+    <effect>
+        Recompilation of a client program may be broken.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Typedef_BaseType_Format
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Base type has been changed from @old_value to @new_value of different format.
     </change>
     <effect>
         Recompilation of a client program may be broken.
@@ -973,6 +991,42 @@
     </kind>
     <change>
         The value of constant @target has been changed from @old_value to @new_value.
+    </change>
+    <effect>
+        Recompilation of a client program may be broken.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Added_Constant
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Constants
+    </kind>
+    <change>
+        The constant @target with value @new_value has been added.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Removed_Constant
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Constants
+    </kind>
+    <change>
+        The constant @target with value @old_value has been removed.
     </change>
     <effect>
         Recompilation of a client program may be broken.

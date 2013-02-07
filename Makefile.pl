@@ -6,7 +6,7 @@
 # Copyright (C) 2009-2010 The Linux Foundation
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-# Copyright (C) 2011-2012 ROSA Laboratory
+# Copyright (C) 2011-2013 ROSA Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -218,8 +218,19 @@ sub scenario()
         }
         
         # check PATH
-        if($ENV{"PATH"}!~/(\A|[:;])\Q$EXE_PATH\E[\/\\]?(\Z|[:;])/) { 
-            print "WARNING: your PATH variable doesn't include \'$EXE_PATH\'\n";
+        my $Warn = "WARNING: your PATH variable doesn't include \'$EXE_PATH\'\n";
+        
+        if($Config{"osname"}=~/win/i)
+        {
+            if($ENV{"PATH"}!~/(\A|[:;])\Q$EXE_PATH\E[\/\\]?(\Z|[:;])/i) { 
+                print $Warn;
+            }
+        }
+        else
+        {
+            if($ENV{"PATH"}!~/(\A|[:;])\Q$EXE_PATH\E[\/\\]?(\Z|[:;])/) { 
+                print $Warn;
+            }
         }
     }
     exit(0);

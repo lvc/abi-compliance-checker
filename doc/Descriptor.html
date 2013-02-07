@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "Library_Descriptor", "wgTitle": "Library Descriptor", "wgCurRevisionId": 7948, "wgArticleId": 2415, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["API Sanity Checker", "ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "Library_Descriptor", "wgTitle": "Library Descriptor", "wgCurRevisionId": 8241, "wgArticleId": 2415, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["API Sanity Checker", "ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -41,6 +41,14 @@
 		<!-- start content -->
 <div lang="en" dir="ltr" class="mw-content-ltr"><p><i>Library descriptor</i> is a simple XML-file that specifies version number, paths to header files and shared libraries and optionally some other information.
 </p>
+<table id="toc" class="toc"><tr><td><div id="toctitle"><h2>Contents</h2></div>
+<ul>
+<li class="toclevel-1 tocsection-1"><a href="#Primary_Sections"><span class="tocnumber">1</span> <span class="toctext">Primary Sections</span></a></li>
+<li class="toclevel-1 tocsection-2"><a href="#Optional_Sections"><span class="tocnumber">2</span> <span class="toctext">Optional Sections</span></a></li>
+<li class="toclevel-1 tocsection-3"><a href="#Extra_Sections_.28API_Sanity_Checker.29"><span class="tocnumber">3</span> <span class="toctext">Extra Sections (API Sanity Checker)</span></a></li>
+<li class="toclevel-1 tocsection-4"><a href="#Examples"><span class="tocnumber">4</span> <span class="toctext">Examples</span></a></li>
+</ul>
+</td></tr></table>
 <h2> <span class="mw-headline" id="Primary_Sections"> Primary Sections </span></h2>
 <pre> <span style="color:Green;">&lt;version&gt;</span>
      /* Version of the library */
@@ -152,6 +160,17 @@
             arm-none-symbianelf */
  <span style="color:Green;">&lt;/cross_prefix&gt;</span>
 </pre>
+<h2> <span class="mw-headline" id="Extra_Sections_.28API_Sanity_Checker.29"> Extra Sections (API Sanity Checker) </span></h2>
+<pre> <span style="color:Green;">&lt;test_include_preamble&gt;</span>
+     /* The list of header files that should be
+        included in each test case before other
+        headers, one per line */
+ <span style="color:Green;">&lt;/test_include_preamble&gt;</span>
+ 
+ <span style="color:Green;">&lt;test_defines&gt;</span>
+     /* Add defines to test cases */
+ <span style="color:Green;">&lt;/test_defines&gt;</span>
+</pre>
 <h2> <span class="mw-headline" id="Examples"> Examples </span></h2>
 <ul><li> <b>libssh</b>
 </li></ul>
@@ -221,6 +240,32 @@
  <span style="color:Green;">&lt;include_preamble&gt;</span>
      Xlib.h
  <span style="color:Green;">&lt;/include_preamble&gt;</span>
+</pre>
+<ul><li> <b>BlackBerry 10 Native SDK</b>
+</li></ul>
+<pre> <span style="color:Green;">&lt;version&gt;</span>
+     10
+ <span style="color:Green;">&lt;/version&gt;</span>
+ 
+ <span style="color:Green;">&lt;headers&gt;</span>
+     /home/RIM/bbndk/target_10_0_9_1673/qnx6/usr/include/bb/
+ <span style="color:Green;">&lt;/headers&gt;</span>
+ 
+ <span style="color:Green;">&lt;search_headers&gt;</span>
+     /home/RIM/bbndk/target_10_0_9_1673/qnx6/usr/include/
+ <span style="color:Green;">&lt;/search_headers&gt;</span>
+ 
+ <span style="color:Green;">&lt;libs&gt;</span>
+     /home/RIM/bbndk/target_10_0_9_1673/qnx6/x86/usr/lib/
+ <span style="color:Green;">&lt;/libs&gt;</span>
+ 
+ <span style="color:Green;">&lt;tools&gt;</span>
+     /home/RIM/bbndk/host_10_0_9_404/linux/x86/usr/bin/
+ <span style="color:Green;">&lt;/tools&gt;</span>
+ 
+ <span style="color:Green;">&lt;cross_prefix&gt;</span>
+     i486-pc-nto-qnx8.0.0
+ <span style="color:Green;">&lt;/cross_prefix&gt;</span>
 </pre>
 <ul><li> <b>libQtCore</b>
 </li></ul>
@@ -459,11 +504,11 @@
 </pre>
 <!-- 
 NewPP limit report
-Preprocessor node count: 175/1000000
+Preprocessor node count: 195/1000000
 Post-expand include size: 0/2097152 bytes
 Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2415-0!*!*!!*!*!* and timestamp 20121213184241 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2415-0!*!*!!en!*!* and timestamp 20130207090644 -->
 </div></div></div></div></div></body></html>
