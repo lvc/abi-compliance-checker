@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 ###########################################################################
 # ABI Compliance Checker (ACC) 1.98.8
 # A tool for checking backward compatibility of a C/C++ library API
