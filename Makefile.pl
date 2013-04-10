@@ -45,9 +45,9 @@ DESCRIPTION:
   Install $TOOL_SNAME command and private modules.
 
 USAGE:
-  sudo perl $0 -install -prefix=/usr
-  sudo perl $0 -update -prefix=/usr
-  sudo perl $0 -remove -prefix=/usr
+  sudo perl $0 -install -prefix /usr
+  sudo perl $0 -update -prefix /usr
+  sudo perl $0 -remove -prefix /usr
 
 OPTIONS:
   -h|-help
