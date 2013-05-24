@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker_Options", "wgTitle": "ABI Compliance Checker Options", "wgCurRevisionId": 8247, "wgArticleId": 2442, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker_Options", "wgTitle": "ABI Compliance Checker Options", "wgCurRevisionId": 8275, "wgArticleId": 2442, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -119,6 +119,18 @@
 <ul><li><b>-symbols-list PATH</b>
 </li></ul>
 <div style="padding-left:40px;">This option allow to specify a file with a list of interfaces (mangled names in C++) that should be checked, other library interfaces will not be checked.</div><br />
+<ul><li><b>-skip-symbols PATH</b>
+</li></ul>
+<div style="padding-left:40px;">The list of symbols that should NOT be checked.</div><br />
+<ul><li><b>-headers-list PATH</b>
+</li></ul>
+<div style="padding-left:40px;">The file with a list of headers, that should be checked/dumped.</div><br />
+<ul><li><b>-skip-headers PATH</b>
+</li></ul>
+<div style="padding-left:40px;">The file with the list of header files, that should not be checked.</div><br />
+<ul><li><b>-header NAME</b>
+</li></ul>
+<div style="padding-left:40px;">Check/Dump ABI of this header only.</div><br />
 <ul><li><b>-use-dumps</b>
 </li></ul>
 <div style="padding-left:40px;">Make dumps for two versions of a library and compare dumps. This should increase the performance of the tool and decrease the operative memory usage.</div><br />
@@ -140,12 +152,6 @@
 <ul><li><b>-libs-list PATH</b>
 </li></ul>
 <div style="padding-left:40px;">The file with a list of libraries, that should be dumped by the -dump-system option or should be checked by the -cmp-systems option.</div><br />
-<ul><li><b>-header NAME</b>
-</li></ul>
-<div style="padding-left:40px;">Check/Dump ABI of this header only.</div><br />
-<ul><li><b>-headers-list PATH</b>
-</li></ul>
-<div style="padding-left:40px;">The file with a list of headers, that should be checked/dumped.</div><br />
 <ul><li><b>-ext|-extended</b>
 </li></ul>
 <div style="padding-left:40px;">If your library A is supposed to be used by other library B and you want to control the ABI of B, then you should enable this option. The tool will check for changes in all data types, even if they are not used by any function in the library A. Such data types are not part of the A library ABI, but may be a part of the ABI of the B library.</div><br />
@@ -262,11 +268,11 @@
 
 <!-- 
 NewPP limit report
-Preprocessor node count: 83/1000000
+Preprocessor node count: 85/1000000
 Post-expand include size: 0/2097152 bytes
 Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2442-0!*!0!!en!*!* and timestamp 20130207091345 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2442-0!*!0!!en!*!* and timestamp 20130524122953 -->
 </div></div></div></div></div></body></html>

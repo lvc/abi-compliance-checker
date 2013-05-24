@@ -126,7 +126,7 @@
         V-table
     </kind>
     <change>
-        Pure_Virtual method @target has been removed from this class.
+        Pure virtual method @target has been removed from this class.
     </change>
     <effect>
         The layout of v-table has been changed. Call of this virtual method or any virtual method at higher position in this class or its subclasses may result in crash or incorrect behavior of applications.
@@ -292,7 +292,7 @@
         Size of this class has been increased from @old_size to @new_size.
     </change>
     <effect>
-        1) An object of this class can be allocated by the applications and old size will be hardcoded at the compile time. Call of any exported constructor will break the memory of neighbouring objects on the stack or heap.
+        1) An object of this class can be allocated by the applications and old size will be hardcoded at the compile time. Call of any exported constructor will break the memory of neighboring objects on the stack or heap.
         2) The memory layout and size of subclasses will be changed.
     </effect>
 </rule>
@@ -1149,6 +1149,24 @@
 
 <rule>
     <id>
+        Enum_Private_Member_Value
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Constants
+    </kind>
+    <change>
+        Value of private member @target has been changed from @old_value to @new_value.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
         Enum_Member_Name
     </id>
     <severity>
@@ -1593,7 +1611,7 @@
 
 <rule>
     <id>
-        Method_Became_NonStatic
+        Method_Became_Non_Static
     </id>
     <severity>
         High
@@ -1791,6 +1809,24 @@
 
 <rule>
     <id>
+        Parameter_Removed_Const
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Parameters
+    </kind>
+    <change>
+        Type of @param_pos parameter @target has been changed from @old_value to @new_value (removed const qualifier).
+    </change>
+    <effect>
+        This function may change parameter @target, but it will be treated as const by old client applications. This may result in crash or incorrect behavior of applications.
+    </effect>
+</rule>
+
+<rule>
+    <id>
         Parameter_Became_Restrict
     </id>
     <severity>
@@ -1809,7 +1845,7 @@
 
 <rule>
     <id>
-        Parameter_Became_NonRestrict
+        Parameter_Became_Non_Restrict
     </id>
     <severity>
         Safe
@@ -1863,6 +1899,78 @@
 
 <rule>
     <id>
+        Parameter_To_Register
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Parameters
+    </kind>
+    <change>
+        The parameter @target became passed in @new_value register instead of stack.
+    </change>
+    <effect>
+        Violation of the calling convention. This may result in crash or incorrect behavior of applications.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Parameter_From_Register
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Parameters
+    </kind>
+    <change>
+        The parameter @target became passed on stack instead of @old_value register.
+    </change>
+    <effect>
+        Violation of the calling convention. This may result in crash or incorrect behavior of applications.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Parameter_Changed_Register
+    </id>
+    <severity>
+        High
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        The parameter @target became passed in @new_value register instead of @old_value.
+    </change>
+    <effect>
+         Applications will read the wrong memory block instead of the parameter value.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Parameter_Changed_Offset
+    </id>
+    <severity>
+        High
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        The parameter @target became passed at the different offset on the stack (@new_value instead of @old_value).
+    </change>
+    <effect>
+         Violation of the calling convention. This may result in crash or incorrect behavior of applications.
+    </effect>
+</rule>
+
+<rule>
+    <id>
         Return_Type_Became_Const
     </id>
     <severity>
@@ -1873,6 +1981,24 @@
     </kind>
     <change>
         Type of return value became const (has been changed from @old_value to @new_value).
+    </change>
+    <effect>
+        The return value will be treated as non-const by old client applications. This may result in crash or incorrect behavior of applications.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Return_Type_Added_Const
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Added **const** qualifier to return value (has been changed from @old_value to @new_value).
     </change>
     <effect>
         The return value will be treated as non-const by old client applications. This may result in crash or incorrect behavior of applications.
@@ -2266,6 +2392,24 @@
 
 <rule>
     <id>
+        Global_Data_Removed_Const
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Removed **const** qualifier from the type of this global data.
+    </change>
+    <effect>
+        This data will be treated as const by old client applications. Any attempts to change this global data by library functions may result in undefined behavior.
+    </effect>
+</rule>
+
+<rule>
+    <id>
         Global_Data_Became_Const
     </id>
     <severity>
@@ -2276,6 +2420,24 @@
     </kind>
     <change>
         This global data became const.
+    </change>
+    <effect>
+        Any attempts of old applications to change this global data may result in crash.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Global_Data_Added_Const
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Added **const** qualifier to the type of this global data.
     </change>
     <effect>
         Any attempts of old applications to change this global data may result in crash.
@@ -2536,7 +2698,7 @@
 
 <rule>
     <id>
-        Symbol_Became_NonStatic
+        Symbol_Became_Non_Static
     </id>
     <severity>
         High
@@ -2572,7 +2734,7 @@
 
 <rule>
     <id>
-        Symbol_Became_NonVirtual
+        Symbol_Became_Non_Virtual
     </id>
     <severity>
         High
@@ -2644,7 +2806,7 @@
 
 <rule>
     <id>
-        Method_Became_NonConst
+        Method_Became_Non_Const
     </id>
     <severity>
         High
@@ -2698,7 +2860,7 @@
 
 <rule>
     <id>
-        Method_Became_NonVolatile
+        Method_Became_Non_Volatile
     </id>
     <severity>
         High
@@ -2788,7 +2950,7 @@
 
 <rule>
     <id>
-        Field_Became_NonVolatile
+        Field_Became_Non_Volatile
     </id>
     <severity>
         Safe
@@ -2801,6 +2963,42 @@
     </change>
     <effect>
         No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Return_Value_Became_Volatile
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Return value became volatile.
+    </change>
+    <effect>
+        Old client applications will get volatile object instead of non-volatile, but may be optimized by the compiler and cannot handle volatile objects.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Parameter_Became_Non_Volatile
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Parameter @target became non-volatile.
+    </change>
+    <effect>
+        Old client applications will pass volatile object to the function that may be optimized by the compiler and cannot handle volatile objects.
     </effect>
 </rule>
 
@@ -2932,7 +3130,7 @@
 
 <rule>
     <id>
-        Parameter_Became_NonVaList
+        Parameter_Became_Non_VaList
     </id>
     <severity>
         Low
@@ -3022,10 +3220,10 @@
 
 <rule>
     <id>
-        Field_Became_NonMutable
+        Field_Became_Non_Mutable
     </id>
     <severity>
-        Safe
+        Low
     </severity>
     <kind>
         Fields
@@ -3034,7 +3232,7 @@
         Field @target became **non-mutable**.
     </change>
     <effect>
-        No effect.
+        The value of this field can still be changed by const methods of old client applications, but it's not expected by new-version library.
     </effect>
 </rule>
 
@@ -3052,7 +3250,7 @@
         This method became **private**.
     </change>
     <effect>
-        Old applications will continue using this method, but it may require a different initialization of the environment and parameters. 
+        Old applications will continue using this method, but it may require a different initialization of the environment and parameters.
     </effect>
 </rule>
 
@@ -3070,7 +3268,7 @@
         This method became **protected**.
     </change>
     <effect>
-        Old applications will continue using this method, but it may require a different initialization of the environment and parameters. 
+        Old applications will continue using this method, but it may require a different initialization of the environment and parameters.
     </effect>
 </rule>
 
@@ -3166,7 +3364,7 @@
 
 <rule>
     <id>
-        Field_Became_NonConst
+        Field_Became_Non_Const
     </id>
     <severity>
         Safe
@@ -3220,6 +3418,42 @@
 
 <rule>
     <id>
+        Field_Became_Private
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Field @target became **private**.
+    </change>
+    <effect>
+        Old applications will continue using this field, but it may require a different initialization of class object.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Field_Became_Protected
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Field @target became **protected**.
+    </change>
+    <effect>
+        Old applications will continue using this field, but it may require a different initialization of class object.
+    </effect>
+</rule>
+
+<rule>
+    <id>
         Virtual_Method_Became_Pure
     </id>
     <severity>
@@ -3251,6 +3485,24 @@
     </change>
     <effect>
         No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Type_Became_Opaque
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        This type became **opaque**.
+    </change>
+    <effect>
+        The internal structure of this type is hidden in the new library version and may be different. This may result in crash or incorrect behavior of applications.
     </effect>
 </rule>
 

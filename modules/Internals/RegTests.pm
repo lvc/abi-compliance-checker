@@ -71,6 +71,26 @@ sub testCpp()
     $SOURCE1 .= "namespace TestNS {\n";
     $SOURCE2 .= "namespace TestNS {\n";
     
+    # Removed inline method
+    $HEADER1 .= "
+        class $DECL_SPEC RemovedInlineMethod {
+        public:
+            int someMethod();
+            inline int removedMethod() { return 0; };
+            int field;
+        };";
+    $SOURCE1 .= "
+        int RemovedInlineMethod::someMethod() { return removedMethod(); }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC RemovedInlineMethod {
+        public:
+            int someMethod();
+            int field;
+        };";
+    $SOURCE2 .= "
+        int RemovedInlineMethod::someMethod() { return 0; }";
+    
     # Pure_Virtual_Replacement
     $HEADER1 .= "
         class $DECL_SPEC PureVirtualReplacement {
@@ -144,6 +164,24 @@ sub testCpp()
     $HEADER1 .= "
         inline int removedInlineFunction(int param) { return 0; }";
     
+    # Became Non-Opaque
+    $HEADER1 .= "
+        struct OpaqueStruct;
+        int paramBecameNonOpaque(OpaqueStruct* p);";
+    $SOURCE1 .= "
+        int paramBecameNonOpaque(OpaqueStruct* p) { return 0; }";
+    
+    $HEADER2 .= "
+        struct OpaqueStruct
+        {
+            int i;
+            short j;
+            OpaqueStruct();
+        };
+        int paramBecameNonOpaque(OpaqueStruct* p);";
+    $SOURCE2 .= "
+        int paramBecameNonOpaque(OpaqueStruct* p) { return 0; }";
+    
     # Field_Became_Const
     # Typedef
     $HEADER1 .= "
@@ -205,6 +243,46 @@ sub testCpp()
         };";
     $SOURCE2 .= "
         int FieldBecameConst::method() { return 0; }";
+    
+    # Field_Became_Private
+    $HEADER1 .= "
+        class $DECL_SPEC FieldBecamePrivate {
+        public:
+            int* f;
+            int method();
+        };";
+    $SOURCE1 .= "
+        int FieldBecamePrivate::method() { return 0; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC FieldBecamePrivate {
+        private:
+            int* f;
+        public:
+            int method();
+        };";
+    $SOURCE2 .= "
+        int FieldBecamePrivate::method() { return 0; }";
+    
+    # Field_Became_Protected
+    $HEADER1 .= "
+        class $DECL_SPEC FieldBecameProtected {
+        public:
+            int* f;
+            int method();
+        };";
+    $SOURCE1 .= "
+        int FieldBecameProtected::method() { return 0; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC FieldBecameProtected {
+        protected:
+            int* f;
+        public:
+            int method();
+        };";
+    $SOURCE2 .= "
+        int FieldBecameProtected::method() { return 0; }";
     
     # Global_Data_Became_Private
     $HEADER1 .= "
@@ -408,7 +486,7 @@ sub testCpp()
     $SOURCE2 .= "
         int ParameterBecameRestrict::method(int* __restrict param) { return 0; }";
 
-    # Parameter_Became_NonRestrict
+    # Parameter_Became_Non_Restrict
     $HEADER1 .= "
         class $DECL_SPEC ParameterBecameNonRestrict {
         public:
@@ -444,7 +522,7 @@ sub testCpp()
     $SOURCE2 .= "
         int FieldBecameVolatile::method(int param) { return param; }";
 
-    # Field_Became_NonVolatile
+    # Field_Became_Non_Volatile
     $HEADER1 .= "
         class $DECL_SPEC FieldBecameNonVolatile {
         public:
@@ -482,7 +560,7 @@ sub testCpp()
     $SOURCE2 .= "
         int FieldBecameMutable::method(int param) { return param; }";
 
-    # Field_Became_NonMutable
+    # Field_Became_Non_Mutable
     $HEADER1 .= "
         class $DECL_SPEC FieldBecameNonMutable {
         public:
@@ -536,7 +614,7 @@ sub testCpp()
     $SOURCE2 .= "
         int MethodBecameConst::method(int param) const { return param; }";
 
-    # Method_Became_NonConst
+    # Method_Became_Non_Const
     $HEADER1 .= "
         class $DECL_SPEC MethodBecameNonConst {
         public:
@@ -729,6 +807,38 @@ sub testCpp()
     $SOURCE2 .= "
         int parameterTypeFormat_Safe(class DType param) { return 0; }";
     
+    # Type_Became_Opaque (Struct)
+    $HEADER1 .= "
+        struct StructBecameOpaque
+        {
+            int i, j;
+        };
+        $DECL_SPEC int structBecameOpaque(struct StructBecameOpaque* param);";
+    $SOURCE1 .= "
+        int structBecameOpaque(struct StructBecameOpaque* param) { return 0; }";
+    
+    $HEADER2 .= "
+        struct StructBecameOpaque;
+        $DECL_SPEC int structBecameOpaque(struct StructBecameOpaque* param);";
+    $SOURCE2 .= "
+        int structBecameOpaque(struct StructBecameOpaque* param) { return 0; }";
+    
+    # Type_Became_Opaque (Union)
+    $HEADER1 .= "
+        union UnionBecameOpaque
+        {
+            int i, j;
+        };
+        $DECL_SPEC int unionBecameOpaque(union UnionBecameOpaque* param);";
+    $SOURCE1 .= "
+        int unionBecameOpaque(union UnionBecameOpaque* param) { return 0; }";
+    
+    $HEADER2 .= "
+        union UnionBecameOpaque;
+        $DECL_SPEC int unionBecameOpaque(union UnionBecameOpaque* param);";
+    $SOURCE2 .= "
+        int unionBecameOpaque(union UnionBecameOpaque* param) { return 0; }";
+    
     # Field_Type_Format
     $HEADER1 .= "
         struct DType1
@@ -759,6 +869,29 @@ sub testCpp()
         $DECL_SPEC int fieldTypeFormat(struct FieldTypeFormat param);";
     $SOURCE2 .= "
         int fieldTypeFormat(struct FieldTypeFormat param) { return 0; }";
+    
+    # Field_Type_Format (func ptr)
+    $HEADER1 .= "
+        typedef void (*FuncPtr_Old) (int a);
+        struct FieldTypeFormat_FuncPtr
+        {
+            int i;
+            FuncPtr_Old j;
+        };
+        $DECL_SPEC int fieldTypeFormat_FuncPtr(struct FieldTypeFormat_FuncPtr param);";
+    $SOURCE1 .= "
+        int fieldTypeFormat_FuncPtr(struct FieldTypeFormat_FuncPtr param) { return 0; }";
+    
+    $HEADER2 .= "
+        typedef void (*FuncPtr_New) (int a, int b);
+        struct FieldTypeFormat_FuncPtr
+        {
+            int i;
+            FuncPtr_New j;
+        };
+        $DECL_SPEC int fieldTypeFormat_FuncPtr(struct FieldTypeFormat_FuncPtr param);";
+    $SOURCE2 .= "
+        int fieldTypeFormat_FuncPtr(struct FieldTypeFormat_FuncPtr param) { return 0; }";
     
     # Removed_Virtual_Method (inline)
     $HEADER1 .= "
@@ -1056,6 +1189,7 @@ sub testCpp()
     $HEADER1 .= "
         class $DECL_SPEC RemovedVirtualFunction {
         public:
+            int a, b, c;
             virtual int removedMethod(int param);
             virtual int vMethod(int param);
     };";
@@ -1066,6 +1200,7 @@ sub testCpp()
     $HEADER2 .= "
         class $DECL_SPEC RemovedVirtualFunction {
         public:
+            int a, b, c;
             int removedMethod(int param);
             virtual int vMethod(int param);
     };";
@@ -2306,7 +2441,7 @@ sub testCpp()
     $SOURCE2 .= "
         MethodBecameStatic MethodBecameStatic::becameStatic(MethodBecameStatic param) { return param; }";
     
-    # Method_Became_NonStatic
+    # Method_Became_Non_Static
     $HEADER1 .= "
         struct $DECL_SPEC MethodBecameNonStatic
         {
@@ -2809,6 +2944,21 @@ sub testC()
     my $DECL_SPEC = ($OSgroup eq "windows")?"__declspec( dllexport )":"";
     my $EXTERN = ($OSgroup eq "windows")?"extern ":""; # add "extern" for CL compiler
     
+    # Typedef to function
+    $HEADER1 .= "
+        typedef int(TypedefToFunction)(int pX);
+        
+        $DECL_SPEC int typedefToFunction(TypedefToFunction* p);";
+    $SOURCE1 .= "
+        int typedefToFunction(TypedefToFunction* p) { return 0; }";
+    
+    $HEADER2 .= "
+        typedef int(TypedefToFunction)(int pX, int pY);
+        
+        $DECL_SPEC int typedefToFunction(TypedefToFunction* p);";
+    $SOURCE2 .= "
+        int typedefToFunction(TypedefToFunction* p) { return 0; }";
+    
     # Used_Reserved
     $HEADER1 .= "
         typedef struct {
@@ -2999,6 +3149,17 @@ sub testC()
     $SOURCE2 .= "
         char const*const returnTypeBecameConst3(int param) { return (char const*const)malloc(256); }";
     
+    # Return_Type_Became_Volatile
+    $HEADER1 .= "
+        $DECL_SPEC char* returnTypeBecameVolatile(int param);";
+    $SOURCE1 .= "
+        char* returnTypeBecameVolatile(int param) { return (char*)malloc(256); }";
+    
+    $HEADER2 .= "
+        $DECL_SPEC volatile char* returnTypeBecameVolatile(int param);";
+    $SOURCE2 .= "
+        volatile char* returnTypeBecameVolatile(int param) { return \"abc\"; }";
+    
     # Added_Enum_Member
     $HEADER1 .= "
         enum AddedEnumMember {
@@ -3068,7 +3229,7 @@ sub testC()
     $SOURCE2 .= "
         int arrayFieldSize(struct ArrayFieldSize param) { return 0; }";
     
-    # Parameter_Became_NonVaList
+    # Parameter_Became_Non_VaList
     $HEADER1 .= "
         $DECL_SPEC int parameterNonVaList(int param, ...);";
     $SOURCE1 .= "
@@ -3729,6 +3890,17 @@ sub testC()
         $DECL_SPEC int parameterTypeAndSize(long long param, int other_param);";
     $SOURCE2 .= "
         int parameterTypeAndSize(long long param, int other_param) { return other_param; }";
+    
+    # Parameter_Type_And_Size + Parameter_Became_Non_Const
+    $HEADER1 .= "
+        $DECL_SPEC int parameterTypeAndSizeBecameNonConst(int* const param, int other_param);";
+    $SOURCE1 .= "
+        int parameterTypeAndSizeBecameNonConst(int* const param, int other_param) { return other_param; }";
+    
+    $HEADER2 .= "
+        $DECL_SPEC int parameterTypeAndSizeBecameNonConst(long double param, int other_param);";
+    $SOURCE2 .= "
+        int parameterTypeAndSizeBecameNonConst(long double param, int other_param) { return other_param; }";
 
     # Parameter_Type_And_Size (test calling conventions)
     $HEADER1 .= "
@@ -3762,6 +3934,20 @@ sub testC()
         $DECL_SPEC int parameterBecameNonConst(int* param);";
     $SOURCE2 .= "
         int parameterBecameNonConst(int* param) {
+            *param=10;
+            return *param;
+        }";
+    
+    # Parameter_Became_Non_Const + Parameter_Became_Non_Volatile
+    $HEADER1 .= "
+        $DECL_SPEC int parameterBecameNonConstNonVolatile(int const volatile* param);";
+    $SOURCE1 .= "
+        int parameterBecameNonConstNonVolatile(int const volatile* param) { return *param; }";
+    
+    $HEADER2 .= "
+        $DECL_SPEC int parameterBecameNonConstNonVolatile(int* param);";
+    $SOURCE2 .= "
+        int parameterBecameNonConstNonVolatile(int* param) {
             *param=10;
             return *param;
         }";
@@ -4386,7 +4572,7 @@ sub testC()
             };
         #endif";
     $SOURCE2 .= "
-        $DECL_SPEC int testCppKeywords(int class, int virtual) { return 0; }";
+        $DECL_SPEC int testCppKeywords1(int class, int virtual) { return 0; }";
     
     # Regression
     $HEADER1 .= "
@@ -4525,12 +4711,12 @@ sub runTests($$$$$$$$)
                     changedDefaultVersion;
                 };
             ");
-            $BuildCmd = $GCC_PATH." -Wl,--version-script version -shared libsample.$Ext -o libsample.$LIB_EXT";
+            $BuildCmd = $GCC_PATH." -Wl,--version-script version -shared libsample.$Ext -o libsample.$LIB_EXT -g";
             $BuildCmd_Test = $GCC_PATH." -Wl,--version-script version test.$Ext -Wl,libsample.$LIB_EXT -o test";
         }
         else
         {
-            $BuildCmd = $GCC_PATH." -shared -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT";
+            $BuildCmd = $GCC_PATH." -shared -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT -g";
             $BuildCmd_Test = $GCC_PATH." -x c++ test.$Ext -lstdc++ -Wl,libsample.$LIB_EXT -o test";
         }
         if(getArch(1)=~/\A(arm|x86_64)\Z/i)
@@ -4557,12 +4743,12 @@ sub runTests($$$$$$$$)
       # symbian target
         if($Lang eq "C")
         {
-            $BuildCmd = $GCC_PATH." -shared libsample.$Ext -o libsample.$LIB_EXT";
+            $BuildCmd = $GCC_PATH." -shared libsample.$Ext -o libsample.$LIB_EXT -g";
             $BuildCmd_Test = $GCC_PATH." test.$Ext -Wl,libsample.$LIB_EXT -o test";
         }
         else
         { # C++
-            $BuildCmd = $GCC_PATH." -shared -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT";
+            $BuildCmd = $GCC_PATH." -shared -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT -g";
             $BuildCmd_Test = $GCC_PATH." -x c++ test.$Ext -Wl,libsample.$LIB_EXT -o test";
         }
     }

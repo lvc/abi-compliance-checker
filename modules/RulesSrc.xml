@@ -309,6 +309,24 @@
 
 <rule>
     <id>
+        Enum_Private_Member_Value
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Constants
+    </kind>
+    <change>
+        Value of private member @target has been changed from @old_value to @new_value.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
         Enum_Member_Removed
     </id>
     <severity>
@@ -459,7 +477,7 @@
 
 <rule>
     <id>
-        Method_Became_NonStatic
+        Method_Became_Non_Static
     </id>
     <severity>
         High
@@ -621,6 +639,24 @@
 
 <rule>
     <id>
+        Parameter_Removed_Const
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Parameters
+    </kind>
+    <change>
+        Type of @param_pos parameter @target has been changed from @old_value to @new_value (removed const qualifier).
+    </change>
+    <effect>
+        Recompilation of a client program may be broken.
+    </effect>
+</rule>
+
+<rule>
+    <id>
         Return_Type_Became_Const
     </id>
     <severity>
@@ -631,6 +667,24 @@
     </kind>
     <change>
         Type of return value became const (has been changed from @old_value to @new_value).
+    </change>
+    <effect>
+        Recompilation of a client program may be broken.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Return_Type_Added_Const
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Added **const** qualifier to return value (has been changed from @old_value to @new_value).
     </change>
     <effect>
         Recompilation of a client program may be broken.
@@ -765,6 +819,24 @@
 
 <rule>
     <id>
+        Global_Data_Removed_Const
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Removed **const** qualifier from the type of this global data.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
         Global_Data_Became_Const
     </id>
     <severity>
@@ -775,6 +847,24 @@
     </kind>
     <change>
         This global data became const.
+    </change>
+    <effect>
+        Recompilation of a client program may be broken.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Global_Data_Added_Const
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Added **const** qualifier to the type of this global data.
     </change>
     <effect>
         Recompilation of a client program may be broken.
@@ -1107,7 +1197,7 @@
 
 <rule>
     <id>
-        Parameter_Became_NonVaList
+        Parameter_Became_Non_VaList
     </id>
     <severity>
         Medium
@@ -1179,7 +1269,7 @@
 
 <rule>
     <id>
-        Method_Became_NonConst
+        Method_Became_Non_Const
     </id>
     <severity>
         Medium
@@ -1233,7 +1323,7 @@
 
 <rule>
     <id>
-        Method_Became_NonVolatile
+        Method_Became_Non_Volatile
     </id>
     <severity>
         Safe
@@ -1269,7 +1359,7 @@
 
 <rule>
     <id>
-        Parameter_Became_NonRestrict
+        Parameter_Became_Non_Restrict
     </id>
     <severity>
         Safe
@@ -1305,7 +1395,7 @@
 
 <rule>
     <id>
-        Field_Became_NonVolatile
+        Field_Became_Non_Volatile
     </id>
     <severity>
         Safe
@@ -1315,6 +1405,42 @@
     </kind>
     <change>
         Field @target became non-volatile.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Return_Value_Became_Volatile
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Return value became volatile.
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Parameter_Became_Non_Volatile
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Symbols
+    </kind>
+    <change>
+        Parameter @target became non-volatile.
     </change>
     <effect>
         No effect.
@@ -1359,7 +1485,7 @@
 
 <rule>
     <id>
-        Field_Became_NonMutable
+        Field_Became_Non_Mutable
     </id>
     <severity>
         Medium
@@ -1521,7 +1647,7 @@
 
 <rule>
     <id>
-        Field_Became_NonConst
+        Field_Became_Non_Const
     </id>
     <severity>
         Safe
@@ -1575,6 +1701,42 @@
 
 <rule>
     <id>
+        Field_Became_Private
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Field @target became **private**.
+    </change>
+    <effect>
+        Recompilation of a client program may be broken with the error message: '@type_name::@target' is private.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Field_Became_Protected
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        Field @target became **protected**.
+    </change>
+    <effect>
+        Recompilation of a client program may be broken with the error message: '@type_name::@target' is protected.
+    </effect>
+</rule>
+
+<rule>
+    <id>
         Virtual_Method_Became_Pure
     </id>
     <severity>
@@ -1606,6 +1768,24 @@
     </change>
     <effect>
         No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Type_Became_Opaque
+    </id>
+    <severity>
+        Medium
+    </severity>
+    <kind>
+        Types
+    </kind>
+    <change>
+        This type became **opaque**.
+    </change>
+    <effect>
+        The internal structure of this type is hidden in the new library version and recompilation of a client program may be broken.
     </effect>
 </rule>
 

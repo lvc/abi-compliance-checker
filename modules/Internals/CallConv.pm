@@ -48,7 +48,7 @@ sub classifyType($$$$$)
         $Classes{0}{"Class"} = "VOID";
         return %Classes;
     }
-    if($System=~/\A(linux|macos|freebsd)\Z/)
+    if($System=~/\A(unix|linux|macos|freebsd)\Z/)
     { # GCC
         if($Arch eq "x86")
         {
@@ -175,7 +175,11 @@ sub classifyAggregate($$$$$)
         }
         foreach my $Pos (0 .. $Max)
         {
-            $Type{"Memb"}{$Pos}{"algn"} = getTypeAlgn($BaseType{"Tid"}, $TInfo);
+            # if($TInfo->{1}{"Name"} eq "void")
+            # { # DWARF ABI Dump
+            #     $Type{"Memb"}{$Pos}{"offset"} = $Type{"Size"}/($Max+1);
+            # }
+            $Type{"Memb"}{$Pos}{"algn"} = getAlignment_Model($BaseType{"Tid"}, $TInfo, $Arch);
             $Type{"Memb"}{$Pos}{"type"} = $BaseType{"Tid"};
             $Type{"Memb"}{$Pos}{"name"} = "[$Pos]";
         }
@@ -192,7 +196,7 @@ sub classifyAggregate($$$$$)
     { # Struct, Class
         foreach my $Pos (keys(%{$Type{"Memb"}}))
         {
-            my $Offset = getOffset($Pos, \%Type, $TInfo, $Word)/$BYTE;
+            my $Offset = getOffset($Pos, \%Type, $TInfo, $Arch, $Word)/$BYTE;
             $Offsets{$Pos} = $Offset;
             my $GroupOffset = int($Offset/$Word)*$Word;
             $Group{$GroupOffset}{$Pos} = 1;
@@ -281,7 +285,7 @@ sub postMerger($$$)
         my $Class1 = $PreClasses->{$Offset1}{"Class"};
         my $Class2 = $PreClasses->{$Offset2}{"Class"};
         my $ResClass = "";
-        if($System=~/\A(linux|macos|freebsd)\Z/)
+        if($System=~/\A(unix|linux|macos|freebsd)\Z/)
         { # GCC
             if($Arch eq "x86_64")
             {
@@ -381,7 +385,7 @@ sub callingConvention_R_I_Model($$$$$$)
             next;
         }
         
-        if($System=~/\A(linux|macos|freebsd)\Z/)
+        if($System=~/\A(unix|linux|macos|freebsd)\Z/)
         { # GCC
             if($Arch eq "x86")
             {
@@ -556,7 +560,7 @@ sub usedBy($$)
 sub useHidden($$$$)
 {
     my ($SInfo, $Arch, $System, $Word) = @_;
-    if($System=~/\A(linux|macos|freebsd)\Z/)
+    if($System=~/\A(unix|linux|macos|freebsd)\Z/)
     { # GCC
         if($Arch eq "x86") {
             pushStack_R($SInfo, $Word);
@@ -585,11 +589,19 @@ sub pushStack_P($$$$)
     my ($SInfo, $Pos, $TInfo, $StackAlgn) = @_;
     my $PTid = $SInfo->{"Param"}{$Pos}{"type"};
     my $PName = $SInfo->{"Param"}{$Pos}{"name"};
-    my $Alignment = $SInfo->{"Param"}{$Pos}{"algn"};
-    if($Alignment<$StackAlgn) {
-        $Alignment = $StackAlgn;
+    
+    if(my $Offset = $SInfo->{"Param"}{$Pos}{"offset"})
+    { # DWARF ABI Dump
+        return pushStack_Offset($SInfo, $Offset, $TInfo->{$PTid}{"Size"}, { 0 => $PName });
     }
-    return pushStack($SInfo, $Alignment, $TInfo->{$PTid}{"Size"}, { 0 => $PName });
+    else
+    {
+        my $Alignment = $SInfo->{"Param"}{$Pos}{"algn"};
+        if($Alignment<$StackAlgn) {
+            $Alignment = $StackAlgn;
+        }
+        return pushStack($SInfo, $Alignment, $TInfo->{$PTid}{"Size"}, { 0 => $PName });
+    }
 }
 
 sub pushStack_R($$)
@@ -614,6 +626,12 @@ sub pushStack($$$$)
         $Offset += $UsedStack{$SInfo}{$Offset}{"Size"};
         $Offset += getPadding($Offset, $Algn);
     }
+    return pushStack_Offset($SInfo, $Offset, $Size, $Elem);
+}
+
+sub pushStack_Offset($$$$)
+{
+    my ($SInfo, $Offset, $Size, $Elem) = @_;
     my %Info = (
         "Size" => $Size,
         "Elem" => $Elem
@@ -733,7 +751,7 @@ sub callingConvention_P_I_Model($$$$$$$)
             next;
         }
         
-        if($System=~/\A(linux|macos|freebsd)\Z/)
+        if($System=~/\A(unix|linux|macos|freebsd)\Z/)
         { # GCC
             if($Arch eq "x86")
             {
@@ -880,15 +898,15 @@ sub callingConvention_P_I_Model($$$$$$$)
     return %Conv;
 }
 
-sub getTypeAlgn($$)
+sub getAlignment_Model($$$)
 {
-    my ($Tid, $TInfo) = @_;
+    my ($Tid, $TInfo, $Arch) = @_;
     if(defined $TInfo->{$Tid}{"Algn"}) {
         return $TInfo->{$Tid}{"Algn"};
     }
     else
-    { # support for old ABI dumps
-        if($TInfo->{$Tid}{"Type"}=~/Struct|Class|Union/)
+    {
+        if($TInfo->{$Tid}{"Type"}=~/Struct|Class|Union|MethodPtr/)
         {
             if(defined $TInfo->{$Tid}{"Memb"})
             {
@@ -896,7 +914,10 @@ sub getTypeAlgn($$)
                 foreach my $Pos (keys(%{$TInfo->{$Tid}{"Memb"}}))
                 {
                     my $Algn = $TInfo->{$Tid}{"Memb"}{$Pos}{"algn"};
-                    if($Algn>$Algn) {
+                    if(not $Algn) {
+                        $Algn = getAlignment_Model($TInfo->{$Tid}{"Memb"}{$Pos}{"type"}, $TInfo, $Arch);
+                    }
+                    if($Algn>$Max) {
                         $Max = $Algn;
                     }
                 }
@@ -907,23 +928,64 @@ sub getTypeAlgn($$)
         elsif($TInfo->{$Tid}{"Type"} eq "Array")
         {
             my %Base = get_OneStep_BaseType($Tid, $TInfo);
-            return getTypeAlgn($Base{"Tid"}, $TInfo);
+            return getAlignment_Model($Base{"Tid"}, $TInfo, $Arch);
         }
-        elsif($TInfo->{$Tid}{"Type"}=~/Intrinsic|Enum|Pointer|Ptr/)
+        elsif($TInfo->{$Tid}{"Type"}=~/Intrinsic|Enum|Pointer|FuncPtr/)
         { # model
-            return $TInfo->{$Tid}{"Size"};
+            return getInt_Algn($Tid, $TInfo, $Arch);
         }
         else
         {
             my %PureType = get_PureType($Tid, $TInfo);
-            return getTypeAlgn($PureType{"Tid"}, $TInfo);
+            return getAlignment_Model($PureType{"Tid"}, $TInfo, $Arch);
         }
     }
 }
 
-sub getAlignment($$$$)
+my %IntAlgn = (
+    "x86"=>(
+        "double"=>4,
+        "long double"=>4
+    )
+);
+
+sub getInt_Algn($$$)
 {
-    my ($Pos, $TypePtr, $TInfo, $Word) = @_;
+    my ($Tid, $TInfo, $Arch) = @_;
+    my $Name = $TInfo->{$Tid}{"Name"};
+    if(my $Algn = $IntAlgn{$Arch}{$Name}) {
+        return $Algn;
+    }
+    else
+    {
+        my $Size = $TInfo->{$Tid}{"Size"};
+        if($Arch eq "x86_64")
+        { # x86_64: sizeof==alignment
+            return $Size;
+        }
+        elsif($Arch eq "arm")
+        {
+            if($Size>8)
+            { # 128-bit vector (16)
+                return 8;
+            }
+            return $Size;
+        }
+        elsif($Arch eq "x86")
+        {
+            if($Size>4)
+            { # "double" (8) and "long double" (12)
+                return 4;
+            }
+            return $Size;
+        }
+        return $Size;
+    }
+}
+
+sub getAlignment($$$$$)
+{
+    my ($Pos, $TypePtr, $TInfo, $Arch, $Word) = @_;
     my $Tid = $TypePtr->{"Memb"}{$Pos}{"type"};
     my %Type = get_PureType($Tid, $TInfo);
     my $Computed = $TypePtr->{"Memb"}{$Pos}{"algn"};
@@ -935,6 +997,16 @@ sub getAlignment($$$$)
         { # real in bits
             $Alignment = $Computed;
         }
+        else
+        { # model
+            if($BSize eq $Type{"Size"}*$BYTE)
+            {
+                $Alignment = $BSize;
+            }
+            else {
+                $Alignment = 1;
+            }
+        }
         return ($Alignment, $BSize);
     }
     else
@@ -945,22 +1017,31 @@ sub getAlignment($$$$)
         }
         else
         { # model
-            $Alignment = $Type{"Size"}*$BYTE;
+            $Alignment = getAlignment_Model($Tid, $TInfo, $Arch)*$BYTE;
         }
         return ($Alignment, $Type{"Size"}*$BYTE);
     }
 }
 
-sub getOffset($$$$)
+sub getOffset($$$$$)
 { # offset of the field including padding
-    my ($FieldPos, $TypePtr, $TInfo, $Word) = @_;
-    my $Offset = 0;
+    my ($FieldPos, $TypePtr, $TInfo, $Arch, $Word) = @_;
     
+    if($TypePtr->{"Type"} eq "Union") {
+        return 0;
+    }
+    
+    # if((my $Off = $TypePtr->{"Memb"}{$FieldPos}{"offset"}) ne "")
+    # { # DWARF ABI Dump (generated by the ABI Dumper tool)
+    #    return $Off*$BYTE;
+    # }
+    
+    my $Offset = 0;
     my $Buffer=0;
     
     foreach my $Pos (0 .. keys(%{$TypePtr->{"Memb"}})-1)
     {
-        my ($Alignment, $MSize) = getAlignment($Pos, $TypePtr, $TInfo, $Word);
+        my ($Alignment, $MSize) = getAlignment($Pos, $TypePtr, $TInfo, $Arch, $Word);
         
         if(not $Alignment)
         { # support for old ABI dumps
@@ -993,7 +1074,7 @@ sub getOffset($$$$)
         }
         $Offset += $MSize;
     }
-    return $FieldPos;# if something is going wrong
+    return $FieldPos; # if something is going wrong
 }
 
 sub getPadding($$)
@@ -1010,7 +1091,7 @@ sub getPadding($$)
 sub isMemPadded($$$$$$)
 { # check if the target field can be added/removed/changed
   # without shifting other fields because of padding bits
-    my ($FieldPos, $Size, $TypePtr, $Skip, $TInfo, $Word) = @_;
+    my ($FieldPos, $Size, $TypePtr, $Skip, $TInfo, $Arch, $Word) = @_;
     return 0 if($FieldPos==0);
     delete($TypePtr->{"Memb"}{""});
     my $Offset = 0;
@@ -1028,7 +1109,7 @@ sub isMemPadded($$$$$$)
                 next;
             }
         }
-        ($Alignment{$Pos}, $MSize{$Pos}) = getAlignment($Pos, $TypePtr, $TInfo, $Word);
+        ($Alignment{$Pos}, $MSize{$Pos}) = getAlignment($Pos, $TypePtr, $TInfo, $Arch, $Word);
         if($Alignment{$Pos}>$MaxAlgn) {
             $MaxAlgn = $Alignment{$Pos};
         }
@@ -1157,19 +1238,16 @@ sub callingConvention_R_Real($)
     my %Conv = ();
     my %Regs = ();
     my $Hidden = 0;
-    foreach my $Reg (keys(%{$SInfo->{"Reg"}}))
+    foreach my $Elem (keys(%{$SInfo->{"Reg"}}))
     {
-        
-        foreach my $Elem (keys(%{$SInfo->{"Reg"}{$Reg}}))
+        my $Reg = $SInfo->{"Reg"}{$Elem};
+        if($Elem eq ".result_ptr")
         {
-            if($Elem eq ".result_ptr")
-            {
-                $Hidden = 1;
-                $Regs{$Reg}=1;
-            }
-            elsif(index($Elem, ".result")==0) {
-                $Regs{$Reg}=1;
-            }
+            $Hidden = 1;
+            $Regs{$Reg} = 1;
+        }
+        elsif(index($Elem, ".result")==0) {
+            $Regs{$Reg} = 1;
         }
     }
     if(my @R = sort keys(%Regs))
@@ -1191,18 +1269,13 @@ sub callingConvention_R_Real($)
 sub callingConvention_P_Real($$)
 {
     my ($SInfo, $Pos) = @_;
-    my $PName = $SInfo->{"Param"}{$Pos}{"name"};
     my %Conv = ();
     my %Regs = ();
-    my $Hidden = 0;
-    foreach my $Reg (keys(%{$SInfo->{"Reg"}}))
+    foreach my $Elem (keys(%{$SInfo->{"Reg"}}))
     {
-        
-        foreach my $Elem (keys(%{$SInfo->{"Reg"}{$Reg}}))
-        {
-            if($Elem=~/\A$PName(\.|\Z)/) {
-                $Regs{$Reg}=1;
-            }
+        my $Reg = $SInfo->{"Reg"}{$Elem};
+        if($Elem=~/\A$Pos([\.\+]|\Z)/) {
+            $Regs{$Reg} = 1;
         }
     }
     if(my @R = sort keys(%Regs))
