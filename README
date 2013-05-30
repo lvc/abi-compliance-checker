@@ -30,7 +30,7 @@ USAGE WITH ABI DUMPER:
       option to contain DWARF debug info
       
    2. Create ABI dumps for both library versions
-      using the ABI Dumper tool (https://github.com/lvc/abi-dumper):
+      using the ABI Dumper (https://github.com/lvc/abi-dumper) tool:
       
         abi-dumper OLD.so -o ABI-0.dump -lver 0
         abi-dumper NEW.so -o ABI-1.dump -lver 1
