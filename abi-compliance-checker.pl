@@ -9101,7 +9101,7 @@ sub selectSymbol($$$$)
     }
     if($ExtendedCheck)
     {
-        if(index($Symbol,"external_func_")==0) {
+        if(index($Symbol, "external_func_")==0) {
             $Target = 1;
         }
     }
@@ -12046,7 +12046,7 @@ sub mergeLibs($)
     { # checking added symbols
         next if($CompleteSignature{2}{$Symbol}{"Private"});
         next if(not $CompleteSignature{2}{$Symbol}{"Header"} and not $CheckObjectsOnly);
-        next if(not symbolFilter($Symbol, 2, "Affected", $Level));
+        next if(not symbolFilter($Symbol, 2, "Affected + InlineVirt", $Level));
         %{$CompatProblems{$Level}{$Symbol}{"Added_Symbol"}{""}}=();
     }
     foreach my $Symbol (sort keys(%{$RemovedInt{$Level}}))
@@ -12066,7 +12066,7 @@ sub mergeLibs($)
             }
         }
         else {
-            next if(not symbolFilter($Symbol, 1, "Affected", $Level));
+            next if(not symbolFilter($Symbol, 1, "Affected + InlineVirt", $Level));
         }
         if($CompleteSignature{1}{$Symbol}{"PureVirt"})
         { # symbols for pure virtual methods cannot be called by clients
@@ -14700,7 +14700,8 @@ sub getArch($)
         $Arch = $1;
     }
     $Arch = "x86" if($Arch=~/\Ai[3-7]86\Z/);
-    if($OSgroup eq "windows") {
+    if($OSgroup eq "windows")
+    {
         $Arch = "x86" if($Arch=~/win32|mingw32/i);
         $Arch = "x86_64" if($Arch=~/win64|mingw64/i);
     }
@@ -18311,11 +18312,13 @@ sub readSymbols_Lib($$$$$$)
                     }
                     next;
                 }
-                if($Bind eq "WEAK"
-                and $Weak eq "-Weak")
-                { # skip WEAK symbols
+                if($Bind eq "WEAK")
+                {
                     $WeakSymbols{$LibVersion}{$Symbol} = 1;
-                    next;
+                    if($Weak eq "-Weak")
+                    { # skip WEAK symbols
+                        next;
+                    }
                 }
                 my $Short = $Symbol;
                 $Short=~s/\@.+//g;
