@@ -38,6 +38,13 @@ my $BYTE = 8;
 my %UsedReg = ();
 my %UsedStack = ();
 
+my %IntAlgn = (
+    "x86"=>{
+        "double"=>4,
+        "long double"=>4
+    }
+);
+
 sub classifyType($$$$$)
 {
     my ($Tid, $TInfo, $Arch, $System, $Word) = @_;
@@ -901,6 +908,12 @@ sub callingConvention_P_I_Model($$$$$$$)
 sub getAlignment_Model($$$)
 {
     my ($Tid, $TInfo, $Arch) = @_;
+    
+    if(not $Tid)
+    { # incomplete ABI dump
+        return 0;
+    }
+    
     if(defined $TInfo->{$Tid}{"Algn"}) {
         return $TInfo->{$Tid}{"Algn"};
     }
@@ -941,13 +954,6 @@ sub getAlignment_Model($$$)
         }
     }
 }
-
-my %IntAlgn = (
-    "x86"=>(
-        "double"=>4,
-        "long double"=>4
-    )
-);
 
 sub getInt_Algn($$$)
 {
@@ -1110,6 +1116,12 @@ sub isMemPadded($$$$$$)
             }
         }
         ($Alignment{$Pos}, $MSize{$Pos}) = getAlignment($Pos, $TypePtr, $TInfo, $Arch, $Word);
+        
+        if(not $Alignment{$Pos})
+        { # emergency exit
+            return 0;
+        }
+        
         if($Alignment{$Pos}>$MaxAlgn) {
             $MaxAlgn = $Alignment{$Pos};
         }

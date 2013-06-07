@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.99
+# ABI Compliance Checker (ACC) 1.99.1
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -36,6 +36,11 @@
 #    - Add tool locations to the PATH environment variable
 #    - Run vsvars32.bat (C:\Microsoft Visual Studio 9.0\Common7\Tools\)
 #
+# COMPATIBILITY
+# =============
+#  ABI Dumper >= 0.97
+#
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License or the GNU Lesser
 # General Public License as published by the Free Software Foundation.
@@ -58,8 +63,8 @@ use Cwd qw(abs_path cwd realpath);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99";
-my $ABI_DUMP_VERSION = "3.0";
+my $TOOL_VERSION = "1.99.1";
+my $ABI_DUMP_VERSION = "3.1";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.1";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -5119,7 +5124,8 @@ sub setFuncParams($)
         { # skip
             return 1;
         }
-        $ParamInfoId = getNextElem($ParamInfoId);
+        # skip "this"-parameter
+        # $ParamInfoId = getNextElem($ParamInfoId);
     }
     my ($Pos, $Vtt_Pos) = (0, -1);
     while($ParamInfoId)
@@ -12834,13 +12840,13 @@ sub mergeSymbols($)
         { # do NOT check type changes in pure virtuals
             next;
         }
-        $CheckedSymbols{$Level}{$Symbol}=1;
+        $CheckedSymbols{$Level}{$Symbol} = 1;
         if($Symbol=~/\A(_Z|\?)/
         or keys(%{$CompleteSignature{1}{$Symbol}{"Param"}})==keys(%{$CompleteSignature{2}{$PSymbol}{"Param"}}))
         { # C/C++: changes in parameters
             foreach my $ParamPos (sort {int($a) <=> int($b)} keys(%{$CompleteSignature{1}{$Symbol}{"Param"}}))
             { # checking parameters
-                mergeParameters($Symbol, $PSymbol, $ParamPos, $ParamPos, $Level);
+                mergeParameters($Symbol, $PSymbol, $ParamPos, $ParamPos, $Level, 1);
             }
         }
         else
@@ -12923,7 +12929,7 @@ sub mergeSymbols($)
                     my $ParamName2 = $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos}{"name"};
                     if($TypeInfo{1}{$PType1_Id}{"Name"} eq $TypeInfo{2}{$PType2_Id}{"Name"}
                     or ($ParamName1!~/\Ap\d+\Z/i and $ParamName1 eq $ParamName2)) {
-                        mergeParameters($Symbol, $PSymbol, $ParamPos, $ParamPos, $Level);
+                        mergeParameters($Symbol, $PSymbol, $ParamPos, $ParamPos, $Level, 0);
                     }
                 }
             }
@@ -12932,10 +12938,10 @@ sub mergeSymbols($)
                 my $PType1_Id = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos}{"type"};
                 my $PType1_Name = $TypeInfo{1}{$PType1_Id}{"Name"};
                 last if($PType1_Name eq "...");
-                my $Parameter_Name = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos}{"name"};
-                my $Parameter_NewName = (defined $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos})?$CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos}{"name"}:"";
+                my $PName = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos}{"name"};
+                my $PName_New = (defined $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos})?$CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos}{"name"}:"";
                 my $ParamPos_New = "-1";
-                if($Parameter_Name=~/\Ap\d+\Z/i)
+                if($PName=~/\Ap\d+\Z/i)
                 { # removed unnamed parameter ( pN )
                     my @Positions1 = find_ParamPair_Pos_byTypeAndPos($PType1_Name, $ParamPos, "forward", $Symbol, 1);
                     my @Positions2 = find_ParamPair_Pos_byTypeAndPos($PType1_Name, $ParamPos, "forward", $Symbol, 2);
@@ -12944,18 +12950,18 @@ sub mergeSymbols($)
                     }
                 }
                 else {
-                    $ParamPos_New = find_ParamPair_Pos_byName($Parameter_Name, $Symbol, 2);
+                    $ParamPos_New = find_ParamPair_Pos_byName($PName, $Symbol, 2);
                 }
                 if($ParamPos_New eq "lost")
                 {
                     if($ParamPos>keys(%{$CompleteSignature{2}{$PSymbol}{"Param"}})-1)
                     {
                         my $ProblemType = "Removed_Parameter";
-                        if($Parameter_Name=~/\Ap\d+\Z/) {
+                        if($PName=~/\Ap\d+\Z/) {
                             $ProblemType = "Removed_Unnamed_Parameter";
                         }
                         %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{showPos($ParamPos)." Parameter"}}=(
-                            "Target"=>$Parameter_Name,
+                            "Target"=>$PName,
                             "Param_Pos"=>$ParamPos,
                             "Param_Type"=>$PType1_Name,
                             "New_Signature"=>get_Signature($Symbol, 2)  );
@@ -12966,27 +12972,27 @@ sub mergeSymbols($)
                         my $PairType_Id = $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos}{"type"};
                         my %PairType_Pure = get_PureType($PairType_Id, $TypeInfo{2});
                         if(($ParamType_Pure{"Name"} eq $PairType_Pure{"Name"} or $PType1_Name eq $TypeInfo{2}{$PairType_Id}{"Name"})
-                        and find_ParamPair_Pos_byName($Parameter_NewName, $Symbol, 1) eq "lost")
+                        and find_ParamPair_Pos_byName($PName_New, $Symbol, 1) eq "lost")
                         {
-                            if($Parameter_NewName!~/\Ap\d+\Z/ and $Parameter_Name!~/\Ap\d+\Z/)
+                            if($PName_New!~/\Ap\d+\Z/ and $PName!~/\Ap\d+\Z/)
                             {
                                 %{$CompatProblems{$Level}{$Symbol}{"Renamed_Parameter"}{showPos($ParamPos)." Parameter"}}=(
-                                    "Target"=>$Parameter_Name,
+                                    "Target"=>$PName,
                                     "Param_Pos"=>$ParamPos,
                                     "Param_Type"=>$PType1_Name,
-                                    "Old_Value"=>$Parameter_Name,
-                                    "New_Value"=>$Parameter_NewName,
+                                    "Old_Value"=>$PName,
+                                    "New_Value"=>$PName_New,
                                     "New_Signature"=>get_Signature($Symbol, 2)  );
                             }
                         }
                         else
                         {
                             my $ProblemType = "Removed_Middle_Parameter";
-                            if($Parameter_Name=~/\Ap\d+\Z/) {
+                            if($PName=~/\Ap\d+\Z/) {
                                 $ProblemType = "Removed_Middle_Unnamed_Parameter";
                             }
                             %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{showPos($ParamPos)." Parameter"}}=(
-                                "Target"=>$Parameter_Name,
+                                "Target"=>$PName,
                                 "Param_Pos"=>$ParamPos,
                                 "Param_Type"=>$PType1_Name,
                                 "New_Signature"=>get_Signature($Symbol, 2)  );
@@ -13402,11 +13408,10 @@ sub getRegs($$$)
     
     if(defined $CompleteSignature{$LibVersion}{$Symbol}{"Reg"})
     {
-        my $PName = $CompleteSignature{$LibVersion}{$Symbol}{"Param"}{$Pos}{"name"};
         my %Regs = ();
         foreach my $Elem (sort keys(%{$CompleteSignature{$LibVersion}{$Symbol}{"Reg"}}))
         {
-            if($Elem=~/\A$PName([\.\+]|\Z)/) {
+            if($Elem=~/\A$Pos([\.\+]|\Z)/) {
                 $Regs{$CompleteSignature{$LibVersion}{$Symbol}{"Reg"}{$Elem}} = 1;
             }
         }
@@ -13417,9 +13422,9 @@ sub getRegs($$$)
     return undef;
 }
 
-sub mergeParameters($$$$$)
+sub mergeParameters($$$$$$)
 {
-    my ($Symbol, $PSymbol, $ParamPos1, $ParamPos2, $Level) = @_;
+    my ($Symbol, $PSymbol, $ParamPos1, $ParamPos2, $Level, $ChkRnmd) = @_;
     if(not $Symbol) {
         return;
     }
@@ -13431,11 +13436,20 @@ sub mergeParameters($$$$$)
     or not $PType2_Id) {
         return;
     }
+    
+    if(index($Symbol, "_Z")==0)
+    { # do not merge this
+        if($PName1 eq "this" or $PName2 eq "this") {
+            return;
+        }
+    }
+    
     my %Type1 = get_Type($PType1_Id, 1);
     my %Type2 = get_Type($PType2_Id, 2);
     my %BaseType1 = get_BaseType($PType1_Id, 1);
     my %BaseType2 = get_BaseType($PType2_Id, 2);
     my $Parameter_Location = ($PName1)?$PName1:showPos($ParamPos1)." Parameter";
+    
     if($Level eq "Binary")
     {
         if(checkDump(1, "2.6.1") and checkDump(2, "2.6.1"))
@@ -13561,18 +13575,23 @@ sub mergeParameters($$$$$)
                 "New_Value"=>$Value_New  );
         }
     }
-    if($PName1 and $PName2 and $PName1 ne $PName2
-    and $PType1_Id!=-1 and $PType2_Id!=-1
-    and $PName1!~/\Ap\d+\Z/ and $PName2!~/\Ap\d+\Z/)
-    { # except unnamed "..." value list (Id=-1)
-        %{$CompatProblems{$Level}{$Symbol}{"Renamed_Parameter"}{showPos($ParamPos1)." Parameter"}}=(
-            "Target"=>$PName1,
-            "Param_Pos"=>$ParamPos1,
-            "Param_Type"=>$TypeInfo{1}{$PType1_Id}{"Name"},
-            "Old_Value"=>$PName1,
-            "New_Value"=>$PName2,
-            "New_Signature"=>get_Signature($Symbol, 2)  );
+    
+    if($ChkRnmd)
+    {
+        if($PName1 and $PName2 and $PName1 ne $PName2
+        and $PType1_Id!=-1 and $PType2_Id!=-1
+        and $PName1!~/\Ap\d+\Z/ and $PName2!~/\Ap\d+\Z/)
+        { # except unnamed "..." value list (Id=-1)
+            %{$CompatProblems{$Level}{$Symbol}{"Renamed_Parameter"}{showPos($ParamPos1)." Parameter"}}=(
+                "Target"=>$PName1,
+                "Param_Pos"=>$ParamPos1,
+                "Param_Type"=>$TypeInfo{1}{$PType1_Id}{"Name"},
+                "Old_Value"=>$PName1,
+                "New_Value"=>$PName2,
+                "New_Signature"=>get_Signature($Symbol, 2)  );
+        }
     }
+    
     # checking type change (replace)
     my %SubProblems = detectTypeChange($PType1_Id, $PType2_Id, "Parameter", $Level);
     foreach my $SubProblemType (keys(%SubProblems))
@@ -19358,6 +19377,27 @@ sub read_ABI_Dump($$)
     
     foreach my $InfoId (keys(%{$SymbolInfo{$LibVersion}}))
     {
+        if(my $Class = $SymbolInfo{$LibVersion}{$InfoId}{"Class"}
+        and not $SymbolInfo{$LibVersion}{$InfoId}{"Static"}
+        and not $SymbolInfo{$LibVersion}{$InfoId}{"Data"})
+        { # support for old ABI dumps (< 3.1)
+            if(not defined $SymbolInfo{$LibVersion}{$InfoId}{"Param"}
+            or $SymbolInfo{$LibVersion}{$InfoId}{"Param"}{0}{"name"} ne "this")
+            { # add "this" first parameter
+                my $ThisTid = getTypeIdByName($TypeInfo{$LibVersion}{$Class}{"Name"}."*const", $LibVersion);
+                my %PInfo = ("name"=>"this", "type"=>"$ThisTid");
+                
+                if(defined $SymbolInfo{$LibVersion}{$InfoId}{"Param"})
+                {
+                    my @Pos = sort {int($a)<=>int($b)} keys(%{$SymbolInfo{$LibVersion}{$InfoId}{"Param"}});
+                    foreach my $Pos (reverse(0 .. $#Pos)) {
+                        %{$SymbolInfo{$LibVersion}{$InfoId}{"Param"}{$Pos+1}} = %{$SymbolInfo{$LibVersion}{$InfoId}{"Param"}{$Pos}};
+                    }
+                }
+                $SymbolInfo{$LibVersion}{$InfoId}{"Param"}{"0"} = \%PInfo;
+            }
+        }
+        
         if(not $SymbolInfo{$LibVersion}{$InfoId}{"MnglName"})
         { # ABI dumps have no mangled names for C-functions
             $SymbolInfo{$LibVersion}{$InfoId}{"MnglName"} = $SymbolInfo{$LibVersion}{$InfoId}{"ShortName"};
@@ -20836,11 +20876,13 @@ sub create_ABI_Dump()
             $DumpPath = createArchive($DPath, $DDir);
         }
         
-        if(not $OutputDumpPath)
-        {
-            printMsg("INFO", "library ABI has been dumped to:\n  $DumpPath");
-            printMsg("INFO", "you can transfer this dump everywhere and use instead of the ".$Descriptor{1}{"Version"}." version descriptor");
+        if($OutputDumpPath) {
+            printMsg("INFO", "library ABI has been dumped to:\n  $OutputDumpPath");
         }
+        else {
+            printMsg("INFO", "library ABI has been dumped to:\n  $DumpPath");
+        }
+        printMsg("INFO", "you can transfer this dump everywhere and use instead of the ".$Descriptor{1}{"Version"}." version descriptor");
     }
 }
 
