@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker", "wgTitle": "ABI Compliance Checker", "wgCurRevisionId": 8278, "wgArticleId": 2292, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker", "wgTitle": "ABI Compliance Checker", "wgCurRevisionId": 8284, "wgArticleId": 2292, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -70,7 +70,7 @@
 <ul>
 <li class="toclevel-2 tocsection-12"><a href="#Compare_Libraries"><span class="tocnumber">7.1</span> <span class="toctext">Compare Libraries</span></a></li>
 <li class="toclevel-2 tocsection-13"><a href="#Create_ABI_Dumps"><span class="tocnumber">7.2</span> <span class="toctext">Create ABI Dumps</span></a></li>
-<li class="toclevel-2 tocsection-14"><a href="#Usage_With_ABI_Dumper"><span class="tocnumber">7.3</span> <span class="toctext">Usage With ABI Dumper</span></a></li>
+<li class="toclevel-2 tocsection-14"><a href="#Usage_with_ABI_Dumper"><span class="tocnumber">7.3</span> <span class="toctext">Usage with ABI Dumper</span></a></li>
 <li class="toclevel-2 tocsection-15"><a href="#Usage_as_a_Parser_of_API"><span class="tocnumber">7.4</span> <span class="toctext">Usage as a Parser of API</span></a></li>
 <li class="toclevel-2 tocsection-16"><a href="#Compare_Operating_Systems"><span class="tocnumber">7.5</span> <span class="toctext">Compare Operating Systems</span></a></li>
 <li class="toclevel-2 tocsection-17"><a href="#Check_Applications_Portability"><span class="tocnumber">7.6</span> <span class="toctext">Check Applications Portability</span></a></li>
@@ -93,7 +93,7 @@
 <h2> <span class="mw-headline" id="Downloads"> Downloads </span></h2>
 <h3> <span class="mw-headline" id="Releases"> Releases </span></h3>
 <p>All releases can be downloaded from <b><a href="Changes.html" title="ABI Compliance Checker Downloads">this page</a></b> or <b><a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/">github.com</a></b>.
-</p><p>Latest release: <a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/archive/1.99.tar.gz">1.99</a>
+</p><p>Latest release: <a rel="nofollow" class="external text" href="https://github.com/lvc/abi-compliance-checker/archive/1.99.1.tar.gz">1.99.1</a>
 </p>
 <h3> <span class="mw-headline" id="Git"> Git </span></h3>
 <p>Read-only access to the latest development version:<br />
@@ -270,7 +270,7 @@ The ABI dump will be generated to:<br />
 To compare ABI dumps pass them as the descriptors:<br />
 &#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-compliance-checker -lib <i>NAME</i> -old <i>V1.abi.tar.gz</i> -new <i>V2.abi.tar.gz</i>&#160;</code><br /><br />
 </p>
-<h3> <span class="mw-headline" id="Usage_With_ABI_Dumper"> Usage With ABI Dumper </span></h3>
+<h3> <span class="mw-headline" id="Usage_with_ABI_Dumper"> Usage with ABI Dumper </span></h3>
 <p>Library should be compiled with <b>-g</b> option to contain DWARF debug info.
 </p><p>Create ABI dumps for both library versions using the <a rel="nofollow" class="external text" href="https://github.com/lvc/abi-dumper">ABI Dumper</a> tool:
 </p><p>&#160;&#160;<code style="border: dashed 1px gray; background-color: #f0f0f0;">&#160;abi-dumper OLD.so -o ABI-0.dump -lver 0&#160;</code><br /><br />
@@ -501,5 +501,5 @@ Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2292-0!*!0!!en!*!* and timestamp 20130524124016 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2292-0!*!0!!en!*!* and timestamp 20130607121733 -->
 </div></div></div></div></div></body></html>
