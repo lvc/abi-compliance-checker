@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.99.1
+# ABI Compliance Checker (ACC) 1.99.2
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -63,7 +63,7 @@ use Cwd qw(abs_path cwd realpath);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.1";
+my $TOOL_VERSION = "1.99.2";
 my $ABI_DUMP_VERSION = "3.1";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.1";
@@ -5187,7 +5187,7 @@ sub setFuncArgs($$)
     my $FuncTypeId = getFuncTypeId($InfoId);
     my $ParamListElemId = getTreeAttr_Prms($FuncTypeId);
     if(getFuncType($InfoId) eq "Method") {
-        $ParamListElemId = getNextElem($ParamListElemId);
+        # $ParamListElemId = getNextElem($ParamListElemId);
     }
     if(not $ParamListElemId)
     { # foo(...)
@@ -5211,12 +5211,30 @@ sub setFuncArgs($$)
             $HaveVoid = 1;
             last;
         }
-        elsif(not defined $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"type"})
+        else
         {
-            $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"type"} = $ParamTypeId;
-            if(not $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"name"})
-            { # unnamed
-                $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"name"} = "p".($Pos+1);
+            if(not defined $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"type"})
+            {
+                $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"type"} = $ParamTypeId;
+                if(not $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"name"})
+                { # unnamed
+                    $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"name"} = "p".($Pos+1);
+                }
+            }
+            elsif(my $OldId = $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"type"})
+            {
+                if(getFuncType($InfoId) ne "Method" or $Pos>0)
+                { # params
+                    if($OldId ne $ParamTypeId)
+                    {
+                        my %Old_Pure = get_PureType($OldId, $TypeInfo{$Version});
+                        my %New_Pure = get_PureType($ParamTypeId, $TypeInfo{$Version});
+                        
+                        if($Old_Pure{"Name"} ne $New_Pure{"Name"}) {
+                            $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"type"} = $ParamTypeId;
+                        }
+                    }
+                }
             }
         }
         if(my $PurpId = getTreeAttr_Purp($ParamListElemId))
@@ -8594,7 +8612,7 @@ sub addTargetHeaders($)
     foreach my $RegHeader (keys(%{$Registered_Headers{$LibVersion}}))
     {
         my $RegDir = get_dirname($RegHeader);
-        $TargetHeaders{$LibVersion}{get_filename($RegHeader)}=1;
+        $TargetHeaders{$LibVersion}{get_filename($RegHeader)} = 1;
         
         if(not $INC_PATH_AUTODETECT{$LibVersion}) {
             detect_recursive_includes($RegHeader, $LibVersion);
@@ -8607,7 +8625,7 @@ sub addTargetHeaders($)
             if(familiarDirs($Dir, $RegDir) 
             or $RecursiveIncludes{$LibVersion}{$RegHeader}{$RecInc}!=1)
             { # in the same directory or included by #include "..."
-                $TargetHeaders{$LibVersion}{get_filename($RecInc)}=1;
+                $TargetHeaders{$LibVersion}{get_filename($RecInc)} = 1;
             }
         }
     }
@@ -8622,6 +8640,9 @@ sub familiarDirs($$)
     while($D1=~s/[\/\\]+.*?\Z//)
     {
         $D2=~s/[\/\\]+.*?\Z//;
+        if(not $D1 or not $D2) {
+            return 0;
+        }
         if($D1 eq "/usr/include") {
             return 0;
         }
@@ -11317,6 +11338,13 @@ sub mergeTypes($$$)
                         if($ProblemType eq "Private_Field_Size")
                         { # private field size with no effect
                             $ProblemType = "";
+                        }
+                        if($ProblemType eq "Field_Size")
+                        {
+                            if($Type1_Pure{"Type"}=~/Union|Struct/ and $SizeV1<$SizeV2)
+                            { # Low severity
+                                $ProblemType = "Struct_Field_Size_Increased";
+                            }
                         }
                         if($ProblemType)
                         { # register a problem

@@ -1422,6 +1422,24 @@
 
 <rule>
     <id>
+        Struct_Field_Size_Increased
+    </id>
+    <severity>
+        Low
+    </severity>
+    <kind>
+        Fields
+    </kind>
+    <change>
+        Size of field @target has been changed from @old_size to @new_size.
+    </change>
+    <effect>
+        Previous accesses of applications and library functions to this field may be broken.
+    </effect>
+</rule>
+
+<rule>
+    <id>
         Field_Size_And_Layout
     </id>
     <severity>
