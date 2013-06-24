@@ -71,6 +71,35 @@ sub testCpp()
     $SOURCE1 .= "namespace TestNS {\n";
     $SOURCE2 .= "namespace TestNS {\n";
     
+    # Changed template internals
+    $HEADER1 .= "
+        template <typename T, int _P>
+        class $DECL_SPEC ChangedTemplate {
+        public:
+            T value;
+            T*const field;
+            T array[_P];
+            typedef int My;
+            My var;
+        };
+        ChangedTemplate<int, 1>* changedTemplate();";
+    $SOURCE1 .= "
+        ChangedTemplate<int, 1>* changedTemplate() { return new ChangedTemplate<int, 1>(); }";
+    
+    $HEADER2 .= "
+        template <typename T, int _P>
+        class $DECL_SPEC ChangedTemplate {
+        public:
+            double value;
+            T* field;
+            double array[_P];
+            typedef int My;
+            My var;
+        };
+        ChangedTemplate<int, 1>* changedTemplate();";
+    $SOURCE2 .= "
+        ChangedTemplate<int, 1>* changedTemplate() { return new ChangedTemplate<int, 1>(); }";
+    
     # Removed inline method
     $HEADER1 .= "
         class $DECL_SPEC RemovedInlineMethod {

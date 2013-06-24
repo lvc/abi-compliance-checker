@@ -60,11 +60,12 @@ use File::Path qw(mkpath rmtree);
 use File::Temp qw(tempdir);
 use File::Copy qw(copy move);
 use Cwd qw(abs_path cwd realpath);
+use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
 my $TOOL_VERSION = "1.99.2";
-my $ABI_DUMP_VERSION = "3.1";
+my $ABI_DUMP_VERSION = "3.2";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.1";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -91,7 +92,8 @@ $TargetComponent_Opt, $TargetSysInfo, $TargetHeader, $ExtendedCheck, $Quiet,
 $SkipHeadersPath, $CppCompat, $LogMode, $StdOut, $ListAffected, $ReportFormat,
 $UserLang, $TargetHeadersPath, $BinaryOnly, $SourceOnly, $BinaryReportPath,
 $SourceReportPath, $UseXML, $Browse, $OpenReport, $SortDump, $DumpFormat,
-$ExtraInfo, $ExtraDump, $Force, $Tolerance, $Tolerant, $SkipSymbolsListPath);
+$ExtraInfo, $ExtraDump, $Force, $Tolerance, $Tolerant, $SkipSymbolsListPath,
+$CheckInfo);
 
 my $CmdName = get_filename($0);
 my %OS_LibExt = (
@@ -270,7 +272,8 @@ GetOptions("h|help!" => \$Help,
   "extra-dump!" => \$ExtraDump,
   "force!" => \$Force,
   "tolerance=s" => \$Tolerance,
-  "tolerant!" => \$Tolerant
+  "tolerant!" => \$Tolerant,
+  "check!" => \$CheckInfo
 ) or ERR_MESSAGE();
 
 sub ERR_MESSAGE()
@@ -765,6 +768,9 @@ OTHER OPTIONS:
           
   -tolerant
       Enable highest tolerance level [1234].
+      
+  -check
+      Check completeness of the ABI dump.
 
 REPORT:
     Compatibility report will be generated to:
@@ -972,6 +978,7 @@ my %NodeType= (
   "identifier_node" => "Other",
   "integer_cst" => "Other",
   "integer_type" => "Intrinsic",
+  "vector_type" => "Vector",
   "method_type" => "MethodType",
   "namespace_decl" => "Other",
   "parm_decl" => "Other",
@@ -982,7 +989,9 @@ my %NodeType= (
   "reference_type" => "Ref",
   "string_cst" => "Other",
   "template_decl" => "Other",
-  "template_type_parm" => "Other",
+  "template_type_parm" => "TemplateParam",
+  "typename_type" => "TypeName",
+  "sizeof_expr" => "SizeOf",
   "tree_list" => "Other",
   "tree_vec" => "Other",
   "type_decl" => "Other",
@@ -1094,6 +1103,8 @@ my %IntrinsicMangling = (
     "..." => "z"
 );
 
+my %IntrinsicNames = map {$_=>1} keys(%IntrinsicMangling);
+
 my %StdcxxMangling = (
     "3std"=>"St",
     "3std9allocator"=>"Sa",
@@ -1105,6 +1116,9 @@ my %StdcxxMangling = (
 );
 
 my $DEFAULT_STD_PARMS = "std::(allocator|less|char_traits|regex_traits|istreambuf_iterator|ostreambuf_iterator)";
+my %DEFAULT_STD_ARGS = map {$_=>1} ("_Alloc", "_Compare", "_Traits", "_Rx_traits", "_InIter", "_OutIter");
+
+my $ADD_TMPL_INSTANCES = 1;
 
 my %ConstantSuffix = (
     "unsigned int"=>"u",
@@ -1399,10 +1413,15 @@ my %EnumConstants;
 my %SymbolHeader;
 my %KnownLibs;
 
+# Templates
+my %TemplateInstance;
+my %BasicTemplate;
+my %TemplateArg;
+my %TemplateDecl;
+my %TemplateMap;
+
 # Types
 my %TypeInfo;
-my %TemplateInstance;
-my %TemplateDecl;
 my %SkipTypes = (
   "1"=>{},
   "2"=>{} );
@@ -1412,7 +1431,6 @@ my %EnumMembName_Id;
 my %NestedNameSpaces = (
   "1"=>{},
   "2"=>{} );
-my %UsedType;
 my %VirtualTable;
 my %VirtualTable_Model;
 my %ClassVTable;
@@ -1425,6 +1443,8 @@ my %Class_SubClasses;
 my %OverriddenMethods;
 my %TypedefToAnon;
 my $MAX_ID = 0;
+
+my %CheckedTypeInfo;
 
 # Typedefs
 my %Typedef_BaseName;
@@ -2157,10 +2177,10 @@ sub getInfo($)
     getVarInfo_All();
     getSymbolInfo_All();
     
-    
     # clean memory
     %LibInfo = ();
     %TemplateInstance = ();
+    %BasicTemplate = ();
     %MangledNames = ();
     %TemplateDecl = ();
     %StdCxxTypedef = ();
@@ -2175,21 +2195,27 @@ sub getInfo($)
     
     if($ExtraDump)
     {
-        foreach (keys(%{$TypeInfo{$Version}}))
-        {
-            if($TypeInfo{$Version}{$_}{"Artificial"}) {
-                delete($TypeInfo{$Version}{$_});
-            }
-        }
+        remove_Unused($Version, "Extra");
     }
     else
     { # remove unused types
         if($BinaryOnly and not $ExtendedCheck)
         { # --binary
-            removeUnused($Version, "All");
+            remove_Unused($Version, "All");
         }
         else {
-            removeUnused($Version, "Extended");
+            remove_Unused($Version, "Extended");
+        }
+    }
+    
+    if($CheckInfo)
+    {
+        foreach my $Tid (keys(%{$TypeInfo{$Version}})) {
+            check_Completeness($TypeInfo{$Version}{$Tid}, $Version);
+        }
+        
+        foreach my $Sid (keys(%{$SymbolInfo{$Version}})) {
+            check_Completeness($SymbolInfo{$Version}{$Sid}, $Version);
         }
     }
     
@@ -2215,7 +2241,7 @@ sub readTUDump($)
     # clean memory
     undef $Content;
     
-    $MAX_ID = $#Lines+1;
+    $MAX_ID = $#Lines+1; # number of lines == number of nodes
     
     foreach (0 .. $#Lines)
     {
@@ -2340,14 +2366,41 @@ sub setTemplateParams_All()
 
 sub setTemplateParams($)
 {
+    my $Tid = getTypeId($_[0]);
     if(my $Info = $LibInfo{$Version}{"info"}{$_[0]})
     {
         if($Info=~/(inst|spcs)[ ]*:[ ]*@(\d+) /)
         {
             my $TmplInst_Id = $2;
-            setTemplateInstParams($TmplInst_Id);
+            setTemplateInstParams($_[0], $TmplInst_Id);
             while($TmplInst_Id = getNextElem($TmplInst_Id)) {
-                setTemplateInstParams($TmplInst_Id);
+                setTemplateInstParams($_[0], $TmplInst_Id);
+            }
+        }
+        
+        $BasicTemplate{$Version}{$Tid} = $_[0];
+        
+        if(my $Prms = getTreeAttr_Prms($_[0]))
+        {
+            if(my $Valu = getTreeAttr_Valu($Prms))
+            {
+                my $Vector = getTreeVec($Valu);
+                foreach my $Pos (sort {int($a)<=>int($b)} keys(%{$Vector}))
+                {
+                    if(my $Val = getTreeAttr_Valu($Vector->{$Pos}))
+                    {
+                        if(my $Name = getNameByInfo($Val))
+                        {
+                            $TemplateArg{$Version}{$_[0]}{$Pos} = $Name;
+                            if($LibInfo{$Version}{"info_type"}{$Val} eq "parm_decl") {
+                                $TemplateInstance{$Version}{"Type"}{$Tid}{$Pos} = $Val;
+                            }
+                            else {
+                                $TemplateInstance{$Version}{"Type"}{$Tid}{$Pos} = getTreeAttr_Type($Val);
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -2356,15 +2409,17 @@ sub setTemplateParams($)
         if(my $IType = $LibInfo{$Version}{"info_type"}{$TypeId})
         {
             if($IType eq "record_type") {
-                $TemplateDecl{$Version}{$TypeId}=1;
+                $TemplateDecl{$Version}{$TypeId} = 1;
             }
         }
     }
 }
 
-sub setTemplateInstParams($)
+sub setTemplateInstParams($$)
 {
-    if(my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    my ($Tmpl, $Inst) = @_;
+    
+    if(my $Info = $LibInfo{$Version}{"info"}{$Inst})
     {
         my ($Params_InfoId, $ElemId) = ();
         if($Info=~/purp[ ]*:[ ]*@(\d+) /) {
@@ -2381,19 +2436,19 @@ sub setTemplateInstParams($)
                 my ($PPos, $PTypeId) = ($1, $2);
                 if(my $PType = $LibInfo{$Version}{"info_type"}{$PTypeId})
                 {
-                    if($PType eq "template_type_parm")
-                    {
-                        $TemplateDecl{$Version}{$ElemId}=1;
-                        return;
+                    if($PType eq "template_type_parm") {
+                        $TemplateDecl{$Version}{$ElemId} = 1;
                     }
                 }
                 if($LibInfo{$Version}{"info_type"}{$ElemId} eq "function_decl")
                 { # functions
                     $TemplateInstance{$Version}{"Func"}{$ElemId}{$PPos} = $PTypeId;
+                    $BasicTemplate{$Version}{$ElemId} = $Tmpl;
                 }
                 else
                 { # types
                     $TemplateInstance{$Version}{"Type"}{$ElemId}{$PPos} = $PTypeId;
+                    $BasicTemplate{$Version}{$ElemId} = $Tmpl;
                 }
             }
         }
@@ -2448,6 +2503,175 @@ sub getTypeInfo_All()
     { # support for GCC < 4.5
         addMissedTypes_Post();
     }
+    
+    if($ADD_TMPL_INSTANCES)
+    {
+        # templates
+        foreach my $Tid (sort {int($a)<=>int($b)} keys(%{$TypeInfo{$Version}}))
+        {
+            if(defined $TemplateMap{$Version}{$Tid}
+            and not defined $TypeInfo{$Version}{$Tid}{"Template"})
+            {
+                if(defined $TypeInfo{$Version}{$Tid}{"Memb"})
+                {
+                    foreach my $Pos (sort {int($a)<=>int($b)} keys(%{$TypeInfo{$Version}{$Tid}{"Memb"}}))
+                    {
+                        if(my $MembTypeId = $TypeInfo{$Version}{$Tid}{"Memb"}{$Pos}{"type"})
+                        {
+                            if(my %MAttr = getTypeAttr($MembTypeId))
+                            {
+                                $TypeInfo{$Version}{$Tid}{"Memb"}{$Pos}{"algn"} = $MAttr{"Algn"};
+                                $MembTypeId = $TypeInfo{$Version}{$Tid}{"Memb"}{$Pos}{"type"} = instType($TemplateMap{$Version}{$Tid}, $MembTypeId, $Version);
+                            }
+                        }
+                    }
+                }
+                if(defined $TypeInfo{$Version}{$Tid}{"Base"})
+                {
+                    foreach my $Bid (sort {int($a)<=>int($b)} keys(%{$TypeInfo{$Version}{$Tid}{"Base"}}))
+                    {
+                        my $NBid = instType($TemplateMap{$Version}{$Tid}, $Bid, $Version);
+                        
+                        if($NBid ne $Bid)
+                        {
+                            %{$TypeInfo{$Version}{$Tid}{"Base"}{$NBid}} = %{$TypeInfo{$Version}{$Tid}{"Base"}{$Bid}};
+                            delete($TypeInfo{$Version}{$Tid}{"Base"}{$Bid});
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+sub createType($$)
+{
+    my ($Attr, $LibVersion) = @_;
+    my $NewId = ++$MAX_ID;
+    
+    $TypeInfo{$Version}{$NewId} = $Attr;
+    $TName_Tid{$Version}{$Attr->{"Name"}} = $NewId;
+    
+    return "$NewId";
+}
+
+sub instType($$$)
+{ # create template instances
+    my ($Map, $Tid, $LibVersion) = @_;
+    my $Attr = dclone($TypeInfo{$LibVersion}{$Tid});
+    
+    foreach my $Key (sort keys(%{$Map}))
+    {
+        if(my $Val = $Map->{$Key})
+        {
+            $Attr->{"Name"}=~s/\b$Key\b/$Val/g;
+            
+            if(defined $Attr->{"NameSpace"}) {
+                $Attr->{"NameSpace"}=~s/\b$Key\b/$Val/g;
+            }
+            foreach (keys(%{$Attr->{"TParam"}})) {
+                $Attr->{"TParam"}{$_}{"name"}=~s/\b$Key\b/$Val/g;
+            }
+        }
+        else
+        { # remove absent
+          # _Traits, etc.
+            $Attr->{"Name"}=~s/,\s*\b$Key(,|>)/$1/g;
+            if(defined $Attr->{"NameSpace"})
+            {
+                $Attr->{"NameSpace"}=~s/,\s*\b$Key(,|>)/$1/g;
+            }
+            foreach (keys(%{$Attr->{"TParam"}}))
+            {
+                if($Attr->{"TParam"}{$_}{"name"} eq $Key) {
+                    delete($Attr->{"TParam"}{$_});
+                }
+                else
+                {
+                    $Attr->{"TParam"}{$_}{"name"}=~s/,\s*\b$Key(,|>)/$1/g;
+                }
+            }
+        }
+    }
+    
+    my $Tmpl = 0;
+    
+    if(defined $Attr->{"TParam"})
+    {
+        foreach (sort {int($a)<=>int($b)} keys(%{$Attr->{"TParam"}}))
+        {
+            my $PName = $Attr->{"TParam"}{$_}{"name"};
+            
+            if(my $PTid = $TName_Tid{$LibVersion}{$PName})
+            {
+                my %Base = get_BaseType($PTid, $LibVersion);
+                
+                if($Base{"Type"} eq "TemplateParam"
+                or defined $Base{"Template"})
+                {
+                    $Tmpl = 1;
+                    last
+                }
+            }
+        }
+    }
+    
+    if(my $Id = getTypeIdByName($Attr->{"Name"}, $LibVersion)) {
+        return "$Id";
+    }
+    else
+    {
+        if(not $Tmpl) {
+            delete($Attr->{"Template"});
+        }
+        
+        my %EMap = ();
+        if(defined $TemplateMap{$LibVersion}{$Tid}) {
+            %EMap = %{$TemplateMap{$LibVersion}{$Tid}};
+        }
+        foreach (keys(%{$Map})) {
+            $EMap{$_} = $Map->{$_};
+        }
+        
+        if(defined $Attr->{"BaseType"}) {
+            $Attr->{"BaseType"} = instType(\%EMap, $Attr->{"BaseType"}, $LibVersion);
+        }
+        if(defined $Attr->{"Base"})
+        {
+            foreach my $Bid (keys(%{$Attr->{"Base"}}))
+            {
+                my $NBid = instType(\%EMap, $Bid, $LibVersion);
+                
+                if($NBid ne $Bid)
+                {
+                    %{$Attr->{"Base"}{$NBid}} = %{$Attr->{"Base"}{$Bid}};
+                    delete($Attr->{"Base"}{$Bid});
+                }
+            }
+        }
+        
+        my $R = createType($Attr, $LibVersion);
+        
+        if(defined $Attr->{"Memb"})
+        {
+            foreach (sort {int($a)<=>int($b)} keys(%{$Attr->{"Memb"}})) {
+                $Attr->{"Memb"}{$_}{"type"} = instType(\%EMap, $Attr->{"Memb"}{$_}{"type"}, $LibVersion);
+            }
+        }
+        
+        if(defined $Attr->{"Param"})
+        {
+            foreach (sort {int($a)<=>int($b)} keys(%{$Attr->{"Param"}})) {
+                $Attr->{"Param"}{$_}{"type"} = instType(\%EMap, $Attr->{"Param"}{$_}{"type"}, $LibVersion);
+            }
+        }
+        
+        if(defined $Attr->{"Return"}) {
+            $Attr->{"Return"} = instType(\%EMap, $Attr->{"Return"}, $LibVersion);
+        }
+        
+        return $R;
+    }
 }
 
 sub addMissedTypes_Pre()
@@ -2488,13 +2712,13 @@ sub addMissedTypes_Pre()
         if(not $TypedefName) {
             next;
         }
-        $MAX_ID++;
+        my $NewId = ++$MAX_ID;
         my %MissedInfo = ( # typedef info
             "Name" => $TypedefName,
             "NameSpace" => $TypedefNS,
             "BaseType" => $Tid,
             "Type" => "Typedef",
-            "Tid" => "$MAX_ID" );
+            "Tid" => "$NewId" );
         my ($H, $L) = getLocation($MissedTDid);
         $MissedInfo{"Header"} = $H;
         $MissedInfo{"Line"} = $L;
@@ -2642,19 +2866,26 @@ sub getTypeAttr($)
         {
             if($Info=~/qual[ ]*:/)
             {
-                if(my $NID = ++$MAX_ID)
-                {
-                    $MissedBase{$Version}{$TypeId}="$NID";
-                    $MissedBase_R{$Version}{$NID}=$TypeId;
-                    $LibInfo{$Version}{"info"}{$NID} = $LibInfo{$Version}{"info"}{$TypeId};
-                    $LibInfo{$Version}{"info_type"}{$NID} = $LibInfo{$Version}{"info_type"}{$TypeId};
-                }
+                my $NewId = ++$MAX_ID;
+                
+                $MissedBase{$Version}{$TypeId} = "$NewId";
+                $MissedBase_R{$Version}{$NewId} = $TypeId;
+                $LibInfo{$Version}{"info"}{$NewId} = $LibInfo{$Version}{"info"}{$TypeId};
+                $LibInfo{$Version}{"info_type"}{$NewId} = $LibInfo{$Version}{"info_type"}{$TypeId};
             }
         }
         $TypeAttr{"Type"} = "Typedef";
     }
     else {
         $TypeAttr{"Type"} = getTypeType($TypeId);
+    }
+    
+    if(my $ScopeId = getTreeAttr_Scpe($TypeDeclId))
+    {
+        if($LibInfo{$Version}{"info_type"}{$ScopeId} eq "function_decl")
+        { # local code
+            return ();
+        }
     }
     
     if($TypeAttr{"Type"} eq "Unknown") {
@@ -2720,18 +2951,49 @@ sub getTypeAttr($)
         }
         return ();
     }
-    elsif($TypeAttr{"Type"}=~/\A(Intrinsic|Union|Struct|Enum|Class)\Z/)
+    elsif($TypeAttr{"Type"}=~/\A(Intrinsic|Union|Struct|Enum|Class|Vector)\Z/)
     {
         %TypeAttr = getTrivialTypeAttr($TypeId);
         if($TypeAttr{"Name"})
         {
             %{$TypeInfo{$Version}{$TypeId}} = %TypeAttr;
-            if($TypeAttr{"Name"} ne "int" or getTypeDeclId($TypeAttr{"Tid"}))
+            
+            if(not defined $IntrinsicNames{$TypeAttr{"Name"}}
+            or getTypeDeclId($TypeAttr{"Tid"}))
             { # NOTE: register only one int: with built-in decl
                 if(not $TName_Tid{$Version}{$TypeAttr{"Name"}}) {
                     $TName_Tid{$Version}{$TypeAttr{"Name"}} = $TypeId;
                 }
             }
+            return %TypeAttr;
+        }
+        else {
+            return ();
+        }
+    }
+    elsif($TypeAttr{"Type"}=~/TemplateParam|TypeName/)
+    {
+        %TypeAttr = getTrivialTypeAttr($TypeId);
+        if($TypeAttr{"Name"})
+        {
+            %{$TypeInfo{$Version}{$TypeId}} = %TypeAttr;
+            if(not $TName_Tid{$Version}{$TypeAttr{"Name"}}) {
+                $TName_Tid{$Version}{$TypeAttr{"Name"}} = $TypeId;
+            }
+            return %TypeAttr;
+        }
+        else {
+            return ();
+        }
+    }
+    elsif($TypeAttr{"Type"} eq "SizeOf")
+    {
+        $TypeAttr{"BaseType"} = getTreeAttr_Type($TypeId);
+        my %BTAttr = getTypeAttr($TypeAttr{"BaseType"});
+        $TypeAttr{"Name"} = "sizeof(".$BTAttr{"Name"}.")";
+        if($TypeAttr{"Name"})
+        {
+            %{$TypeInfo{$Version}{$TypeId}} = %TypeAttr;
             return %TypeAttr;
         }
         else {
@@ -2923,6 +3185,10 @@ sub get_TemplateParam($$)
             }
         }
         return @Params;
+    }
+    elsif($NodeType eq "parm_decl")
+    {
+        (getNameByInfo($Type_Id));
     }
     else
     {
@@ -3319,13 +3585,20 @@ sub getTypeType($)
 
 sub isTypedef($)
 {
-    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    if($_[0])
     {
-        my $TDid = getTypeDeclId($_[0]);
-        if(getNameByInfo($TDid)
-        and $Info=~/unql[ ]*:[ ]*\@(\d+) /
-        and getTypeId($TDid) eq $_[0]) {
-            return $1;
+        if($LibInfo{$Version}{"info_type"}{$_[0]} eq "vector_type")
+        { # typedef float La_x86_64_xmm __attribute__ ((__vector_size__ (16)));
+            return 0;
+        }
+        if(my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+        {
+            my $TDid = getTypeDeclId($_[0]);
+            if(getNameByInfo($TDid)
+            and $Info=~/unql[ ]*:[ ]*\@(\d+) /
+            and getTypeId($TDid) eq $_[0]) {
+                return $1;
+            }
         }
     }
     return 0;
@@ -3370,17 +3643,11 @@ sub selectBaseType($)
         if($Info=~/refd[ ]*:[ ]*@(\d+) /) {
             return ($1, "&");
         }
-        else {
-            return (0, "");
-        }
     }
     elsif($InfoType eq "array_type")
     {
         if($Info=~/elts[ ]*:[ ]*@(\d+) /) {
             return ($1, "");
-        }
-        else {
-            return (0, "");
         }
     }
     elsif($InfoType eq "pointer_type")
@@ -3388,13 +3655,9 @@ sub selectBaseType($)
         if($Info=~/ptd[ ]*:[ ]*@(\d+) /) {
             return ($1, "*");
         }
-        else {
-            return (0, "");
-        }
     }
-    else {
-        return (0, "");
-    }
+    
+    return (0, "");
 }
 
 sub getSymbolInfo_All()
@@ -3403,6 +3666,44 @@ sub getSymbolInfo_All()
     { # reverse order
         if($LibInfo{$Version}{"info_type"}{$_} eq "function_decl") {
             getSymbolInfo($_);
+        }
+    }
+    
+    if($ADD_TMPL_INSTANCES)
+    {
+        # templates
+        foreach my $Sid (sort {int($a)<=>int($b)} keys(%{$SymbolInfo{$Version}}))
+        {
+            my %Map = ();
+            
+            if(my $ClassId = $SymbolInfo{$Version}{$Sid}{"Class"})
+            {
+                if(defined $TemplateMap{$Version}{$ClassId})
+                {
+                    foreach (keys(%{$TemplateMap{$Version}{$ClassId}})) {
+                        $Map{$_} = $TemplateMap{$Version}{$ClassId}{$_};
+                    }
+                }
+            }
+            
+            if(defined $TemplateMap{$Version}{$Sid})
+            {
+                foreach (keys(%{$TemplateMap{$Version}{$Sid}})) {
+                    $Map{$_} = $TemplateMap{$Version}{$Sid}{$_};
+                }
+            }
+            
+            if(defined $SymbolInfo{$Version}{$Sid}{"Param"})
+            {
+                foreach (keys(%{$SymbolInfo{$Version}{$Sid}{"Param"}}))
+                {
+                    my $PTid = $SymbolInfo{$Version}{$Sid}{"Param"}{$_}{"type"};
+                    $SymbolInfo{$Version}{$Sid}{"Param"}{$_}{"type"} = instType(\%Map, $PTid, $Version);
+                }
+            }
+            if(my $Return = $SymbolInfo{$Version}{$Sid}{"Return"}) {
+                $SymbolInfo{$Version}{$Sid}{"Return"} = instType(\%Map, $Return, $Version);
+            }
         }
     }
 }
@@ -3474,8 +3775,9 @@ sub getVarInfo($)
     $SymbolInfo{$Version}{$InfoId}{"Data"} = 1;
     if(my $Rid = getTypeId($InfoId))
     {
-        if(not $TypeInfo{$Version}{$Rid}{"Name"})
-        { # typename_type
+        if(not defined $TypeInfo{$Version}{$Rid}
+        or not $TypeInfo{$Version}{$Rid}{"Name"})
+        {
             delete($SymbolInfo{$Version}{$InfoId});
             return;
         }
@@ -3488,8 +3790,9 @@ sub getVarInfo($)
     set_Class_And_Namespace($InfoId);
     if(my $ClassId = $SymbolInfo{$Version}{$InfoId}{"Class"})
     {
-        if(not $TypeInfo{$Version}{$ClassId}{"Name"})
-        { # templates
+        if(not defined $TypeInfo{$Version}{$ClassId}
+        or not $TypeInfo{$Version}{$ClassId}{"Name"})
+        {
             delete($SymbolInfo{$Version}{$InfoId});
             return;
         }
@@ -3608,7 +3911,7 @@ sub getTrivialName($$)
                     last;
                 }
             }
-            $NameSpaceId=$NSId;
+            $NameSpaceId = $NSId;
         }
     }
     else
@@ -3636,10 +3939,6 @@ sub getTrivialName($$)
     and getTypeDeclId($TypeId) eq $TypeInfoId)
     {
         my @TParams = getTParams($TypeId, "Type");
-        if(not @TParams)
-        { # template declarations with abstract params
-            return ("", "");
-        }
         $TypeAttr{"Name"} = formatName($TypeAttr{"Name"}."< ".join(", ", @TParams)." >", "T");
     }
     return ($TypeAttr{"Name"}, $TypeAttr{"NameSpace"});
@@ -3650,22 +3949,13 @@ sub getTrivialTypeAttr($)
     my $TypeId = $_[0];
     my $TypeInfoId = getTypeDeclId($_[0]);
     
+    my %TypeAttr = ();
+    
     if($TemplateDecl{$Version}{$TypeId})
     { # template_decl
-        return ();
-    }
-    if(my $ScopeId = getTreeAttr_Scpe($TypeInfoId))
-    {
-        if($TemplateDecl{$Version}{$ScopeId})
-        { # template_decl
-            return ();
-        }
+        $TypeAttr{"Template"} = 1;
     }
     
-    my %TypeAttr = ();
-    if(getTypeTypeByTypeId($TypeId)!~/\A(Intrinsic|Union|Struct|Enum|Class)\Z/) {
-        return ();
-    }
     setTypeAccess($TypeId, \%TypeAttr);
     ($TypeAttr{"Header"}, $TypeAttr{"Line"}) = getLocation($TypeInfoId);
     if(isBuiltIn($TypeAttr{"Header"}))
@@ -3681,26 +3971,94 @@ sub getTrivialTypeAttr($)
     if(not $TypeAttr{"NameSpace"}) {
         delete($TypeAttr{"NameSpace"});
     }
+    
+    my $Tmpl = undef;
+    
     if(defined $TemplateInstance{$Version}{"Type"}{$TypeId})
     {
+        $Tmpl = $BasicTemplate{$Version}{$TypeId};
+        
         if(my @TParams = getTParams($TypeId, "Type"))
         {
-            foreach my $Pos (0 .. $#TParams) {
-                $TypeAttr{"TParam"}{$Pos}{"name"}=$TParams[$Pos];
+            foreach my $Pos (0 .. $#TParams)
+            {
+                my $Val = $TParams[$Pos];
+                $TypeAttr{"TParam"}{$Pos}{"name"} = $Val;
+                
+                if(not defined $TypeAttr{"Template"})
+                {
+                    my %Base = get_BaseType($TemplateInstance{$Version}{"Type"}{$TypeId}{$Pos}, $Version);
+                    
+                    if($Base{"Type"} eq "TemplateParam"
+                    or defined $Base{"Template"}) {
+                        $TypeAttr{"Template"} = 1;
+                    }
+                }
+                
+                if($Tmpl)
+                {
+                    if(my $Arg = $TemplateArg{$Version}{$Tmpl}{$Pos})
+                    {
+                        $TemplateMap{$Version}{$TypeId}{$Arg} = $Val;
+                        
+                        if($Val eq $Arg) {
+                            $TypeAttr{"Template"} = 1;
+                        }
+                    }
+                }
+            }
+            
+            if($Tmpl)
+            {
+                foreach my $Pos (sort {int($a)<=>int($b)} keys(%{$TemplateArg{$Version}{$Tmpl}}))
+                {
+                    if($Pos>$#TParams)
+                    {
+                        my $Arg = $TemplateArg{$Version}{$Tmpl}{$Pos};
+                        $TemplateMap{$Version}{$TypeId}{$Arg} = "";
+                    }
+                }
+            }
+        }
+        
+        if($ADD_TMPL_INSTANCES)
+        {
+            if(not getTreeAttr_Flds($TypeId))
+            {
+                if($Tmpl)
+                {
+                    if(my $MainInst = getTreeAttr_Type($Tmpl))
+                    {
+                        if(my $Flds = getTreeAttr_Flds($MainInst)) {
+                            $LibInfo{$Version}{"info"}{$TypeId} .= " flds: \@$Flds ";
+                        }
+                        if(my $Binf = getTreeAttr_Binf($MainInst)) {
+                            $LibInfo{$Version}{"info"}{$TypeId} .= " binf: \@$Binf ";
+                        }
+                    }
+                }
             }
         }
     }
+    
+    my $StaticFields = setTypeMemb($TypeId, \%TypeAttr);
+    
     if(my $Size = getSize($TypeId))
     {
         $Size = $Size/$BYTE_SIZE;
         $TypeAttr{"Size"} = "$Size";
     }
     else
-    { # declaration only
-        $TypeAttr{"Forward"} = 1;
+    {
+        if($ExtraDump)
+        {
+            if(not defined $TypeAttr{"Memb"}
+            and not $Tmpl)
+            { # declaration only
+                $TypeAttr{"Forward"} = 1;
+            }
+        }
     }
-    
-    my $StaticFields = setTypeMemb($TypeId, \%TypeAttr);
     
     if($TypeAttr{"Type"} eq "Struct"
     and ($StaticFields or detect_lang($TypeId)))
@@ -3724,7 +4082,7 @@ sub getTrivialTypeAttr($)
     if($TypeAttr{"Type"}=~/\A(Struct|Union|Enum)\Z/)
     {
         if(not $TypedefToAnon{$TypeId}
-        and not keys(%{$TemplateInstance{$Version}{"Type"}{$TypeId}}))
+        and not defined $TemplateInstance{$Version}{"Type"}{$TypeId})
         {
             if(not isAnon($TypeAttr{"Name"})) {
                 $TypeAttr{"Name"} = lc($TypeAttr{"Type"})." ".$TypeAttr{"Name"};
@@ -3740,7 +4098,7 @@ sub getTrivialTypeAttr($)
         {
             my $Entry = $Entries[$_];
             if($Entry=~/\A(\d+)\s+(.+)\Z/) {
-                $TypeAttr{"VTable"}{$1} = $2;
+                $TypeAttr{"VTable"}{$1} = simplifyVTable($2);
             }
         }
     }
@@ -3759,10 +4117,14 @@ sub getTrivialTypeAttr($)
                 };
                 if(isAnon($TypeAttr{"Name"}))
                 {
-                    %{$Constants{$Version}{$MName}} = (
-                        "Value" => $MVal,
-                        "Header" => $TypeAttr{"Header"}
-                    );
+                    if($ExtraDump
+                    or is_target_header($TypeAttr{"Header"}, $Version))
+                    {
+                        %{$Constants{$Version}{$MName}} = (
+                            "Value" => $MVal,
+                            "Header" => $TypeAttr{"Header"}
+                        );
+                    }
                 }
             }
         }
@@ -3775,6 +4137,33 @@ sub getTrivialTypeAttr($)
     }
     
     return %TypeAttr;
+}
+
+sub simplifyVTable($)
+{
+    my $Content = $_[0];
+    if($Content=~s/ \[with (.+)]//)
+    { # std::basic_streambuf<_CharT, _Traits>::imbue [with _CharT = char, _Traits = std::char_traits<char>]
+        if(my @Elems = separate_Params($1, 0, 0))
+        {
+            foreach my $Elem (@Elems)
+            {
+                if($Elem=~/\A(.+?)\s*=\s*(.+?)\Z/)
+                {
+                    my ($Arg, $Val) = ($1, $2);
+                    
+                    if(defined $DEFAULT_STD_ARGS{$Arg}) {
+                        $Content=~s/,\s*$Arg\b//g;
+                    }
+                    else {
+                        $Content=~s/\b$Arg\b/$Val/g;
+                    }
+                }
+            }
+        }
+    }
+    
+    return $Content;
 }
 
 sub detect_lang($)
@@ -3812,9 +4201,9 @@ sub setBaseClasses($$)
 {
     my ($TypeId, $TypeAttr) = @_;
     my $Info = $LibInfo{$Version}{"info"}{$TypeId};
-    if($Info=~/binf[ ]*:[ ]*@(\d+) /)
+    if(my $Binf = getTreeAttr_Binf($TypeId))
     {
-        $Info = $LibInfo{$Version}{"info"}{$1};
+        my $Info = $LibInfo{$Version}{"info"}{$Binf};
         my $Pos = 0;
         while($Info=~s/(pub|public|prot|protected|priv|private|)[ ]+binf[ ]*:[ ]*@(\d+) //)
         {
@@ -3824,7 +4213,7 @@ sub setBaseClasses($$)
             if(not $CType or $CType eq "template_type_parm"
             or $CType eq "typename_type")
             { # skip
-                return 1;
+                # return 1;
             }
             my $BaseInfo = $LibInfo{$Version}{"info"}{$BInfoId};
             if($Access=~/prot/) {
@@ -4675,13 +5064,15 @@ sub getSymbolInfo($)
     }
     
     $SymbolInfo{$Version}{$InfoId}{"Type"} = getFuncType($InfoId);
-    if($SymbolInfo{$Version}{$InfoId}{"Return"} = getFuncReturn($InfoId))
+    if(my $Return = getFuncReturn($InfoId))
     {
-        if(not $TypeInfo{$Version}{$SymbolInfo{$Version}{$InfoId}{"Return"}}{"Name"})
-        { # templates
+        if(not defined $TypeInfo{$Version}{$Return}
+        or not $TypeInfo{$Version}{$Return}{"Name"})
+        {
             delete($SymbolInfo{$Version}{$InfoId});
             return;
         }
+        $SymbolInfo{$Version}{$InfoId}{"Return"} = $Return;
     }
     if(my $Rid = $SymbolInfo{$Version}{$InfoId}{"Return"})
     {
@@ -4711,15 +5102,40 @@ sub getSymbolInfo($)
     
     if(defined $TemplateInstance{$Version}{"Func"}{$Orig})
     {
+        my $Tmpl = $BasicTemplate{$Version}{$InfoId};
+        
         my @TParams = getTParams($Orig, "Func");
         if(not @TParams)
         {
             delete($SymbolInfo{$Version}{$InfoId});
             return;
         }
-        foreach my $Pos (0 .. $#TParams) {
-            $SymbolInfo{$Version}{$InfoId}{"TParam"}{$Pos}{"name"}=$TParams[$Pos];
+        foreach my $Pos (0 .. $#TParams)
+        {
+            my $Val = $TParams[$Pos];
+            $SymbolInfo{$Version}{$InfoId}{"TParam"}{$Pos}{"name"} = $Val;
+            
+            if($Tmpl)
+            {
+                if(my $Arg = $TemplateArg{$Version}{$Tmpl}{$Pos})
+                {
+                    $TemplateMap{$Version}{$InfoId}{$Arg} = $Val;
+                }
+            }
         }
+        
+        if($Tmpl)
+        {
+            foreach my $Pos (sort {int($a)<=>int($b)} keys(%{$TemplateArg{$Version}{$Tmpl}}))
+            {
+                if($Pos>$#TParams)
+                {
+                    my $Arg = $TemplateArg{$Version}{$Tmpl}{$Pos};
+                    $TemplateMap{$Version}{$InfoId}{$Arg} = "";
+                }
+            }
+        }
+        
         my $PrmsInLine = join(", ", @TParams);
         if($SymbolInfo{$Version}{$InfoId}{"ShortName"}=~/\Aoperator\W+\Z/)
         { # operator<< <T>, operator>> <T>
@@ -4772,8 +5188,9 @@ sub getSymbolInfo($)
     
     if(my $ClassId = $SymbolInfo{$Version}{$InfoId}{"Class"})
     {
-        if(not $TypeInfo{$Version}{$ClassId}{"Name"})
-        { # templates
+        if(not defined $TypeInfo{$Version}{$ClassId}
+        or not $TypeInfo{$Version}{$ClassId}{"Name"})
+        {
             delete($SymbolInfo{$Version}{$InfoId});
             return;
         }
@@ -5074,6 +5491,7 @@ sub setTypeMemb($$)
                     $MembTypeId = $AddedTid;
                 }
             }
+            
             $TypeAttr->{"Memb"}{$Pos}{"type"} = $MembTypeId;
             $TypeAttr->{"Memb"}{$Pos}{"name"} = $StructMembName;
             if((my $Access = getTreeAccess($MInfoId)) ne "public")
@@ -5093,7 +5511,13 @@ sub setTypeMemb($$)
             }
             else
             { # in bytes
-                $TypeAttr->{"Memb"}{$Pos}{"algn"} /= $BYTE_SIZE;
+                if($TypeAttr->{"Memb"}{$Pos}{"algn"}==1)
+                { # template
+                    delete($TypeAttr->{"Memb"}{$Pos}{"algn"});
+                }
+                else {
+                    $TypeAttr->{"Memb"}{$Pos}{"algn"} /= $BYTE_SIZE;
+                }
             }
             
             $MInfoId = getNextElem($MInfoId);
@@ -5161,6 +5585,14 @@ sub setFuncParams($)
             next;
         }
         $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"type"} = $ParamTypeId;
+        
+        if(my %Base = get_BaseType($ParamTypeId, $Version))
+        {
+            if(defined $Base{"Template"}) {
+                return 1;
+            }
+        }
+        
         $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"name"} = $ParamName;
         if(my $Algn = getAlgn($ParamInfoId)) {
             $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"algn"} = $Algn/$BYTE_SIZE;
@@ -5411,6 +5843,17 @@ sub getTreeAttr_Flds($)
     return "";
 }
 
+sub getTreeAttr_Binf($)
+{
+    if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
+    {
+        if($Info=~/binf[ ]*:[ ]*@(\d+) /) {
+            return $1;
+        }
+    }
+    return "";
+}
+
 sub getTreeAttr_Args($)
 {
     if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
@@ -5612,7 +6055,7 @@ sub getNameSpace($)
                     return "";
                 }
             }
-            elsif($InfoType eq "record_type")
+            elsif($InfoType ne "function_decl")
             { # inside data type
                 my ($Name, $NameNS) = getTrivialName(getTypeDeclId($NSInfoId), $NSInfoId);
                 return $Name;
@@ -7153,8 +7596,12 @@ sub get_Signature($$)
                 $ParamTypeName=~s/\b\Q$Typedef\E\b/$Base/g;
             }
         }
-        if(my $ParamName = $CompleteSignature{$LibVersion}{$Symbol}{"Param"}{$Pos}{"name"}) {
-            push(@ParamArray, create_member_decl($ParamTypeName, $ParamName));
+        if(my $ParamName = $CompleteSignature{$LibVersion}{$Symbol}{"Param"}{$Pos}{"name"})
+        {
+            if($ParamName ne "this" or $Symbol!~/\A(_Z|\?)/)
+            { # do NOT show first hidded "this"-parameter
+                push(@ParamArray, create_member_decl($ParamTypeName, $ParamName));
+            }
         }
         else {
             push(@ParamArray, $ParamTypeName);
@@ -8622,7 +9069,7 @@ sub addTargetHeaders($)
         {
             my $Dir = get_dirname($RecInc);
             
-            if(familiarDirs($Dir, $RegDir) 
+            if(familiarDirs($RegDir, $Dir) 
             or $RecursiveIncludes{$LibVersion}{$RegHeader}{$RecInc}!=1)
             { # in the same directory or included by #include "..."
                 $TargetHeaders{$LibVersion}{get_filename($RecInc)} = 1;
@@ -8637,17 +9084,48 @@ sub familiarDirs($$)
     if($D1 eq $D2) {
         return 1;
     }
-    while($D1=~s/[\/\\]+.*?\Z//)
+    
+    my $U1 = index($D1, "/usr/");
+    my $U2 = index($D2, "/usr/");
+    
+    if($U1==0 and $U2!=0) {
+        return 0;
+    }
+    
+    if($U2==0 and $U1!=0) {
+        return 0;
+    }
+    
+    if(index($D2, $D1."/")==0) {
+        return 1;
+    }
+    
+    # /usr/include/DIR
+    # /home/user/DIR
+    
+    my $DL = get_depth($D1);
+    
+    my @Dirs1 = ($D1);
+    while($DL - get_depth($D1)<=2
+    and get_depth($D1)>=4
+    and $D1=~s/[\/\\]+[^\/\\]*?\Z//) {
+        push(@Dirs1, $D1);
+    }
+    
+    my @Dirs2 = ($D2);
+    while(get_depth($D2)>=4
+    and $D2=~s/[\/\\]+[^\/\\]*?\Z//) {
+        push(@Dirs2, $D2);
+    }
+    
+    foreach my $P1 (@Dirs1)
     {
-        $D2=~s/[\/\\]+.*?\Z//;
-        if(not $D1 or not $D2) {
-            return 0;
-        }
-        if($D1 eq "/usr/include") {
-            return 0;
-        }
-        if($D1 eq $D2) {
-            return 1;
+        foreach my $P2 (@Dirs2)
+        {
+            
+            if($P1 eq $P2) {
+                return 1;
+            }
         }
     }
     return 0;
@@ -9038,70 +9516,153 @@ sub prepareSymbols($)
     }
 }
 
-sub register_TypeUsage($$)
+sub getFirst($$)
 {
-    my ($TypeId, $LibVersion) = @_;
+    my ($Tid, $LibVersion) = @_;
+    if(not $Tid) {
+        return $Tid;
+    }
+    
+    if(my $Name = $TypeInfo{$LibVersion}{$Tid}{"Name"})
+    {
+        if($TName_Tid{$LibVersion}{$Name}) {
+            return $TName_Tid{$LibVersion}{$Name};
+        }
+    }
+    
+    return $Tid;
+}
+
+sub register_SymbolUsage($$$)
+{
+    my ($InfoId, $UsedType, $LibVersion) = @_;
+    
+    my %FuncInfo = %{$SymbolInfo{$LibVersion}{$InfoId}};
+    if(my $RTid = getFirst($FuncInfo{"Return"}, $LibVersion))
+    {
+        register_TypeUsage($RTid, $UsedType, $LibVersion);
+        $SymbolInfo{$LibVersion}{$InfoId}{"Return"} = $RTid;
+    }
+    if(my $FCid = getFirst($FuncInfo{"Class"}, $LibVersion))
+    {
+        register_TypeUsage($FCid, $UsedType, $LibVersion);
+        $SymbolInfo{$LibVersion}{$InfoId}{"Class"} = $FCid;
+        
+        if(my $ThisId = getTypeIdByName($TypeInfo{$LibVersion}{$FCid}{"Name"}."*const", $LibVersion))
+        { # register "this" pointer
+            register_TypeUsage($ThisId, $UsedType, $LibVersion);
+        }
+        if(my $ThisId_C = getTypeIdByName($TypeInfo{$LibVersion}{$FCid}{"Name"}."const*const", $LibVersion))
+        { # register "this" pointer (const method)
+            register_TypeUsage($ThisId_C, $UsedType, $LibVersion);
+        }
+    }
+    foreach my $PPos (keys(%{$FuncInfo{"Param"}}))
+    {
+        if(my $PTid = getFirst($FuncInfo{"Param"}{$PPos}{"type"}, $LibVersion))
+        {
+            register_TypeUsage($PTid, $UsedType, $LibVersion);
+            $FuncInfo{"Param"}{$PPos}{"type"} = $PTid;
+        }
+    }
+    foreach my $TPos (keys(%{$FuncInfo{"TParam"}}))
+    {
+        my $TPName = $FuncInfo{"TParam"}{$TPos}{"name"};
+        if(my $TTid = $TName_Tid{$LibVersion}{$TPName}) {
+            register_TypeUsage($TTid, $UsedType, $LibVersion);
+        }
+    }
+}
+
+sub register_TypeUsage($$$)
+{
+    my ($TypeId, $UsedType, $LibVersion) = @_;
     if(not $TypeId) {
-        return 0;
+        return;
     }
-    if($UsedType{$LibVersion}{$TypeId})
+    if($UsedType->{$TypeId})
     { # already registered
-        return 1;
+        return;
     }
+    
     my %TInfo = get_Type($TypeId, $LibVersion);
     if($TInfo{"Type"})
     {
-        if($TInfo{"Type"}=~/\A(Struct|Union|Class|FuncPtr|MethodPtr|FieldPtr|Enum)\Z/)
+        if(my $NS = $TInfo{"NameSpace"})
         {
-            $UsedType{$LibVersion}{$TypeId} = 1;
+            if(my $NSTid = $TName_Tid{$LibVersion}{$NS}) {
+                register_TypeUsage($NSTid, $UsedType, $LibVersion);
+            }
+        }
+        
+        if($TInfo{"Type"}=~/\A(Struct|Union|Class|FuncPtr|Func|MethodPtr|FieldPtr|Enum)\Z/)
+        {
+            $UsedType->{$TypeId} = 1;
             if($TInfo{"Type"}=~/\A(Struct|Class)\Z/)
             {
-                foreach my $BaseId (keys(%{$TInfo{"Base"}}))
-                { # register base classes
-                    register_TypeUsage($BaseId, $LibVersion);
+                foreach my $BaseId (keys(%{$TInfo{"Base"}})) {
+                    register_TypeUsage($BaseId, $UsedType, $LibVersion);
                 }
                 foreach my $TPos (keys(%{$TInfo{"TParam"}}))
                 {
                     my $TPName = $TInfo{"TParam"}{$TPos}{"name"};
                     if(my $TTid = $TName_Tid{$LibVersion}{$TPName}) {
-                        register_TypeUsage($TTid, $LibVersion);
+                        register_TypeUsage($TTid, $UsedType, $LibVersion);
                     }
                 }
             }
             foreach my $Memb_Pos (keys(%{$TInfo{"Memb"}}))
             {
-                if(my $MTid = $TInfo{"Memb"}{$Memb_Pos}{"type"}) {
-                    register_TypeUsage($MTid, $LibVersion);
+                if(my $MTid = getFirst($TInfo{"Memb"}{$Memb_Pos}{"type"}, $LibVersion))
+                {
+                    register_TypeUsage($MTid, $UsedType, $LibVersion);
+                    $TInfo{"Memb"}{$Memb_Pos}{"type"} = $MTid;
                 }
             }
             if($TInfo{"Type"} eq "FuncPtr"
-            or $TInfo{"Type"} eq "MethodPtr")
+            or $TInfo{"Type"} eq "MethodPtr"
+            or $TInfo{"Type"} eq "Func")
             {
                 if(my $RTid = $TInfo{"Return"}) {
-                    register_TypeUsage($RTid, $LibVersion);
+                    register_TypeUsage($RTid, $UsedType, $LibVersion);
                 }
-                foreach my $Memb_Pos (keys(%{$TInfo{"Param"}}))
+                foreach my $PPos (keys(%{$TInfo{"Param"}}))
                 {
-                    if(my $MTid = $TInfo{"Param"}{$Memb_Pos}{"type"}) {
-                        register_TypeUsage($MTid, $LibVersion);
+                    if(my $PTid = $TInfo{"Param"}{$PPos}{"type"}) {
+                        register_TypeUsage($PTid, $UsedType, $LibVersion);
                     }
                 }
             }
-            return 1;
+            if($TInfo{"Type"} eq "FieldPtr")
+            {
+                if(my $RTid = $TInfo{"Return"}) {
+                    register_TypeUsage($RTid, $UsedType, $LibVersion);
+                }
+                if(my $CTid = $TInfo{"Class"}) {
+                    register_TypeUsage($CTid, $UsedType, $LibVersion);
+                }
+            }
+            if($TInfo{"Type"} eq "MethodPtr")
+            {
+                if(my $CTid = $TInfo{"Class"}) {
+                    register_TypeUsage($CTid, $UsedType, $LibVersion);
+                }
+            }
         }
         elsif($TInfo{"Type"}=~/\A(Const|ConstVolatile|Volatile|Pointer|Ref|Restrict|Array|Typedef)\Z/)
         {
-            $UsedType{$LibVersion}{$TypeId} = 1;
-            register_TypeUsage($TInfo{"BaseType"}, $LibVersion);
-            return 1;
+            $UsedType->{$TypeId} = 1;
+            if(my $BTid = getFirst($TInfo{"BaseType"}, $LibVersion))
+            {
+                register_TypeUsage($BTid, $UsedType, $LibVersion);
+                $TypeInfo{$LibVersion}{$TypeId}{"BaseType"} = $BTid;
+            }
         }
-        elsif($TInfo{"Type"} eq "Intrinsic")
-        {
-            $UsedType{$LibVersion}{$TypeId} = 1;
-            return 1;
+        else
+        { # Intrinsic, TemplateParam, TypeName, SizeOf, etc.
+            $UsedType->{$TypeId} = 1;
         }
     }
-    return 0;
 }
 
 sub selectSymbol($$$$)
@@ -9132,7 +9693,7 @@ sub selectSymbol($$$$)
             $Target = 1;
         }
     }
-    if($CheckHeadersOnly)
+    if($CheckHeadersOnly or $Level eq "Source")
     {
         if($Target)
         {
@@ -9213,13 +9774,20 @@ sub cleanDump($)
     my $LibVersion = $_[0];
     foreach my $InfoId (keys(%{$SymbolInfo{$LibVersion}}))
     {
+        if(not keys(%{$SymbolInfo{$LibVersion}{$InfoId}}))
+        {
+            delete($SymbolInfo{$LibVersion}{$InfoId});
+            next;
+        }
         my $MnglName = $SymbolInfo{$LibVersion}{$InfoId}{"MnglName"};
-        if(not $MnglName) {
+        if(not $MnglName)
+        {
             delete($SymbolInfo{$LibVersion}{$InfoId});
             next;
         }
         my $ShortName = $SymbolInfo{$LibVersion}{$InfoId}{"ShortName"};
-        if(not $ShortName) {
+        if(not $ShortName)
+        {
             delete($SymbolInfo{$LibVersion}{$InfoId});
             next;
         }
@@ -9236,6 +9804,11 @@ sub cleanDump($)
     }
     foreach my $Tid (keys(%{$TypeInfo{$LibVersion}}))
     {
+        if(not keys(%{$TypeInfo{$LibVersion}{$Tid}}))
+        {
+            delete($TypeInfo{$LibVersion}{$Tid});
+            next;
+        }
         delete($TypeInfo{$LibVersion}{$Tid}{"Tid"});
         foreach my $Attr ("Header", "Line", "Size", "NameSpace")
         {
@@ -9285,66 +9858,190 @@ sub selectType($$)
     return 0;
 }
 
-sub removeUnused($$)
+sub remove_Unused($$)
 { # remove unused data types from the ABI dump
     my ($LibVersion, $Kind) = @_;
-    foreach my $InfoId (keys(%{$SymbolInfo{$LibVersion}}))
+    
+    my %UsedType = ();
+    
+    foreach my $InfoId (sort {int($a)<=>int($b)} keys(%{$SymbolInfo{$LibVersion}}))
     {
-        my %FuncInfo = %{$SymbolInfo{$LibVersion}{$InfoId}};
-        if(my $RTid = $FuncInfo{"Return"}) {
-            register_TypeUsage($RTid, $LibVersion);
-        }
-        if(my $FCid = $FuncInfo{"Class"})
-        {
-            register_TypeUsage($FCid, $LibVersion);
-            if(my $ThisId = getTypeIdByName($TypeInfo{$LibVersion}{$FCid}{"Name"}."*const", $LibVersion))
-            { # register "this" pointer
-                $UsedType{$LibVersion}{$ThisId} = 1;
-                if(my %ThisType = get_Type($ThisId, $LibVersion)) {
-                    register_TypeUsage($ThisType{"BaseType"}, $LibVersion);
-                }
-            }
-        }
-        foreach my $PPos (keys(%{$FuncInfo{"Param"}}))
-        {
-            if(my $PTid = $FuncInfo{"Param"}{$PPos}{"type"}) {
-                register_TypeUsage($PTid, $LibVersion);
-            }
-        }
-        foreach my $TPos (keys(%{$FuncInfo{"TParam"}}))
-        {
-            my $TPName = $FuncInfo{"TParam"}{$TPos}{"name"};
-            if(my $TTid = $TName_Tid{$LibVersion}{$TPName}) {
-                register_TypeUsage($TTid, $LibVersion);
-            }
-        }
+        register_SymbolUsage($InfoId, \%UsedType, $LibVersion);
     }
-    foreach my $Tid (keys(%{$TypeInfo{$LibVersion}}))
+    foreach my $Tid (sort {int($a)<=>int($b)} keys(%{$TypeInfo{$LibVersion}}))
     {
-        if($UsedType{$LibVersion}{$Tid})
+        if($UsedType{$Tid})
         { # All & Extended
             next;
         }
         
         if($Kind eq "Extended")
         {
-            if(selectType($Tid, $LibVersion)) {
-                register_TypeUsage($Tid, $LibVersion);
+            if(selectType($Tid, $LibVersion))
+            {
+                my %Tree = ();
+                register_TypeUsage($Tid, \%Tree, $LibVersion);
+                
+                my $Tmpl = 0;
+                foreach (sort {int($a)<=>int($b)} keys(%Tree))
+                {
+                    if(defined $TypeInfo{$LibVersion}{$_}{"Template"}
+                    or $TypeInfo{$LibVersion}{$_}{"Type"} eq "TemplateParam")
+                    {
+                        $Tmpl = 1;
+                        last;
+                    }
+                }
+                if(not $Tmpl)
+                {
+                    foreach (keys(%Tree)) {
+                        $UsedType{$_} = 1;
+                    }
+                }
             }
         }
     }
-    foreach my $Tid (keys(%{$TypeInfo{$LibVersion}}))
+    
+    my %Delete = ();
+    
+    foreach my $Tid (sort {int($a)<=>int($b)} keys(%{$TypeInfo{$LibVersion}}))
     { # remove unused types
-        if($UsedType{$LibVersion}{$Tid})
+        if($UsedType{$Tid})
         { # All & Extended
             next;
         }
-        # remove type
-        delete($TypeInfo{$LibVersion}{$Tid});
+        
+        if($Kind eq "Extra")
+        {
+            my %Tree = ();
+            register_TypeUsage($Tid, \%Tree, $LibVersion);
+            
+            foreach (sort {int($a)<=>int($b)} keys(%Tree))
+            {
+                if(defined $TypeInfo{$LibVersion}{$_}{"Template"}
+                or $TypeInfo{$LibVersion}{$_}{"Type"} eq "TemplateParam")
+                {
+                    $Delete{$Tid} = 1;
+                    last;
+                }
+            }
+        }
+        else
+        {
+            # remove type
+            delete($TypeInfo{$LibVersion}{$Tid});
+        }
     }
     
-    # clean memory
-    %UsedType = ();
+    if($Kind eq "Extra")
+    { # remove duplicates
+        foreach my $Tid (sort {int($a)<=>int($b)} keys(%{$TypeInfo{$LibVersion}}))
+        {
+            if($UsedType{$Tid})
+            { # All & Extended
+                next;
+            }
+            
+            my $Name = $TypeInfo{$LibVersion}{$Tid}{"Name"};
+            
+            if($TName_Tid{$LibVersion}{$Name} ne $Tid) {
+                delete($TypeInfo{$LibVersion}{$Tid});
+            }
+        }
+    }
+    
+    foreach my $Tid (keys(%Delete))
+    {
+        delete($TypeInfo{$LibVersion}{$Tid});
+    }
+}
+
+sub check_Completeness($$)
+{
+    my ($Info, $LibVersion) = @_;
+    
+    # data types
+    if(defined $Info->{"Memb"})
+    {
+        foreach my $Pos (keys(%{$Info->{"Memb"}}))
+        {
+            if(defined $Info->{"Memb"}{$Pos}{"type"}) {
+                check_TypeInfo($Info->{"Memb"}{$Pos}{"type"}, $LibVersion);
+            }
+        }
+    }
+    if(defined $Info->{"Base"})
+    {
+        foreach my $Bid (keys(%{$Info->{"Base"}})) {
+            check_TypeInfo($Bid, $LibVersion);
+        }
+    }
+    if(defined $Info->{"BaseType"}) {
+        check_TypeInfo($Info->{"BaseType"}, $LibVersion);
+    }
+    if(defined $Info->{"TParam"})
+    {
+        foreach my $Pos (keys(%{$Info->{"TParam"}}))
+        {
+            my $TName = $Info->{"TParam"}{$Pos}{"name"};
+            if($TName=~/\A\(.+\)(true|false|\d.*)\Z/) {
+                next;
+            }
+            if($TName eq "_BoolType") {
+                next;
+            }
+            if($TName=~/\Asizeof\(/) {
+                next;
+            }
+            if(my $Tid = $TName_Tid{$LibVersion}{$TName}) {
+                check_TypeInfo($Tid, $LibVersion);
+            }
+            else
+            {
+                if(defined $Debug) {
+                    printMsg("WARNING", "missed type $TName");
+                }
+            }
+        }
+    }
+    
+    # symbols
+    if(defined $Info->{"Param"})
+    {
+        foreach my $Pos (keys(%{$Info->{"Param"}}))
+        {
+            if(defined $Info->{"Param"}{$Pos}{"type"}) {
+                check_TypeInfo($Info->{"Param"}{$Pos}{"type"}, $LibVersion);
+            }
+        }
+    }
+    if(defined $Info->{"Return"}) {
+        check_TypeInfo($Info->{"Return"}, $LibVersion);
+    }
+    if(defined $Info->{"Class"}) {
+        check_TypeInfo($Info->{"Class"}, $LibVersion);
+    }
+}
+
+sub check_TypeInfo($$)
+{
+    my ($Tid, $LibVersion) = @_;
+    
+    if(defined $CheckedTypeInfo{$LibVersion}{$Tid}) {
+        return;
+    }
+    $CheckedTypeInfo{$LibVersion}{$Tid} = 1;
+    
+    if(defined $TypeInfo{$LibVersion}{$Tid})
+    {
+        if(not $TypeInfo{$LibVersion}{$Tid}{"Name"}) {
+            printMsg("ERROR", "missed type name ($Tid)");
+        }
+        check_Completeness($TypeInfo{$LibVersion}{$Tid}, $LibVersion);
+    }
+    else {
+        printMsg("ERROR", "missed type id $Tid");
+    }
 }
 
 sub selfTypedef($$)
@@ -10815,9 +11512,14 @@ sub mergeTypes($$$)
         }
     }
     
-    if(not $Type1_Pure{"Size"} or not $Type2_Pure{"Size"})
+    if(not $Type1_Pure{"Size"}
+    or not $Type2_Pure{"Size"})
     { # including a case when "class Class { ... };" changed to "class Class;"
-        return ();
+        if(not defined $Type1_Pure{"Memb"} or not defined $Type2_Pure{"Memb"}
+        or index($Type1_Pure{"Name"}, "<")==-1 or index($Type2_Pure{"Name"}, "<")==-1)
+        { # NOTE: template instances have no size
+            return ();
+        }
     }
     if(isRecurType($Type1_Pure{"Tid"}, $Type2_Pure{"Tid"}, \@RecurTypes))
     { # skip recursive declarations
@@ -13465,11 +14167,11 @@ sub mergeParameters($$$$$$)
         return;
     }
     
-    if(index($Symbol, "_Z")==0)
-    { # do not merge this
-        if($PName1 eq "this" or $PName2 eq "this") {
-            return;
-        }
+    if(index($Symbol, "_Z")==0) 
+    { # do not merge "this" 
+        if($PName1 eq "this" or $PName2 eq "this") { 
+            return; 
+        } 
     }
     
     my %Type1 = get_Type($PType1_Id, 1);
@@ -13545,8 +14247,10 @@ sub mergeParameters($$$$$$)
             }
         }
     }
-    if(checkDump(1, "2.0") and checkDump(2, "2.0"))
+    if(checkDump(1, "2.0") and checkDump(2, "2.0")
+    and $UsedDump{1}{"V"} ne "3.1" and $UsedDump{2}{"V"} ne "3.1")
     { # "default" attribute added in ACC 1.22 (dump 2.0 format)
+      # broken in 3.1, fixed in 3.2
         my $Value_Old = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos1}{"default"};
         my $Value_New = $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos2}{"default"};
         if(not checkDump(1, "2.13")
@@ -14746,7 +15450,8 @@ sub getArch($)
     if($Arch=~/\A([\w]{3,})(-|\Z)/) {
         $Arch = $1;
     }
-    $Arch = "x86" if($Arch=~/\Ai[3-7]86\Z/);
+    $Arch = "x86" if($Arch=~/\Ai[3-7]86\Z/i);
+    $Arch = "x86_64" if($Arch=~/\Aamd64\Z/i);
     if($OSgroup eq "windows")
     {
         $Arch = "x86" if($Arch=~/win32|mingw32/i);
@@ -16383,23 +17088,6 @@ sub simpleVEntry($)
     $VEntry=~s/\A0u\Z/(int (*)(...))0/;
     $VEntry=~s/\A4294967268u\Z/(int (*)(...))-0x000000004/;
     $VEntry=~s/\A&_Z\Z/& _Z/;
-    # templates
-    if($VEntry=~s/ \[with (\w+) = (.+?)(, [^=]+ = .+|])\Z//g)
-    { # std::basic_streambuf<_CharT, _Traits>::imbue [with _CharT = char, _Traits = std::char_traits<char>]
-      # become std::basic_streambuf<char, ...>::imbue
-        my ($Pname, $Pval) = ($1, $2);
-        if($Pname eq "_CharT" and $VEntry=~/\Astd::/)
-        { # stdc++ typedefs
-            $VEntry=~s/<$Pname(, [^<>]+|)>/<$Pval>/g;
-            # FIXME: simplify names using stdcxx typedefs (StdCxxTypedef)
-            # The typedef info should be added to ABI dumps
-        }
-        else
-        {
-            $VEntry=~s/<$Pname>/<$Pval>/g;
-            $VEntry=~s/<$Pname, [^<>]+>/<$Pval, ...>/g;
-        }
-    }
     $VEntry=~s/([^:]+)::\~([^:]+)\Z/~$1/; # destructors
     return $VEntry;
 }
@@ -17113,7 +17801,8 @@ sub checkPreprocessedUnit($)
             delete($Constants{$Version}{$Constant});
             next;
         }
-        if(not $ExtraDump and ($Constant=~/_h\Z/i or isBuiltIn($Constants{$Version}{$Constant}{"Header"})))
+        if(not $ExtraDump and ($Constant=~/_h\Z/i
+        or isBuiltIn($Constants{$Version}{$Constant}{"Header"})))
         { # skip
             delete($Constants{$Version}{$Constant});
         }
@@ -19085,7 +19774,7 @@ sub read_ABI_Dump($$)
             {
                 $MAX_ID = $Tid if($Tid>$MAX_ID);
                 $MAX_ID = $TDid if($TDid and $TDid>$MAX_ID);
-                $Tid_TDid{$Tid}{$TDid}=1;
+                $Tid_TDid{$Tid}{$TDid} = 1;
             }
         }
         my %NewID = ();
@@ -19101,12 +19790,11 @@ sub read_ABI_Dump($$)
                     }
                     else
                     {
-                        if(my $ID = ++$MAX_ID)
-                        {
-                            $NewID{$TDid}{$Tid} = $ID;
-                            %{$TypeInfo{$LibVersion}{$ID}} = %{$TInfo->{$TDid}{$Tid}};
-                            $TypeInfo{$LibVersion}{$ID}{"Tid"} = $ID;
-                        }
+                        my $ID = ++$MAX_ID;
+                        
+                        $NewID{$TDid}{$Tid} = $ID;
+                        %{$TypeInfo{$LibVersion}{$ID}} = %{$TInfo->{$TDid}{$Tid}};
+                        $TypeInfo{$LibVersion}{$ID}{"Tid"} = $ID;
                     }
                 }
             }
@@ -19269,6 +19957,35 @@ sub read_ABI_Dump($$)
                 if(ref($BaseType) eq "HASH") {
                     $TypeInfo{$LibVersion}{$TypeId}{"BaseType"} = $TypeInfo{$LibVersion}{$TypeId}{"BaseType"}{"Tid"};
                 }
+            }
+        }
+    }
+    
+    if(not checkDump($LibVersion, "3.2"))
+    { # support for old ABI dumps
+        foreach my $TypeId (sort {int($a)<=>int($b)} keys(%{$TypeInfo{$LibVersion}}))
+        {
+            if(defined $TypeInfo{$LibVersion}{$TypeId}{"VTable"})
+            {
+                foreach my $Offset (keys(%{$TypeInfo{$LibVersion}{$TypeId}{"VTable"}})) {
+                    $TypeInfo{$LibVersion}{$TypeId}{"VTable"}{$Offset} = simplifyVTable($TypeInfo{$LibVersion}{$TypeId}{"VTable"}{$Offset});
+                }
+            }
+        }
+        
+        # repair target headers list
+        delete($TargetHeaders{$LibVersion});
+        foreach (keys(%{$Registered_Headers{$LibVersion}})) {
+            $TargetHeaders{$LibVersion}{get_filename($_)}=1;
+        }
+        
+        # non-target constants from anon enums
+        foreach my $Name (keys(%{$Constants{$LibVersion}}))
+        {
+            if(not $ExtraDump
+            and not is_target_header($Constants{$LibVersion}{$Name}{"Header"}, $LibVersion))
+            {
+                delete($Constants{$LibVersion}{$Name});
             }
         }
     }
@@ -21007,9 +21724,6 @@ sub initLogging($)
         { # enable --extra-info
             $ExtraInfo = $DEBUG_PATH{$LibVersion}."/extra-info";
         }
-        
-        # enable --extra-dump
-        $ExtraDump = 1;
     }
     resetLogging($LibVersion);
 }
