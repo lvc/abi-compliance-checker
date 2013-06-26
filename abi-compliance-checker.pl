@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.99.2
+# ABI Compliance Checker (ACC) 1.99.3
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -64,7 +64,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.2";
+my $TOOL_VERSION = "1.99.3";
 my $ABI_DUMP_VERSION = "3.2";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.1";
@@ -19881,10 +19881,10 @@ sub read_ABI_Dump($$)
     or not $TargetHeaders{$LibVersion})
     { # support for old ABI dumps: added target headers
         foreach (keys(%{$Registered_Headers{$LibVersion}})) {
-            $TargetHeaders{$LibVersion}{get_filename($_)}=1;
+            $TargetHeaders{$LibVersion}{get_filename($_)} = 1;
         }
         foreach (keys(%{$Registered_Sources{$LibVersion}})) {
-            $TargetHeaders{$LibVersion}{get_filename($_)}=1;
+            $TargetHeaders{$LibVersion}{get_filename($_)} = 1;
         }
     }
     $Constants{$LibVersion} = $ABI->{"Constants"};
@@ -19976,7 +19976,10 @@ sub read_ABI_Dump($$)
         # repair target headers list
         delete($TargetHeaders{$LibVersion});
         foreach (keys(%{$Registered_Headers{$LibVersion}})) {
-            $TargetHeaders{$LibVersion}{get_filename($_)}=1;
+            $TargetHeaders{$LibVersion}{get_filename($_)} = 1;
+        }
+        foreach (keys(%{$Registered_Sources{$LibVersion}})) {
+            $TargetHeaders{$LibVersion}{get_filename($_)} = 1;
         }
         
         # non-target constants from anon enums
