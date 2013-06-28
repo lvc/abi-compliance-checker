@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.99.3
+# ABI Compliance Checker (ACC) 1.99.4
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -64,7 +64,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.3";
+my $TOOL_VERSION = "1.99.4";
 my $ABI_DUMP_VERSION = "3.2";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.1";
@@ -93,7 +93,7 @@ $SkipHeadersPath, $CppCompat, $LogMode, $StdOut, $ListAffected, $ReportFormat,
 $UserLang, $TargetHeadersPath, $BinaryOnly, $SourceOnly, $BinaryReportPath,
 $SourceReportPath, $UseXML, $Browse, $OpenReport, $SortDump, $DumpFormat,
 $ExtraInfo, $ExtraDump, $Force, $Tolerance, $Tolerant, $SkipSymbolsListPath,
-$CheckInfo);
+$CheckInfo, $Quick);
 
 my $CmdName = get_filename($0);
 my %OS_LibExt = (
@@ -273,7 +273,8 @@ GetOptions("h|help!" => \$Help,
   "force!" => \$Force,
   "tolerance=s" => \$Tolerance,
   "tolerant!" => \$Tolerant,
-  "check!" => \$CheckInfo
+  "check!" => \$CheckInfo,
+  "quick!" => \$Quick
 ) or ERR_MESSAGE();
 
 sub ERR_MESSAGE()
@@ -771,6 +772,9 @@ OTHER OPTIONS:
       
   -check
       Check completeness of the ABI dump.
+      
+  -quick
+      Quick analysis. Disable check of some template instances.
 
 REPORT:
     Compatibility report will be generated to:
@@ -2550,7 +2554,7 @@ sub createType($$)
     my $NewId = ++$MAX_ID;
     
     $TypeInfo{$Version}{$NewId} = $Attr;
-    $TName_Tid{$Version}{$Attr->{"Name"}} = $NewId;
+    $TName_Tid{$Version}{formatName($Attr->{"Name"}, "T")} = $NewId;
     
     return "$NewId";
 }
@@ -2577,8 +2581,7 @@ sub instType($$$)
         { # remove absent
           # _Traits, etc.
             $Attr->{"Name"}=~s/,\s*\b$Key(,|>)/$1/g;
-            if(defined $Attr->{"NameSpace"})
-            {
+            if(defined $Attr->{"NameSpace"}) {
                 $Attr->{"NameSpace"}=~s/,\s*\b$Key(,|>)/$1/g;
             }
             foreach (keys(%{$Attr->{"TParam"}}))
@@ -2586,8 +2589,7 @@ sub instType($$$)
                 if($Attr->{"TParam"}{$_}{"name"} eq $Key) {
                     delete($Attr->{"TParam"}{$_});
                 }
-                else
-                {
+                else {
                     $Attr->{"TParam"}{$_}{"name"}=~s/,\s*\b$Key(,|>)/$1/g;
                 }
             }
@@ -2625,6 +2627,8 @@ sub instType($$$)
             delete($Attr->{"Template"});
         }
         
+        my $New = createType($Attr, $LibVersion);
+        
         my %EMap = ();
         if(defined $TemplateMap{$LibVersion}{$Tid}) {
             %EMap = %{$TemplateMap{$LibVersion}{$Tid}};
@@ -2633,44 +2637,42 @@ sub instType($$$)
             $EMap{$_} = $Map->{$_};
         }
         
-        if(defined $Attr->{"BaseType"}) {
-            $Attr->{"BaseType"} = instType(\%EMap, $Attr->{"BaseType"}, $LibVersion);
+        if(defined $TypeInfo{$LibVersion}{$New}{"BaseType"}) {
+            $TypeInfo{$LibVersion}{$New}{"BaseType"} = instType(\%EMap, $TypeInfo{$LibVersion}{$New}{"BaseType"}, $LibVersion);
         }
-        if(defined $Attr->{"Base"})
+        if(defined $TypeInfo{$LibVersion}{$New}{"Base"})
         {
-            foreach my $Bid (keys(%{$Attr->{"Base"}}))
+            foreach my $Bid (keys(%{$TypeInfo{$LibVersion}{$New}{"Base"}}))
             {
                 my $NBid = instType(\%EMap, $Bid, $LibVersion);
                 
                 if($NBid ne $Bid)
                 {
-                    %{$Attr->{"Base"}{$NBid}} = %{$Attr->{"Base"}{$Bid}};
-                    delete($Attr->{"Base"}{$Bid});
+                    %{$TypeInfo{$LibVersion}{$New}{"Base"}{$NBid}} = %{$TypeInfo{$LibVersion}{$New}{"Base"}{$Bid}};
+                    delete($TypeInfo{$LibVersion}{$New}{"Base"}{$Bid});
                 }
             }
         }
         
-        my $R = createType($Attr, $LibVersion);
-        
-        if(defined $Attr->{"Memb"})
+        if(defined $TypeInfo{$LibVersion}{$New}{"Memb"})
         {
-            foreach (sort {int($a)<=>int($b)} keys(%{$Attr->{"Memb"}})) {
-                $Attr->{"Memb"}{$_}{"type"} = instType(\%EMap, $Attr->{"Memb"}{$_}{"type"}, $LibVersion);
+            foreach (sort {int($a)<=>int($b)} keys(%{$TypeInfo{$LibVersion}{$New}{"Memb"}})) {
+                $TypeInfo{$LibVersion}{$New}{"Memb"}{$_}{"type"} = instType(\%EMap, $TypeInfo{$LibVersion}{$New}{"Memb"}{$_}{"type"}, $LibVersion);
             }
         }
         
-        if(defined $Attr->{"Param"})
+        if(defined $TypeInfo{$LibVersion}{$New}{"Param"})
         {
-            foreach (sort {int($a)<=>int($b)} keys(%{$Attr->{"Param"}})) {
-                $Attr->{"Param"}{$_}{"type"} = instType(\%EMap, $Attr->{"Param"}{$_}{"type"}, $LibVersion);
+            foreach (sort {int($a)<=>int($b)} keys(%{$TypeInfo{$LibVersion}{$New}{"Param"}})) {
+                $TypeInfo{$LibVersion}{$New}{"Param"}{$_}{"type"} = instType(\%EMap, $TypeInfo{$LibVersion}{$New}{"Param"}{$_}{"type"}, $LibVersion);
             }
         }
         
-        if(defined $Attr->{"Return"}) {
-            $Attr->{"Return"} = instType(\%EMap, $Attr->{"Return"}, $LibVersion);
+        if(defined $TypeInfo{$LibVersion}{$New}{"Return"}) {
+            $TypeInfo{$LibVersion}{$New}{"Return"} = instType(\%EMap, $TypeInfo{$LibVersion}{$New}{"Return"}, $LibVersion);
         }
         
-        return $R;
+        return $New;
     }
 }
 
@@ -3593,11 +3595,15 @@ sub isTypedef($)
         }
         if(my $Info = $LibInfo{$Version}{"info"}{$_[0]})
         {
-            my $TDid = getTypeDeclId($_[0]);
-            if(getNameByInfo($TDid)
-            and $Info=~/unql[ ]*:[ ]*\@(\d+) /
-            and getTypeId($TDid) eq $_[0]) {
-                return $1;
+            if(my $TDid = getTypeDeclId($_[0]))
+            {
+                if(getTypeId($TDid) eq $_[0]
+                and getNameByInfo($TDid))
+                {
+                    if($Info=~/unql[ ]*:[ ]*\@(\d+) /) {
+                        return $1;
+                    }
+                }
             }
         }
     }
@@ -4023,15 +4029,18 @@ sub getTrivialTypeAttr($)
         
         if($ADD_TMPL_INSTANCES)
         {
-            if(not getTreeAttr_Flds($TypeId))
+            if($Tmpl)
             {
-                if($Tmpl)
+                if(my $MainInst = getTreeAttr_Type($Tmpl))
                 {
-                    if(my $MainInst = getTreeAttr_Type($Tmpl))
+                    if(not getTreeAttr_Flds($TypeId))
                     {
                         if(my $Flds = getTreeAttr_Flds($MainInst)) {
                             $LibInfo{$Version}{"info"}{$TypeId} .= " flds: \@$Flds ";
                         }
+                    }
+                    if(not getTreeAttr_Binf($TypeId))
+                    {
                         if(my $Binf = getTreeAttr_Binf($MainInst)) {
                             $LibInfo{$Version}{"info"}{$TypeId} .= " binf: \@$Binf ";
                         }
@@ -5655,7 +5664,7 @@ sub setFuncArgs($$)
             }
             elsif(my $OldId = $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"type"})
             {
-                if(getFuncType($InfoId) ne "Method" or $Pos>0)
+                if($Pos>0 or getFuncType($InfoId) ne "Method")
                 { # params
                     if($OldId ne $ParamTypeId)
                     {
@@ -7158,9 +7167,9 @@ sub selectSystemHeader_I($$)
             return join_P($Path,$Header);
         }
     }
-    if(not keys(%SystemHeaders))
+    if(not defined $Cache{"checkSystemFiles"})
     { # register all headers in system include dirs
-        detectSystemHeaders();
+        checkSystemFiles();
     }
     foreach my $Candidate (sort {get_depth($a)<=>get_depth($b)}
     sort {cmp_paths($b, $a)} getSystemHeaders($Header, $LibVersion))
@@ -14529,8 +14538,8 @@ sub find_ParamPair_Pos_byTypeAndPos($$$$$)
 
 sub getTypeIdByName($$)
 {
-    my ($TypeName, $Version) = @_;
-    return $TName_Tid{$Version}{formatName($TypeName, "T")};
+    my ($TypeName, $LibVersion) = @_;
+    return $TName_Tid{$LibVersion}{formatName($TypeName, "T")};
 }
 
 sub diffTypes($$$)
@@ -18770,7 +18779,9 @@ sub get_LibPath_I($$)
             return join_P($Dir,$Name);
         }
     }
-    detectSystemObjects() if(not keys(%SystemObjects));
+    if(not defined $Cache{"checkSystemFiles"}) {
+        checkSystemFiles();
+    }
     if(my @AllObjects = keys(%{$SystemObjects{$Name}})) {
         return $AllObjects[0];
     }
@@ -19203,46 +19214,51 @@ sub get_prefixes_I($$)
     }
 }
 
-sub detectSystemHeaders()
+sub checkSystemFiles()
 {
+    $Cache{"checkSystemFiles"} = 1;
+    
     my @SysHeaders = ();
-    foreach my $DevelPath (@{$SystemPaths{"include"}})
+    
+    foreach my $DevelPath (@{$SystemPaths{"lib"}})
     {
         next if(not -d $DevelPath);
-        # search for all header files in the /usr/include
-        # with or without extension (ncurses.h, QtCore, ...)
-        push(@SysHeaders, cmd_find($DevelPath,"f"));
-        foreach my $Link (cmd_find($DevelPath,"l"))
-        { # add symbolic links
-            if(-f $Link) {
-                push(@SysHeaders, $Link);
-            }
-        }
-    }
-    foreach my $DevelPath (@{$SystemPaths{"lib"}})
-    { # search for config headers in the /usr/lib
-        next if(not -d $DevelPath);
-        foreach (cmd_find($DevelPath,"f",'\.h(pp|xx)?\Z|\/include\/',"",1))
+        
+        my @Files = cmd_find($DevelPath);
+        
+        if(not $CheckObjectsOnly)
         {
-            if(/\/(gcc|jvm|syslinux|kbd|parrot|xemacs)/)
-            { # skip useless headers
-                next;
-            }
-            push(@SysHeaders, $_);
+            # search for headers in /usr/lib
+            @SysHeaders = grep { /\.h(pp|xx)?\Z|\/include\// } @Files;
+            @SysHeaders = grep { not /\/(gcc|jvm|syslinux|kbd|parrot|xemacs|perl|llvm)/ } @SysHeaders;
+        }
+        
+        # search for libraries in /usr/lib (including symbolic links)
+        my @Libs = grep { /\.$LIB_EXT[0-9.]*\Z/ } @Files;
+        foreach my $Path (@Libs)
+        {
+            my $N = get_filename($Path);
+            $SystemObjects{$N}{$Path} = 1;
+            $SystemObjects{parse_libname($N, "name+ext", $OStarget)}{$Path} = 1;
         }
     }
-    get_prefixes_I(\@SysHeaders, \%SystemHeaders);
-}
-
-sub detectSystemObjects()
-{
-    foreach my $DevelPath (@{$SystemPaths{"lib"}})
+    
+    if(not $CheckObjectsOnly)
     {
-        next if(not -d $DevelPath);
-        foreach my $Path (find_libs($DevelPath,"",""))
-        { # search for shared libraries in the /usr/lib (including symbolic links)
-            $SystemObjects{parse_libname(get_filename($Path), "name+ext", $OStarget)}{$Path}=1;
+        foreach my $DevelPath (@{$SystemPaths{"include"}})
+        {
+            next if(not -d $DevelPath);
+            # search for all header files in the /usr/include
+            # with or without extension (ncurses.h, QtCore, ...)
+            push(@SysHeaders, cmd_find($DevelPath,"f"));
+            foreach my $Link (cmd_find($DevelPath,"l"))
+            { # add symbolic links
+                if(-f $Link) {
+                    push(@SysHeaders, $Link);
+                }
+            }
         }
+        get_prefixes_I(\@SysHeaders, \%SystemHeaders);
     }
 }
 
@@ -22304,6 +22320,9 @@ sub scenario()
         if($Quiet) {
             $COMMON_LOG_PATH = $LoggingPath;
         }
+    }
+    if($Quick) {
+        $ADD_TMPL_INSTANCES = 0;
     }
     if($OutputDumpPath)
     { # validate
