@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.99.5
+# ABI Compliance Checker (ACC) 1.99.6
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -64,7 +64,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.5";
+my $TOOL_VERSION = "1.99.6";
 my $ABI_DUMP_VERSION = "3.2";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.1";
@@ -2553,6 +2553,7 @@ sub createType($$)
     my ($Attr, $LibVersion) = @_;
     my $NewId = ++$MAX_ID;
     
+    $Attr->{"Tid"} = $NewId;
     $TypeInfo{$Version}{$NewId} = $Attr;
     $TName_Tid{$Version}{formatName($Attr->{"Name"}, "T")} = $NewId;
     
@@ -9285,7 +9286,7 @@ sub prepareSymbols($)
         {
             if(defined $SymbolInfo{$LibVersion}{$InfoId}{"Param"}
             and keys(%{$SymbolInfo{$LibVersion}{$InfoId}{"Param"}})
-            and $SymbolInfo{$LibVersion}{$InfoId}{"Param"}{0}{"name"})
+            and $SymbolInfo{$LibVersion}{$InfoId}{"Param"}{0}{"name"} ne "this")
             { # support for old GCC < 4.5: skip artificial ~dtor(int __in_chrg)
               # + support for old ABI dumps
                 next;
@@ -11724,12 +11725,12 @@ sub mergeTypes($$$)
                 }
                 if(my $RenamedTo = isRenamed($Member_Pos, \%Type1_Pure, 1, \%Type2_Pure, 2))
                 { # renamed
-                    $RenamedField{$Member_Pos}=$RenamedTo;
-                    $RenamedField_Rev{$NameToPosB{$RenamedTo}}=$Member_Name;
+                    $RenamedField{$Member_Pos} = $RenamedTo;
+                    $RenamedField_Rev{$NameToPosB{$RenamedTo}} = $Member_Name;
                 }
                 else
                 { # removed
-                    $RemovedField{$Member_Pos}=1;
+                    $RemovedField{$Member_Pos} = 1;
                 }
             }
             elsif($Type1_Pure{"Type"} eq "Enum")
@@ -11743,16 +11744,16 @@ sub mergeTypes($$$)
                     my $MemberPair_Pos_Rev = find_MemberPair_Pos_byName($RenamedTo, \%Type1_Pure);
                     if($MemberPair_Pos_Rev eq "lost")
                     {
-                        $RenamedField{$Member_Pos}=$RenamedTo;
-                        $RenamedField_Rev{$NameToPosB{$RenamedTo}}=$Member_Name;
+                        $RenamedField{$Member_Pos} = $RenamedTo;
+                        $RenamedField_Rev{$NameToPosB{$RenamedTo}} = $Member_Name;
                     }
                     else {
-                        $RemovedField{$Member_Pos}=1;
+                        $RemovedField{$Member_Pos} = 1;
                     }
                 }
                 else
                 { # removed
-                    $RemovedField{$Member_Pos}=1;
+                    $RemovedField{$Member_Pos} = 1;
                 }
             }
         }
@@ -11795,7 +11796,7 @@ sub mergeTypes($$$)
             next if(not $Member_Name);
             if(not $RemovedField{$Member_Pos})
             { # old type without removed fields
-                $RelPos{1}{$Member_Name}=$Pos;
+                $RelPos{1}{$Member_Name} = $Pos;
                 $RelPosName{1}{$Pos} = $Member_Name;
                 $AbsPos{1}{$Pos++} = $Member_Pos;
             }
@@ -11807,7 +11808,7 @@ sub mergeTypes($$$)
             next if(not $Member_Name);
             if(not $AddedField{$Member_Pos})
             { # new type without added fields
-                $RelPos{2}{$Member_Name}=$Pos;
+                $RelPos{2}{$Member_Name} = $Pos;
                 $RelPosName{2}{$Pos} = $Member_Name;
                 $AbsPos{2}{$Pos++} = $Member_Pos;
             }
@@ -11861,6 +11862,7 @@ sub mergeTypes($$$)
     { # check older fields, public and private
         my $Member_Name = $Type1_Pure{"Memb"}{$Member_Pos}{"name"};
         next if(not $Member_Name);
+        next if($Member_Name eq "_vptr");
         if(my $RenamedTo = $RenamedField{$Member_Pos})
         { # renamed
             if(defined $Constants{2}{$Member_Name})
@@ -12219,6 +12221,7 @@ sub mergeTypes($$$)
     { # checking added members, public and private
         my $Member_Name = $Type2_Pure{"Memb"}{$Member_Pos}{"name"};
         next if(not $Member_Name);
+        next if($Member_Name eq "_vptr");
         if($AddedField{$Member_Pos})
         { # added
             if($Type2_Pure{"Type"}=~/\A(Struct|Class)\Z/)
