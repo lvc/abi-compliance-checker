@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.99.6
+# ABI Compliance Checker (ACC) 1.99.7
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -64,7 +64,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.6";
+my $TOOL_VERSION = "1.99.7";
 my $ABI_DUMP_VERSION = "3.2";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.1";
@@ -2563,6 +2563,10 @@ sub createType($$)
 sub instType($$$)
 { # create template instances
     my ($Map, $Tid, $LibVersion) = @_;
+    
+    if(not $TypeInfo{$LibVersion}{$Tid}) {
+        return undef;
+    }
     my $Attr = dclone($TypeInfo{$LibVersion}{$Tid});
     
     foreach my $Key (sort keys(%{$Map}))
@@ -2657,8 +2661,11 @@ sub instType($$$)
         
         if(defined $TypeInfo{$LibVersion}{$New}{"Memb"})
         {
-            foreach (sort {int($a)<=>int($b)} keys(%{$TypeInfo{$LibVersion}{$New}{"Memb"}})) {
-                $TypeInfo{$LibVersion}{$New}{"Memb"}{$_}{"type"} = instType(\%EMap, $TypeInfo{$LibVersion}{$New}{"Memb"}{$_}{"type"}, $LibVersion);
+            foreach (sort {int($a)<=>int($b)} keys(%{$TypeInfo{$LibVersion}{$New}{"Memb"}}))
+            {
+                if(defined $TypeInfo{$LibVersion}{$New}{"Memb"}{$_}{"type"}) {
+                    $TypeInfo{$LibVersion}{$New}{"Memb"}{$_}{"type"} = instType(\%EMap, $TypeInfo{$LibVersion}{$New}{"Memb"}{$_}{"type"}, $LibVersion);
+                }
             }
         }
         
