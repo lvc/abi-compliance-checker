@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.99.7
+# ABI Compliance Checker (ACC) 1.99.8
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -38,7 +38,7 @@
 #
 # COMPATIBILITY
 # =============
-#  ABI Dumper >= 0.97
+#  ABI Dumper >= 0.98
 #
 #
 # This program is free software: you can redistribute it and/or modify
@@ -64,7 +64,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.7";
+my $TOOL_VERSION = "1.99.8";
 my $ABI_DUMP_VERSION = "3.2";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.1";
@@ -93,7 +93,7 @@ $SkipHeadersPath, $CppCompat, $LogMode, $StdOut, $ListAffected, $ReportFormat,
 $UserLang, $TargetHeadersPath, $BinaryOnly, $SourceOnly, $BinaryReportPath,
 $SourceReportPath, $UseXML, $Browse, $OpenReport, $SortDump, $DumpFormat,
 $ExtraInfo, $ExtraDump, $Force, $Tolerance, $Tolerant, $SkipSymbolsListPath,
-$CheckInfo, $Quick);
+$CheckInfo, $Quick, $AffectLimit, $AllAffected);
 
 my $CmdName = get_filename($0);
 my %OS_LibExt = (
@@ -246,6 +246,7 @@ GetOptions("h|help!" => \$Help,
   "lang=s" => \$UserLang,
   "binary|bin|abi!" => \$BinaryOnly,
   "source|src|api!" => \$SourceOnly,
+  "affected-limit=s" => \$AffectLimit,
 # other options
   "test!" => \$TestTool,
   "test-dump!" => \$TestDump,
@@ -274,7 +275,8 @@ GetOptions("h|help!" => \$Help,
   "tolerance=s" => \$Tolerance,
   "tolerant!" => \$Tolerant,
   "check!" => \$CheckInfo,
-  "quick!" => \$Quick
+  "quick!" => \$Quick,
+  "all-affected!" => \$AllAffected
 ) or ERR_MESSAGE();
 
 sub ERR_MESSAGE()
@@ -637,6 +639,10 @@ EXTRA OPTIONS:
       Show \"Source\" compatibility problems only.
       Generate report to:
         compat_reports/LIB_NAME/V1_to_V2/src_compat_report.html
+        
+  -affected-limit LIMIT
+      The maximum number of affected symbols listed under the description
+      of the changed type in the report.
 
 OTHER OPTIONS:
   -test
@@ -1123,6 +1129,7 @@ my $DEFAULT_STD_PARMS = "std::(allocator|less|char_traits|regex_traits|istreambu
 my %DEFAULT_STD_ARGS = map {$_=>1} ("_Alloc", "_Compare", "_Traits", "_Rx_traits", "_InIter", "_OutIter");
 
 my $ADD_TMPL_INSTANCES = 1;
+my $EMERGENCY_MODE_48 = 0;
 
 my %ConstantSuffix = (
     "unsigned int"=>"u",
@@ -1593,6 +1600,7 @@ my %ParamClass;
 my %SourceAlternative;
 my %SourceAlternative_B;
 my %SourceReplacement;
+my $CurrentSymbol; # for debugging
 
 # Calling Conventions
 my %UseConv_Real = (
@@ -4287,8 +4295,16 @@ sub modelUnmangled($$)
         foreach my $ParamPos (sort {int($a) <=> int($b)} @Params)
         { # checking parameters
             my $PId = $SymbolInfo{$Version}{$InfoId}{"Param"}{$ParamPos}{"type"};
+            my $PName = $SymbolInfo{$Version}{$InfoId}{"Param"}{$ParamPos}{"name"};
             my %PType = get_PureType($PId, $TypeInfo{$Version});
             my $PTName = unmangledFormat($PType{"Name"}, $Version);
+            
+            if($PName eq "this"
+            and $SymbolInfo{$Version}{$InfoId}{"Type"} eq "Method")
+            {
+                next;
+            }
+            
             $PTName=~s/\b(restrict|register)\b//g;
             if($Compiler eq "MSVC") {
                 $PTName=~s/\blong long\b/__int64/;
@@ -4499,16 +4515,16 @@ sub correct_incharge($$$)
     if($SymbolInfo{$LibVersion}{$InfoId}{"Constructor"})
     {
         if($MangledNames{$LibVersion}{$Mangled}) {
-            $Mangled=~s/C1E/C2E/;
+            $Mangled=~s/C1([EI])/C2$1/;
         }
     }
     elsif($SymbolInfo{$LibVersion}{$InfoId}{"Destructor"})
     {
         if($MangledNames{$LibVersion}{$Mangled}) {
-            $Mangled=~s/D0E/D1E/;
+            $Mangled=~s/D0([EI])/D1$1/;
         }
         if($MangledNames{$LibVersion}{$Mangled}) {
-            $Mangled=~s/D1E/D2E/;
+            $Mangled=~s/D1([EI])/D2$1/;
         }
     }
     return $Mangled;
@@ -5030,9 +5046,11 @@ sub linkSymbol($)
     my $InfoId = $_[0];
     # try to mangle symbol
     if((not check_gcc($GCC_PATH, "4") and $SymbolInfo{$Version}{$InfoId}{"Class"})
-    or (check_gcc($GCC_PATH, "4") and not $SymbolInfo{$Version}{$InfoId}{"Class"}))
-    { # 1. GCC 3.x doesn't mangle class methods names in the TU dump (only functions and global data)
-      # 2. GCC 4.x doesn't mangle C++ functions in the TU dump (only class methods) except extern "C" functions
+    or (check_gcc($GCC_PATH, "4") and not $SymbolInfo{$Version}{$InfoId}{"Class"})
+    or $EMERGENCY_MODE_48)
+    { # GCC 3.x doesn't mangle class methods names in the TU dump (only functions and global data)
+      # GCC 4.x doesn't mangle C++ functions in the TU dump (only class methods) except extern "C" functions
+      # GCC 4.8 doesn't mangle anything
         if(not $CheckHeadersOnly)
         {
             if(my $Mangled = $mangled_name_gcc{modelUnmangled($InfoId, "GCC")}) {
@@ -5040,7 +5058,8 @@ sub linkSymbol($)
             }
         }
         if($CheckHeadersOnly
-        or not $BinaryOnly)
+        or not $BinaryOnly
+        or $EMERGENCY_MODE_48)
         { # 1. --headers-only mode
           # 2. not mangled src-only symbols
             if(my $Mangled = mangle_symbol($InfoId, $Version, "GCC")) {
@@ -5370,7 +5389,7 @@ sub getSymbolInfo($)
             }
         }
     }
-    delete($SymbolInfo{$Version}{$InfoId}{"Type"});
+    
     if($SymbolInfo{$Version}{$InfoId}{"MnglName"}=~/\A_ZN(V|)K/) {
         $SymbolInfo{$Version}{$InfoId}{"Const"} = 1;
     }
@@ -5549,7 +5568,10 @@ sub setFuncParams($)
 {
     my $InfoId = $_[0];
     my $ParamInfoId = getTreeAttr_Args($InfoId);
-    if(getFuncType($InfoId) eq "Method")
+    
+    my $FType = getFuncType($InfoId);
+    
+    if($FType eq "Method")
     { # check type of "this" pointer
         my $ObjectTypeId = getTreeAttr_Type($ParamInfoId);
         if(my $ObjectName = $TypeInfo{$Version}{$ObjectTypeId}{"Name"})
@@ -5568,14 +5590,14 @@ sub setFuncParams($)
         # skip "this"-parameter
         # $ParamInfoId = getNextElem($ParamInfoId);
     }
-    my ($Pos, $Vtt_Pos) = (0, -1);
+    my ($Pos, $PPos, $Vtt_Pos) = (0, 0, -1);
     while($ParamInfoId)
     { # formal args
         my $ParamTypeId = getTreeAttr_Type($ParamInfoId);
         my $ParamName = getTreeStr(getTreeAttr_Name($ParamInfoId));
         if(not $ParamName)
         { # unnamed
-            $ParamName = "p".($Pos+1);
+            $ParamName = "p".($PPos+1);
         }
         if(defined $MissedTypedef{$Version}{$ParamTypeId})
         {
@@ -5614,15 +5636,15 @@ sub setFuncParams($)
         if(my $Algn = getAlgn($ParamInfoId)) {
             $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"algn"} = $Algn/$BYTE_SIZE;
         }
-        if(not $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"name"}) {
-            $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"name"} = "p".($Pos+1);
-        }
         if($LibInfo{$Version}{"info"}{$ParamInfoId}=~/spec:\s*register /)
         { # foo(register type arg)
             $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"reg"} = 1;
         }
         $ParamInfoId = getNextElem($ParamInfoId);
         $Pos += 1;
+        if($ParamName ne "this" or $FType ne "Method") {
+            $PPos += 1;
+        }
     }
     if(setFuncArgs($InfoId, $Vtt_Pos)) {
         $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"type"} = "-1";
@@ -5635,7 +5657,11 @@ sub setFuncArgs($$)
     my ($InfoId, $Vtt_Pos) = @_;
     my $FuncTypeId = getFuncTypeId($InfoId);
     my $ParamListElemId = getTreeAttr_Prms($FuncTypeId);
-    if(getFuncType($InfoId) eq "Method") {
+    my $FType = getFuncType($InfoId);
+    
+    if($FType eq "Method")
+    {
+        # skip "this"-parameter
         # $ParamListElemId = getNextElem($ParamListElemId);
     }
     if(not $ParamListElemId)
@@ -5643,7 +5669,7 @@ sub setFuncArgs($$)
         return 1;
     }
     my $HaveVoid = 0;
-    my $Pos = 0;
+    my ($Pos, $PPos) = (0, 0);
     while($ParamListElemId)
     { # actual params: may differ from formal args
       # formal int*const
@@ -5667,7 +5693,7 @@ sub setFuncArgs($$)
                 $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"type"} = $ParamTypeId;
                 if(not $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"name"})
                 { # unnamed
-                    $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"name"} = "p".($Pos+1);
+                    $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"name"} = "p".($PPos+1);
                 }
             }
             elsif(my $OldId = $SymbolInfo{$Version}{$InfoId}{"Param"}{$Pos}{"type"})
@@ -5701,6 +5727,9 @@ sub setFuncArgs($$)
             }
         }
         $ParamListElemId = getNextElem($ParamListElemId);
+        if($Pos!=0 or $FType ne "Method") {
+            $PPos += 1;
+        }
         $Pos += 1;
     }
     return ($Pos>=1 and not $HaveVoid);
@@ -6223,6 +6252,7 @@ sub registerDir($$$)
     $Dir=~s/[\/\\]+\Z//g;
     return if(not $LibVersion or not $Dir or not -d $Dir);
     $Dir = get_abs_path($Dir);
+    
     my $Mode = "All";
     if($WithDeps)
     {
@@ -7509,41 +7539,41 @@ sub get_ChargeLevel($$)
     {
         if($CompleteSignature{$LibVersion}{$Symbol}{"Constructor"})
         {
-            if($Symbol=~/C1E/) {
+            if($Symbol=~/C1[EI]/) {
                 return "[in-charge]";
             }
-            elsif($Symbol=~/C2E/) {
+            elsif($Symbol=~/C2[EI]/) {
                 return "[not-in-charge]";
             }
         }
         elsif($CompleteSignature{$LibVersion}{$Symbol}{"Destructor"})
         {
-            if($Symbol=~/D1E/) {
+            if($Symbol=~/D1[EI]/) {
                 return "[in-charge]";
             }
-            elsif($Symbol=~/D2E/) {
+            elsif($Symbol=~/D2[EI]/) {
                 return "[not-in-charge]";
             }
-            elsif($Symbol=~/D0E/) {
+            elsif($Symbol=~/D0[EI]/) {
                 return "[in-charge-deleting]";
             }
         }
     }
     else
     {
-        if($Symbol=~/C1E/) {
+        if($Symbol=~/C1[EI]/) {
             return "[in-charge]";
         }
-        elsif($Symbol=~/C2E/) {
+        elsif($Symbol=~/C2[EI]/) {
             return "[not-in-charge]";
         }
-        elsif($Symbol=~/D1E/) {
+        elsif($Symbol=~/D1[EI]/) {
             return "[in-charge]";
         }
-        elsif($Symbol=~/D2E/) {
+        elsif($Symbol=~/D2[EI]/) {
             return "[not-in-charge]";
         }
-        elsif($Symbol=~/D0E/) {
+        elsif($Symbol=~/D0[EI]/) {
             return "[in-charge-deleting]";
         }
     }
@@ -7615,10 +7645,12 @@ sub get_Signature($$)
         }
         if(my $ParamName = $CompleteSignature{$LibVersion}{$Symbol}{"Param"}{$Pos}{"name"})
         {
-            if($ParamName ne "this" or $Symbol!~/\A(_Z|\?)/)
+            if($ParamName eq "this"
+            and $Symbol=~/\A(_Z|\?)/)
             { # do NOT show first hidded "this"-parameter
-                push(@ParamArray, create_member_decl($ParamTypeName, $ParamName));
+                next;
             }
+            push(@ParamArray, create_member_decl($ParamTypeName, $ParamName));
         }
         else {
             push(@ParamArray, $ParamTypeName);
@@ -8079,7 +8111,12 @@ sub getCompileCmd($$$)
     if($OSgroup eq "macos") {
         $GccCall .= "objective-";
     }
-    if(check_gcc($GCC_PATH, "4"))
+    
+    if($EMERGENCY_MODE_48)
+    { # workaround for GCC 4.8 (C only)
+        $GccCall .= "c++";
+    }
+    elsif(check_gcc($GCC_PATH, "4"))
     { # compile as "C++" header
       # to obtain complete dump using GCC 4.0
         $GccCall .= "c++-header";
@@ -9818,6 +9855,7 @@ sub cleanDump($)
         if(not keys(%{$SymbolInfo{$LibVersion}{$InfoId}{"TParam"}})) {
             delete($SymbolInfo{$LibVersion}{$InfoId}{"TParam"});
         }
+        delete($SymbolInfo{$LibVersion}{$InfoId}{"Type"});
     }
     foreach my $Tid (keys(%{$TypeInfo{$LibVersion}}))
     {
@@ -11314,17 +11352,6 @@ my %Severity_Val=(
     "Safe"=>-1
 );
 
-sub maxSeverity($$)
-{
-    my ($S1, $S2) = @_;
-    if(cmpSeverities($S1, $S2)) {
-        return $S1;
-    }
-    else {
-        return $S2;
-    }
-}
-
 sub cmpSeverities($$)
 {
     my ($S1, $S2) = @_;
@@ -11335,12 +11362,6 @@ sub cmpSeverities($$)
         return 1;
     }
     return ($Severity_Val{$S1}>$Severity_Val{$S2});
-}
-
-sub getProblemSeverity($$)
-{
-    my ($Level, $Kind) = @_;
-    return $CompatRules{$Level}{$Kind}{"Severity"};
 }
 
 sub isRecurType($$$)
@@ -11495,22 +11516,26 @@ sub removeVPtr($)
 sub mergeTypes($$$)
 {
     my ($Type1_Id, $Type2_Id, $Level) = @_;
-    return () if(not $Type1_Id or not $Type2_Id);
-    my (%Sub_SubProblems, %SubProblems) = ();
+    return {} if(not $Type1_Id or not $Type2_Id);
+    
     if($Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id})
     { # already merged
-        return %{$Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id}};
+        return $Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id};
     }
+    
     my %Type1 = get_Type($Type1_Id, 1);
     my %Type2 = get_Type($Type2_Id, 2);
     if(not $Type1{"Name"} or not $Type2{"Name"}) {
-        return ();
+        return {};
     }
     
     $CheckedTypes{$Level}{$Type1{"Name"}} = 1;
     my %Type1_Pure = get_PureType($Type1_Id, $TypeInfo{1});
     my %Type2_Pure = get_PureType($Type2_Id, $TypeInfo{2});
+    
     $CheckedTypes{$Level}{$Type1_Pure{"Name"}} = 1;
+    
+    my %SubProblems = ();
     
     if($Type1_Pure{"Name"} eq $Type2_Pure{"Name"})
     {
@@ -11523,8 +11548,7 @@ sub mergeTypes($$$)
                     "Target"=>$Type1_Pure{"Name"},
                     "Type_Name"=>$Type1_Pure{"Name"}  );
                 
-                %{$Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id}} = %SubProblems;
-                return %SubProblems;
+                return ($Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id} = \%SubProblems);
             }
         }
     }
@@ -11535,16 +11559,16 @@ sub mergeTypes($$$)
         if(not defined $Type1_Pure{"Memb"} or not defined $Type2_Pure{"Memb"}
         or index($Type1_Pure{"Name"}, "<")==-1 or index($Type2_Pure{"Name"}, "<")==-1)
         { # NOTE: template instances have no size
-            return ();
+            return {};
         }
     }
     if(isRecurType($Type1_Pure{"Tid"}, $Type2_Pure{"Tid"}, \@RecurTypes))
     { # skip recursive declarations
-        return ();
+        return {};
     }
-    return () if(not $Type1_Pure{"Name"} or not $Type2_Pure{"Name"});
-    return () if($SkipTypes{1}{$Type1_Pure{"Name"}});
-    return () if($SkipTypes{1}{$Type1{"Name"}});
+    return {} if(not $Type1_Pure{"Name"} or not $Type2_Pure{"Name"});
+    return {} if($SkipTypes{1}{$Type1_Pure{"Name"}});
+    return {} if($SkipTypes{1}{$Type1{"Name"}});
     
     if($Type1_Pure{"Type"}=~/Class|Struct/ and $Type2_Pure{"Type"}=~/Class|Struct/)
     { # support for old ABI dumps
@@ -11658,8 +11682,7 @@ sub mergeTypes($$$)
                     "New_Value"=>lc($Type2_Pure{"Type"})  );
             }
         }
-        %{$Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id}} = %SubProblems;
-        return %SubProblems;
+        return ($Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id} = \%SubProblems);
     }
     pushType($Type1_Pure{"Tid"}, $Type2_Pure{"Tid"}, \@RecurTypes);
     if(($Type1_Pure{"Name"} eq $Type2_Pure{"Name"}
@@ -11692,22 +11715,17 @@ sub mergeTypes($$$)
                 "Target"=>$Type1_Pure{"Name"},
                 "Type_Name"=>$Type1_Pure{"Name"},
                 "Old_Size"=>$Type1_Pure{"Size"}*$BYTE_SIZE,
-                "New_Size"=>$Type2_Pure{"Size"}*$BYTE_SIZE,
-                "InitialType_Type"=>$Type1_Pure{"Type"}  );
+                "New_Size"=>$Type2_Pure{"Size"}*$BYTE_SIZE);
         }
     }
     if(defined $Type1_Pure{"BaseType"}
     and defined $Type2_Pure{"BaseType"})
     { # checking base types
-        %Sub_SubProblems = mergeTypes($Type1_Pure{"BaseType"}, $Type2_Pure{"BaseType"}, $Level);
-        foreach my $Sub_SubProblemType (keys(%Sub_SubProblems))
+        my $Sub_SubProblems = mergeTypes($Type1_Pure{"BaseType"}, $Type2_Pure{"BaseType"}, $Level);
+        foreach my $Sub_SubProblemType (keys(%{$Sub_SubProblems}))
         {
-            foreach my $Sub_SubLocation (keys(%{$Sub_SubProblems{$Sub_SubProblemType}}))
-            {
-                foreach my $Attr (keys(%{$Sub_SubProblems{$Sub_SubProblemType}{$Sub_SubLocation}})) {
-                    $SubProblems{$Sub_SubProblemType}{$Sub_SubLocation}{$Attr} = $Sub_SubProblems{$Sub_SubProblemType}{$Sub_SubLocation}{$Attr};
-                }
-                $SubProblems{$Sub_SubProblemType}{$Sub_SubLocation}{"InitialType_Type"} = $Type1_Pure{"Type"};
+            foreach my $Sub_SubLocation (keys(%{$Sub_SubProblems->{$Sub_SubProblemType}})) {
+                $SubProblems{$Sub_SubProblemType}{$Sub_SubLocation} = $Sub_SubProblems->{$Sub_SubProblemType}{$Sub_SubLocation};
             }
         }
     }
@@ -12098,11 +12116,11 @@ sub mergeTypes($$$)
                             "Type_Name"=>$Type1_Pure{"Name"});
                     }
                 }
-                %Sub_SubProblems = detectTypeChange($MemberType1_Id, $MemberType2_Id, "Field", $Level);
-                foreach my $ProblemType (keys(%Sub_SubProblems))
+                my %Sub_SubChanges = detectTypeChange($MemberType1_Id, $MemberType2_Id, "Field", $Level);
+                foreach my $ProblemType (keys(%Sub_SubChanges))
                 {
-                    my $Old_Value = $Sub_SubProblems{$ProblemType}{"Old_Value"};
-                    my $New_Value = $Sub_SubProblems{$ProblemType}{"New_Value"};
+                    my $Old_Value = $Sub_SubChanges{$ProblemType}{"Old_Value"};
+                    my $New_Value = $Sub_SubChanges{$ProblemType}{"New_Value"};
                     
                     # quals
                     if($ProblemType eq "Field_Type"
@@ -12112,28 +12130,28 @@ sub mergeTypes($$$)
                         if(checkDump(1, "2.6") and checkDump(2, "2.6"))
                         {
                             if(addedQual($Old_Value, $New_Value, "volatile")) {
-                                %{$Sub_SubProblems{"Field_Became_Volatile"}} = %{$Sub_SubProblems{$ProblemType}};
+                                %{$Sub_SubChanges{"Field_Became_Volatile"}} = %{$Sub_SubChanges{$ProblemType}};
                             }
                             elsif(removedQual($Old_Value, $New_Value, "volatile")) {
-                                %{$Sub_SubProblems{"Field_Became_Non_Volatile"}} = %{$Sub_SubProblems{$ProblemType}};
+                                %{$Sub_SubChanges{"Field_Became_Non_Volatile"}} = %{$Sub_SubChanges{$ProblemType}};
                             }
                         }
                         if(my $RA = addedQual($Old_Value, $New_Value, "const"))
                         {
                             if($RA==2) {
-                                %{$Sub_SubProblems{"Field_Added_Const"}} = %{$Sub_SubProblems{$ProblemType}};
+                                %{$Sub_SubChanges{"Field_Added_Const"}} = %{$Sub_SubChanges{$ProblemType}};
                             }
                             else {
-                                %{$Sub_SubProblems{"Field_Became_Const"}} = %{$Sub_SubProblems{$ProblemType}};
+                                %{$Sub_SubChanges{"Field_Became_Const"}} = %{$Sub_SubChanges{$ProblemType}};
                             }
                         }
                         elsif(my $RR = removedQual($Old_Value, $New_Value, "const"))
                         {
                             if($RR==2) {
-                                %{$Sub_SubProblems{"Field_Removed_Const"}} = %{$Sub_SubProblems{$ProblemType}};
+                                %{$Sub_SubChanges{"Field_Removed_Const"}} = %{$Sub_SubChanges{$ProblemType}};
                             }
                             else {
-                                %{$Sub_SubProblems{"Field_Became_Non_Const"}} = %{$Sub_SubProblems{$ProblemType}};
+                                %{$Sub_SubChanges{"Field_Became_Non_Const"}} = %{$Sub_SubChanges{$ProblemType}};
                             }
                         }
                     }
@@ -12141,21 +12159,21 @@ sub mergeTypes($$$)
                 
                 if($Level eq "Source")
                 {
-                    foreach my $ProblemType (keys(%Sub_SubProblems))
+                    foreach my $ProblemType (keys(%Sub_SubChanges))
                     {
-                        my $Old_Value = $Sub_SubProblems{$ProblemType}{"Old_Value"};
-                        my $New_Value = $Sub_SubProblems{$ProblemType}{"New_Value"};
+                        my $Old_Value = $Sub_SubChanges{$ProblemType}{"Old_Value"};
+                        my $New_Value = $Sub_SubChanges{$ProblemType}{"New_Value"};
                         
                         if($ProblemType eq "Field_Type")
                         {
                             if(cmpBTypes($Old_Value, $New_Value, 1, 2)) {
-                                delete($Sub_SubProblems{$ProblemType});
+                                delete($Sub_SubChanges{$ProblemType});
                             }
                         }
                     }
                 }
                 
-                foreach my $ProblemType (keys(%Sub_SubProblems))
+                foreach my $ProblemType (keys(%Sub_SubChanges))
                 {
                     my $ProblemType_Init = $ProblemType;
                     if($ProblemType eq "Field_Type_And_Size")
@@ -12194,9 +12212,9 @@ sub mergeTypes($$$)
                         "Target"=>$Member_Name,
                         "Type_Name"=>$Type1_Pure{"Name"});
                     
-                    foreach my $Attr (keys(%{$Sub_SubProblems{$ProblemType_Init}}))
+                    foreach my $Attr (keys(%{$Sub_SubChanges{$ProblemType_Init}}))
                     { # other properties
-                        $SubProblems{$ProblemType}{$Member_Name}{$Attr} = $Sub_SubProblems{$ProblemType_Init}{$Attr};
+                        $SubProblems{$ProblemType}{$Member_Name}{$Attr} = $Sub_SubChanges{$ProblemType_Init}{$Attr};
                     }
                 }
                 if(not isPublic(\%Type1_Pure, $Member_Pos))
@@ -12204,22 +12222,33 @@ sub mergeTypes($$$)
                     next;
                 }
                 if($MemberType1_Id and $MemberType2_Id)
-                {# checking member type changes (replace)
-                    %Sub_SubProblems = mergeTypes($MemberType1_Id, $MemberType2_Id, $Level);
-                    foreach my $Sub_SubProblemType (keys(%Sub_SubProblems))
+                { # checking member type changes
+                    my $Sub_SubProblems = mergeTypes($MemberType1_Id, $MemberType2_Id, $Level);
+                    
+                    my %DupProblems = ();
+                    
+                    foreach my $Sub_SubProblemType (keys(%{$Sub_SubProblems}))
                     {
-                        foreach my $Sub_SubLocation (keys(%{$Sub_SubProblems{$Sub_SubProblemType}}))
+                        foreach my $Sub_SubLocation (keys(%{$Sub_SubProblems->{$Sub_SubProblemType}}))
                         {
-                            my $NewLocation = ($Sub_SubLocation)?$Member_Name."->".$Sub_SubLocation:$Member_Name;
-                            $SubProblems{$Sub_SubProblemType}{$NewLocation}{"IsInTypeInternals"}=1;
-                            foreach my $Attr (keys(%{$Sub_SubProblems{$Sub_SubProblemType}{$Sub_SubLocation}})) {
-                                $SubProblems{$Sub_SubProblemType}{$NewLocation}{$Attr} = $Sub_SubProblems{$Sub_SubProblemType}{$Sub_SubLocation}{$Attr};
+                            if(not defined $AllAffected)
+                            {
+                                if(defined $DupProblems{$Sub_SubProblems->{$Sub_SubProblemType}{$Sub_SubLocation}}) {
+                                    next;
+                                }
                             }
-                            if($Sub_SubLocation!~/\-\>/) {
-                                $SubProblems{$Sub_SubProblemType}{$NewLocation}{"Start_Type_Name"} = $MemberType1_Name;
+                            
+                            my $NewLocation = ($Sub_SubLocation)?$Member_Name."->".$Sub_SubLocation:$Member_Name;
+                            $SubProblems{$Sub_SubProblemType}{$NewLocation} = $Sub_SubProblems->{$Sub_SubProblemType}{$Sub_SubLocation};
+                            
+                            if(not defined $AllAffected)
+                            {
+                                $DupProblems{$Sub_SubProblems->{$Sub_SubProblemType}{$Sub_SubLocation}} = 1;
                             }
                         }
                     }
+                    
+                    %DupProblems = ();
                 }
             }
         }
@@ -12291,9 +12320,9 @@ sub mergeTypes($$$)
             }
         }
     }
-    %{$Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id}} = %SubProblems;
+    
     pop(@RecurTypes);
-    return %SubProblems;
+    return ($Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id} = \%SubProblems);
 }
 
 sub isUnnamed($) {
@@ -13024,7 +13053,7 @@ sub mergeHeaders($)
                 and $CompleteSignature{1}{$Symbol}{"Const"})
                 {
                     my $Cid = $CompleteSignature{1}{$Symbol}{"Class"};
-                    %{$CompatProblems{$Level}{$Symbol}{"Removed_Const_Overload"}{$tr_name{$Symbol}}}=(
+                    %{$CompatProblems{$Level}{$Symbol}{"Removed_Const_Overload"}{"this"}}=(
                         "Type_Name"=>$TypeInfo{1}{$Cid}{"Name"},
                         "Target"=>get_Signature($Alt, 1));
                 }
@@ -13181,7 +13210,7 @@ sub mergeSymbols($)
 {
     my $Level = $_[0];
     my %SubProblems = ();
-
+    
     mergeBases($Level);
     
     my %AddedOverloads = ();
@@ -13331,18 +13360,18 @@ sub mergeSymbols($)
                 my $NewSym = $AddedOverloads{$Prefix}{$Overloads[0]};
                 if($CompleteSignature{1}{$Symbol}{"Constructor"})
                 {
-                    if($Symbol=~/(C1E|C2E)/)
+                    if($Symbol=~/(C[1-2][EI])/)
                     {
                         my $CtorType = $1;
-                        $NewSym=~s/(C1E|C2E)/$CtorType/g;
+                        $NewSym=~s/(C[1-2][EI])/$CtorType/g;
                     }
                 }
                 elsif($CompleteSignature{1}{$Symbol}{"Destructor"})
                 {
-                    if($Symbol=~/(D0E|D1E|D2E)/)
+                    if($Symbol=~/(D[0-2][EI])/)
                     {
                         my $DtorType = $1;
-                        $NewSym=~s/(D0E|D1E|D2E)/$DtorType/g;
+                        $NewSym=~s/(D[0-2][EI])/$DtorType/g;
                     }
                 }
                 my $NS1 = $CompleteSignature{1}{$Symbol}{"NameSpace"};
@@ -13401,6 +13430,8 @@ sub mergeSymbols($)
     }
     foreach my $Symbol (sort keys(%{$CompleteSignature{1}}))
     { # checking symbols
+        $CurrentSymbol = $Symbol;
+        
         my ($SN, $SS, $SV) = separate_symbol($Symbol);
         if($Level eq "Source")
         { # remove symbol version
@@ -13629,7 +13660,7 @@ sub mergeSymbols($)
                         }
                         %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{showPos($ParamPos)." Parameter"}}=(
                             "Target"=>$PName,
-                            "Param_Pos"=>$ParamPos,
+                            "Param_Pos"=>adjustParamPos($ParamPos, $Symbol, 2),
                             "Param_Type"=>$PType2_Name,
                             "New_Signature"=>get_Signature($Symbol, 2)  );
                     }
@@ -13645,7 +13676,7 @@ sub mergeSymbols($)
                             {
                                 %{$CompatProblems{$Level}{$Symbol}{"Renamed_Parameter"}{showPos($ParamPos)." Parameter"}}=(
                                     "Target"=>$PName_Old,
-                                    "Param_Pos"=>$ParamPos,
+                                    "Param_Pos"=>adjustParamPos($ParamPos, $Symbol, 2),
                                     "Param_Type"=>$PType2_Name,
                                     "Old_Value"=>$PName_Old,
                                     "New_Value"=>$PName,
@@ -13660,7 +13691,7 @@ sub mergeSymbols($)
                             }
                             %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{showPos($ParamPos)." Parameter"}}=(
                                 "Target"=>$PName,
-                                "Param_Pos"=>$ParamPos,
+                                "Param_Pos"=>adjustParamPos($ParamPos, $Symbol, 2),
                                 "Param_Type"=>$PType2_Name,
                                 "New_Signature"=>get_Signature($Symbol, 2)  );
                         }
@@ -13711,7 +13742,7 @@ sub mergeSymbols($)
                         }
                         %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{showPos($ParamPos)." Parameter"}}=(
                             "Target"=>$PName,
-                            "Param_Pos"=>$ParamPos,
+                            "Param_Pos"=>adjustParamPos($ParamPos, $Symbol, 2),
                             "Param_Type"=>$PType1_Name,
                             "New_Signature"=>get_Signature($Symbol, 2)  );
                     }
@@ -13727,7 +13758,7 @@ sub mergeSymbols($)
                             {
                                 %{$CompatProblems{$Level}{$Symbol}{"Renamed_Parameter"}{showPos($ParamPos)." Parameter"}}=(
                                     "Target"=>$PName,
-                                    "Param_Pos"=>$ParamPos,
+                                    "Param_Pos"=>adjustParamPos($ParamPos, $Symbol, 2),
                                     "Param_Type"=>$PType1_Name,
                                     "Old_Value"=>$PName,
                                     "New_Value"=>$PName_New,
@@ -13742,7 +13773,7 @@ sub mergeSymbols($)
                             }
                             %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{showPos($ParamPos)." Parameter"}}=(
                                 "Target"=>$PName,
-                                "Param_Pos"=>$ParamPos,
+                                "Param_Pos"=>adjustParamPos($ParamPos, $Symbol, 2),
                                 "Param_Type"=>$PType1_Name,
                                 "New_Signature"=>get_Signature($Symbol, 2)  );
                         }
@@ -13753,12 +13784,12 @@ sub mergeSymbols($)
         # checking return type
         my $ReturnType1_Id = $CompleteSignature{1}{$Symbol}{"Return"};
         my $ReturnType2_Id = $CompleteSignature{2}{$PSymbol}{"Return"};
-        %SubProblems = detectTypeChange($ReturnType1_Id, $ReturnType2_Id, "Return", $Level);
+        my %RC_SubProblems = detectTypeChange($ReturnType1_Id, $ReturnType2_Id, "Return", $Level);
         
-        foreach my $SubProblemType (keys(%SubProblems))
+        foreach my $SubProblemType (keys(%RC_SubProblems))
         {
-            my $New_Value = $SubProblems{$SubProblemType}{"New_Value"};
-            my $Old_Value = $SubProblems{$SubProblemType}{"Old_Value"};
+            my $New_Value = $RC_SubProblems{$SubProblemType}{"New_Value"};
+            my $Old_Value = $RC_SubProblems{$SubProblemType}{"Old_Value"};
             my %ProblemTypes = ();
             
             if($CompleteSignature{1}{$Symbol}{"Data"})
@@ -13920,13 +13951,15 @@ sub mergeSymbols($)
             
             foreach my $ProblemType (keys(%ProblemTypes))
             { # additional
-                @{$CompatProblems{$Level}{$Symbol}{$ProblemType}{"retval"}}{keys(%{$SubProblems{$SubProblemType}})} = values %{$SubProblems{$SubProblemType}};
+                $CompatProblems{$Level}{$Symbol}{$ProblemType}{"retval"} = $RC_SubProblems{$SubProblemType};
             }
         }
         if($ReturnType1_Id and $ReturnType2_Id)
         {
             @RecurTypes = ();
-            %SubProblems = mergeTypes($ReturnType1_Id, $ReturnType2_Id, $Level);
+            my $Sub_SubProblems = mergeTypes($ReturnType1_Id, $ReturnType2_Id, $Level);
+            
+            my $AddProblems = {};
             
             if($CompleteSignature{1}{$Symbol}{"Data"})
             {
@@ -13934,17 +13967,17 @@ sub mergeSymbols($)
                 {
                     if(get_PLevel($ReturnType1_Id, 1)==0)
                     {
-                        foreach my $SubProblemType (keys(%SubProblems))
+                        foreach my $SubProblemType (keys(%{$Sub_SubProblems}))
                         { # add "Global_Data_Size" problem
-                            my $New_Value = $SubProblems{$SubProblemType}{"New_Value"};
-                            my $Old_Value = $SubProblems{$SubProblemType}{"Old_Value"};
+                            my $New_Value = $Sub_SubProblems->{$SubProblemType}{"New_Value"};
+                            my $Old_Value = $Sub_SubProblems->{$SubProblemType}{"Old_Value"};
                             if($SubProblemType eq "DataType_Size")
                             { # add a new problem
-                                %{$SubProblems{"Global_Data_Size"}} = %{$SubProblems{$SubProblemType}};
+                                $AddProblems->{"Global_Data_Size"} = $Sub_SubProblems->{$SubProblemType};
                             }
                         }
                     }
-                    if(not defined $SubProblems{"Global_Data_Size"})
+                    if(not defined $AddProblems->{"Global_Data_Size"})
                     {
                         if(defined $GlobalDataObject{1}{$Symbol}
                         and defined $GlobalDataObject{2}{$Symbol})
@@ -13953,25 +13986,30 @@ sub mergeSymbols($)
                             my $New_Size = $GlobalDataObject{2}{$Symbol};
                             if($Old_Size!=$New_Size)
                             {
-                                %{$SubProblems{"Global_Data_Size"}{"retval"}} = (
+                                $AddProblems->{"Global_Data_Size"}{"retval"} = {
                                     "Old_Size"=>$Old_Size*$BYTE_SIZE,
-                                    "New_Size"=>$New_Size*$BYTE_SIZE );
+                                    "New_Size"=>$New_Size*$BYTE_SIZE };
                             }
                         }
                     }
                 }
             }
-            foreach my $SubProblemType (keys(%SubProblems))
+            
+            foreach my $SubProblemType (keys(%{$AddProblems}))
             {
-                foreach my $SubLocation (keys(%{$SubProblems{$SubProblemType}}))
+                foreach my $SubLocation (keys(%{$AddProblems->{$SubProblemType}}))
                 {
                     my $NewLocation = ($SubLocation)?"retval->".$SubLocation:"retval";
-                    %{$CompatProblems{$Level}{$Symbol}{$SubProblemType}{$NewLocation}}=(
-                        "Return_Type_Name"=>$TypeInfo{1}{$ReturnType1_Id}{"Name"} );
-                    @{$CompatProblems{$Level}{$Symbol}{$SubProblemType}{$NewLocation}}{keys(%{$SubProblems{$SubProblemType}{$SubLocation}})} = values %{$SubProblems{$SubProblemType}{$SubLocation}};
-                    if($SubLocation!~/\-\>/) {
-                        $CompatProblems{$Level}{$Symbol}{$SubProblemType}{$NewLocation}{"Start_Type_Name"} = $TypeInfo{1}{$ReturnType1_Id}{"Name"};
-                    }
+                    $CompatProblems{$Level}{$Symbol}{$SubProblemType}{$NewLocation} = $AddProblems->{$SubProblemType}{$SubLocation};
+                }
+            }
+            
+            foreach my $SubProblemType (keys(%{$Sub_SubProblems}))
+            {
+                foreach my $SubLocation (keys(%{$Sub_SubProblems->{$SubProblemType}}))
+                {
+                    my $NewLocation = ($SubLocation)?"retval->".$SubLocation:"retval";
+                    $CompatProblems{$Level}{$Symbol}{$SubProblemType}{$NewLocation} = $Sub_SubProblems->{$SubProblemType}{$SubLocation};
                 }
             }
         }
@@ -13987,18 +14025,13 @@ sub mergeSymbols($)
             if($ThisPtr1_Id and $ThisPtr2_Id)
             {
                 @RecurTypes = ();
-                %SubProblems = mergeTypes($ThisPtr1_Id, $ThisPtr2_Id, $Level);
-                foreach my $SubProblemType (keys(%SubProblems))
+                my $Sub_SubProblems = mergeTypes($ThisPtr1_Id, $ThisPtr2_Id, $Level);
+                foreach my $SubProblemType (keys(%{$Sub_SubProblems}))
                 {
-                    foreach my $SubLocation (keys(%{$SubProblems{$SubProblemType}}))
+                    foreach my $SubLocation (keys(%{$Sub_SubProblems->{$SubProblemType}}))
                     {
                         my $NewLocation = ($SubLocation)?"this->".$SubLocation:"this";
-                        %{$CompatProblems{$Level}{$Symbol}{$SubProblemType}{$NewLocation}}=(
-                            "Object_Type_Name"=>$TypeInfo{1}{$ObjTId1}{"Name"} );
-                        @{$CompatProblems{$Level}{$Symbol}{$SubProblemType}{$NewLocation}}{keys(%{$SubProblems{$SubProblemType}{$SubLocation}})} = values %{$SubProblems{$SubProblemType}{$SubLocation}};
-                        if($SubLocation!~/\-\>/) {
-                            $CompatProblems{$Level}{$Symbol}{$SubProblemType}{$NewLocation}{"Start_Type_Name"} = $TypeInfo{1}{$ObjTId1}{"Name"};
-                        }
+                        $CompatProblems{$Level}{$Symbol}{$SubProblemType}{$NewLocation} = $Sub_SubProblems->{$SubProblemType}{$SubLocation};
                     }
                 }
             }
@@ -14186,7 +14219,7 @@ sub mergeParameters($$$$$$)
         return;
     }
     
-    if(index($Symbol, "_Z")==0) 
+    if($Symbol=~/\A(_Z|\?)/) 
     { # do not merge "this" 
         if($PName1 eq "this" or $PName2 eq "this") { 
             return; 
@@ -14208,14 +14241,14 @@ sub mergeParameters($$$$$$)
             {
                 %{$CompatProblems{$Level}{$Symbol}{"Parameter_Became_Non_Register"}{$Parameter_Location}}=(
                     "Target"=>$PName1,
-                    "Param_Pos"=>$ParamPos1  );
+                    "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1)  );
             }
             elsif(not $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos1}{"reg"}
             and $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos2}{"reg"})
             {
                 %{$CompatProblems{$Level}{$Symbol}{"Parameter_Became_Register"}{$Parameter_Location}}=(
                     "Target"=>$PName1,
-                    "Param_Pos"=>$ParamPos1  );
+                    "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1)  );
             }
         }
         
@@ -14232,7 +14265,7 @@ sub mergeParameters($$$$$$)
                     {
                         %{$CompatProblems{$Level}{$Symbol}{"Parameter_Changed_Register"}{$Parameter_Location}}=(
                             "Target"=>$PName1,
-                            "Param_Pos"=>$ParamPos1,
+                            "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1),
                             "Old_Value"=>$Old_Regs,
                             "New_Value"=>$New_Regs  );
                     }
@@ -14241,14 +14274,14 @@ sub mergeParameters($$$$$$)
                 {
                     %{$CompatProblems{$Level}{$Symbol}{"Parameter_From_Register"}{$Parameter_Location}}=(
                         "Target"=>$PName1,
-                        "Param_Pos"=>$ParamPos1,
+                        "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1),
                         "Old_Value"=>$Old_Regs  );
                 }
                 elsif(not $Old_Regs and $New_Regs)
                 {
                     %{$CompatProblems{$Level}{$Symbol}{"Parameter_To_Register"}{$Parameter_Location}}=(
                         "Target"=>$PName1,
-                        "Param_Pos"=>$ParamPos1,
+                        "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1),
                         "New_Value"=>$New_Regs  );
                 }
                 if((my $Old_Offset = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos1}{"offset"}) ne ""
@@ -14256,11 +14289,20 @@ sub mergeParameters($$$$$$)
                 {
                     if($Old_Offset ne $New_Offset)
                     {
-                        %{$CompatProblems{$Level}{$Symbol}{"Parameter_Changed_Offset"}{$Parameter_Location}}=(
-                            "Target"=>$PName1,
-                            "Param_Pos"=>$ParamPos1,
-                            "Old_Value"=>$Old_Offset,
-                            "New_Value"=>$New_Offset  );
+                        my $Start1 = $CompleteSignature{1}{$Symbol}{"Param"}{0}{"offset"};
+                        my $Start2 = $CompleteSignature{2}{$Symbol}{"Param"}{0}{"offset"};
+                        
+                        $Old_Offset = $Old_Offset - $Start1;
+                        $New_Offset = $New_Offset - $Start2;
+                        
+                        if($Old_Offset ne $New_Offset)
+                        {
+                            %{$CompatProblems{$Level}{$Symbol}{"Parameter_Changed_Offset"}{$Parameter_Location}}=(
+                                "Target"=>$PName1,
+                                "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1),
+                                "Old_Value"=>$Old_Offset,
+                                "New_Value"=>$New_Offset  );
+                        }
                     }
                 }
             }
@@ -14304,7 +14346,7 @@ sub mergeParameters($$$$$$)
                 { # FIXME: how to distinguish "0" and 0 (NULL)
                     %{$CompatProblems{$Level}{$Symbol}{"Parameter_Default_Value_Changed"}{$Parameter_Location}}=(
                         "Target"=>$PName1,
-                        "Param_Pos"=>$ParamPos1,
+                        "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1),
                         "Old_Value"=>$Value_Old,
                         "New_Value"=>$Value_New  );
                 }
@@ -14313,7 +14355,7 @@ sub mergeParameters($$$$$$)
             {
                 %{$CompatProblems{$Level}{$Symbol}{"Parameter_Default_Value_Removed"}{$Parameter_Location}}=(
                     "Target"=>$PName1,
-                    "Param_Pos"=>$ParamPos1,
+                    "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1),
                     "Old_Value"=>$Value_Old  );
             }
         }
@@ -14322,7 +14364,7 @@ sub mergeParameters($$$$$$)
             $Value_New = showVal($Value_New, $PType2_Id, 2);
             %{$CompatProblems{$Level}{$Symbol}{"Parameter_Default_Value_Added"}{$Parameter_Location}}=(
                 "Target"=>$PName1,
-                "Param_Pos"=>$ParamPos1,
+                "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1),
                 "New_Value"=>$Value_New  );
         }
     }
@@ -14335,7 +14377,7 @@ sub mergeParameters($$$$$$)
         { # except unnamed "..." value list (Id=-1)
             %{$CompatProblems{$Level}{$Symbol}{"Renamed_Parameter"}{showPos($ParamPos1)." Parameter"}}=(
                 "Target"=>$PName1,
-                "Param_Pos"=>$ParamPos1,
+                "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1),
                 "Param_Type"=>$TypeInfo{1}{$PType1_Id}{"Name"},
                 "Old_Value"=>$PName1,
                 "New_Value"=>$PName2,
@@ -14345,6 +14387,7 @@ sub mergeParameters($$$$$$)
     
     # checking type change (replace)
     my %SubProblems = detectTypeChange($PType1_Id, $PType2_Id, "Parameter", $Level);
+    
     foreach my $SubProblemType (keys(%SubProblems))
     { # add new problems, remove false alarms
         my $New_Value = $SubProblems{$SubProblemType}{"New_Value"};
@@ -14482,35 +14525,29 @@ sub mergeParameters($$$$$$)
         }
         %{$CompatProblems{$Level}{$Symbol}{$NewProblemType}{$Parameter_Location}}=(
             "Target"=>$PName1,
-            "Param_Pos"=>$ParamPos1,
+            "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1),
             "New_Signature"=>get_Signature($Symbol, 2) );
         @{$CompatProblems{$Level}{$Symbol}{$NewProblemType}{$Parameter_Location}}{keys(%{$SubProblems{$SubProblemType}})} = values %{$SubProblems{$SubProblemType}};
     }
+    
     @RecurTypes = ();
+    
     # checking type definition changes
-    my %SubProblems_Merge = mergeTypes($PType1_Id, $PType2_Id, $Level);
-    foreach my $SubProblemType (keys(%SubProblems_Merge))
+    my $Sub_SubProblems = mergeTypes($PType1_Id, $PType2_Id, $Level);
+    foreach my $SubProblemType (keys(%{$Sub_SubProblems}))
     {
-        foreach my $SubLocation (keys(%{$SubProblems_Merge{$SubProblemType}}))
+        foreach my $SubLocation (keys(%{$Sub_SubProblems->{$SubProblemType}}))
         {
             my $NewProblemType = $SubProblemType;
             if($SubProblemType eq "DataType_Size")
             {
-                my $InitialType_Type = $SubProblems_Merge{$SubProblemType}{$SubLocation}{"InitialType_Type"};
-                if($InitialType_Type!~/\A(Pointer|Ref)\Z/ and $SubLocation!~/\-\>/)
+                if($Type1{"Type"}!~/\A(Pointer|Ref)\Z/ and $SubLocation!~/\-\>/)
                 { # stack has been affected
                     $NewProblemType = "DataType_Size_And_Stack";
                 }
             }
             my $NewLocation = ($SubLocation)?$Parameter_Location."->".$SubLocation:$Parameter_Location;
-            %{$CompatProblems{$Level}{$Symbol}{$NewProblemType}{$NewLocation}}=(
-                "Param_Type"=>$TypeInfo{1}{$PType1_Id}{"Name"},
-                "Param_Pos"=>$ParamPos1,
-                "Param_Name"=>$PName1  );
-            @{$CompatProblems{$Level}{$Symbol}{$NewProblemType}{$NewLocation}}{keys(%{$SubProblems_Merge{$SubProblemType}{$SubLocation}})} = values %{$SubProblems_Merge{$SubProblemType}{$SubLocation}};
-            if($SubLocation!~/\-\>/) {
-                $CompatProblems{$Level}{$Symbol}{$NewProblemType}{$NewLocation}{"Start_Type_Name"} = $TypeInfo{1}{$PType1_Id}{"Name"};
-            }
+            $CompatProblems{$Level}{$Symbol}{$NewProblemType}{$NewLocation} = $Sub_SubProblems->{$SubProblemType}{$SubLocation};
         }
     }
 }
@@ -14766,8 +14803,7 @@ sub detectTypeChange($$$$)
                     "Old_Value"=>$Type1_Base{"Name"},
                     "New_Value"=>$Type2_Base{"Name"},
                     "Old_Size"=>$Type1_Base{"Size"}*$BYTE_SIZE,
-                    "New_Size"=>$Type2_Base{"Size"}*$BYTE_SIZE,
-                    "InitialType_Type"=>$Type1_Pure{"Type"});
+                    "New_Size"=>$Type2_Base{"Size"}*$BYTE_SIZE);
             }
             else
             {
@@ -14777,8 +14813,7 @@ sub detectTypeChange($$$$)
                         "Old_Value"=>$Type1_Base{"Name"},
                         "New_Value"=>$Type2_Base{"Name"},
                         "Old_Size"=>$Type1_Base{"Size"}*$BYTE_SIZE,
-                        "New_Size"=>$Type2_Base{"Size"}*$BYTE_SIZE,
-                        "InitialType_Type"=>$Type1_Pure{"Type"});
+                        "New_Size"=>$Type2_Base{"Size"}*$BYTE_SIZE);
                 }
                 elsif(tNameLock($Type1_Base{"Tid"}, $Type2_Base{"Tid"}))
                 {
@@ -14786,8 +14821,7 @@ sub detectTypeChange($$$$)
                         "Old_Value"=>$Type1_Base{"Name"},
                         "New_Value"=>$Type2_Base{"Name"},
                         "Old_Size"=>$Type1_Base{"Size"}*$BYTE_SIZE,
-                        "New_Size"=>$Type2_Base{"Size"}*$BYTE_SIZE,
-                        "InitialType_Type"=>$Type1_Pure{"Type"});
+                        "New_Size"=>$Type2_Base{"Size"}*$BYTE_SIZE);
                 }
             }
         }
@@ -14801,16 +14835,14 @@ sub detectTypeChange($$$$)
             {
                 %{$LocalProblems{"Return_Type_From_Void"}}=(
                     "New_Value"=>$Type2{"Name"},
-                    "New_Size"=>$Type2{"Size"}*$BYTE_SIZE,
-                    "InitialType_Type"=>$Type1_Pure{"Type"});
+                    "New_Size"=>$Type2{"Size"}*$BYTE_SIZE);
             }
             elsif($Prefix eq "Return"
             and $Type2_Pure{"Name"} eq "void")
             {
                 %{$LocalProblems{"Return_Type_Became_Void"}}=(
                     "Old_Value"=>$Type1{"Name"},
-                    "Old_Size"=>$Type1{"Size"}*$BYTE_SIZE,
-                    "InitialType_Type"=>$Type1_Pure{"Type"});
+                    "Old_Size"=>$Type1{"Size"}*$BYTE_SIZE);
             }
             else
             {
@@ -14822,8 +14854,7 @@ sub detectTypeChange($$$$)
                         "Old_Value"=>$Type1{"Name"},
                         "New_Value"=>$Type2{"Name"},
                         "Old_Size"=>$Type1{"Size"}*$BYTE_SIZE,
-                        "New_Size"=>$Type2{"Size"}*$BYTE_SIZE,
-                        "InitialType_Type"=>$Type1_Pure{"Type"});
+                        "New_Size"=>$Type2{"Size"}*$BYTE_SIZE);
                 }
                 else
                 {
@@ -14833,8 +14864,7 @@ sub detectTypeChange($$$$)
                             "Old_Value"=>$Type1{"Name"},
                             "New_Value"=>$Type2{"Name"},
                             "Old_Size"=>$Type1{"Size"}*$BYTE_SIZE,
-                            "New_Size"=>$Type2{"Size"}*$BYTE_SIZE,
-                            "InitialType_Type"=>$Type1_Pure{"Type"});
+                            "New_Size"=>$Type2{"Size"}*$BYTE_SIZE);
                     }
                     elsif(tNameLock($Type1_Id, $Type2_Id))
                     { # FIXME: correct this condition
@@ -14842,8 +14872,7 @@ sub detectTypeChange($$$$)
                             "Old_Value"=>$Type1{"Name"},
                             "New_Value"=>$Type2{"Name"},
                             "Old_Size"=>$Type1{"Size"}*$BYTE_SIZE,
-                            "New_Size"=>$Type2{"Size"}*$BYTE_SIZE,
-                            "InitialType_Type"=>$Type1_Pure{"Type"});
+                            "New_Size"=>$Type2{"Size"}*$BYTE_SIZE);
                     }
                 }
             }
@@ -15581,7 +15610,7 @@ sub get_TypeProblems_Count($$$)
             foreach my $Location (keys(%{$TypeChanges->{$Type_Name}{$Kind}}))
             {
                 my $Target = $TypeChanges->{$Type_Name}{$Kind}{$Location}{"Target"};
-                my $Priority = getProblemSeverity($Level, $Kind);
+                my $Priority = $CompatRules{$Level}{$Kind}{"Severity"};
                 next if($Priority ne $TargetPriority);
                 if($Kinds_Target{$Kind}{$Target}) {
                     next;
@@ -15646,7 +15675,7 @@ sub get_Summary($)
             {
                 foreach my $Location (sort keys(%{$CompatProblems{$Level}{$Interface}{$Kind}}))
                 {
-                    my $Priority = getProblemSeverity($Level, $Kind);
+                    my $Priority = $CompatRules{$Level}{$Kind}{"Severity"};
                     if($Kind eq "Added_Symbol") {
                         $Added += 1;
                     }
@@ -15685,21 +15714,43 @@ sub get_Summary($)
         {
             if($CompatRules{$Level}{$Kind}{"Kind"} eq "Types")
             {
-                foreach my $Location (sort {cmp_locations($b, $a)} sort keys(%{$CompatProblems{$Level}{$Interface}{$Kind}}))
+                foreach my $Location (sort {cmpLocations($b, $a)} sort keys(%{$CompatProblems{$Level}{$Interface}{$Kind}}))
                 {
                     my $Type_Name = $CompatProblems{$Level}{$Interface}{$Kind}{$Location}{"Type_Name"};
                     my $Target = $CompatProblems{$Level}{$Interface}{$Kind}{$Location}{"Target"};
-                    my $Priority = getProblemSeverity($Level, $Kind);
-                    if(cmpSeverities($Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target}, $Priority))
+                    my $Priority = $CompatRules{$Level}{$Kind}{"Severity"};
+                    my $MaxSeverity = $Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target};
+                    
+                    if($MaxSeverity and $Severity_Val{$MaxSeverity}>$Severity_Val{$Priority})
                     { # select a problem with the highest priority
                         next;
                     }
+                    
                     if(($Priority ne "Low" or $StrictCompat)
-                    and $Priority ne "Safe") {
-                        $TotalAffected{$Level}{$Interface} = maxSeverity($TotalAffected{$Level}{$Interface}, $Priority);
+                    and $Priority ne "Safe")
+                    {
+                        if(defined $TotalAffected{$Level}{$Interface})
+                        {
+                            if($Severity_Val{$Priority}>$Severity_Val{$TotalAffected{$Level}{$Interface}}) {
+                                $TotalAffected{$Level}{$Interface} = $Priority;
+                            }
+                        }
+                        else {
+                            $TotalAffected{$Level}{$Interface} = $Priority;
+                        }
                     }
-                    %{$TypeChanges{$Type_Name}{$Kind}{$Location}} = %{$CompatProblems{$Level}{$Interface}{$Kind}{$Location}};
-                    $Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target} = maxSeverity($Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target}, $Priority);
+                    
+                    $TypeChanges{$Type_Name}{$Kind}{$Location} = $CompatProblems{$Level}{$Interface}{$Kind}{$Location};
+                    
+                    if($MaxSeverity)
+                    {
+                        if($Severity_Val{$Priority}>$Severity_Val{$MaxSeverity}) {
+                            $Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target} = $Priority;
+                        }
+                    }
+                    else {
+                        $Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target} = $Priority;
+                    }
                 }
             }
         }
@@ -15709,6 +15760,8 @@ sub get_Summary($)
     $T_Problems_Medium = get_TypeProblems_Count(\%TypeChanges, "Medium", $Level);
     $T_Problems_Low = get_TypeProblems_Count(\%TypeChanges, "Low", $Level);
     $T_Other = get_TypeProblems_Count(\%TypeChanges, "Safe", $Level);
+    
+    %TypeChanges = (); # free memory
     
     if($CheckObjectsOnly)
     { # only removed exported symbols
@@ -15756,7 +15809,7 @@ sub get_Summary($)
     {
         foreach my $Kind (keys(%{$CompatProblems_Constants{$Level}{$Constant}}))
         {
-            my $Severity = getProblemSeverity($Level, $Kind);
+            my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
             if($Severity eq "Safe")
             {
                 $C_Other+=1;
@@ -16189,7 +16242,7 @@ sub get_Report_ChangedConstants($$)
             if(not defined $CompatRules{$Level}{$Kind}) {
                 next;
             }
-            if($TargetSeverity ne getProblemSeverity($Level, $Kind)) {
+            if($TargetSeverity ne $CompatRules{$Level}{$Kind}{"Severity"}) {
                 next;
             }
             $ReportMap{$Header}{$Constant}{$Kind} = 1;
@@ -16685,7 +16738,7 @@ sub get_Report_SymbolProblems($$)
                 %{$SymbolChanges{$Symbol}{$Kind}} = %{$CompatProblems{$Level}{$Symbol}{$Kind}};
                 foreach my $Location (sort keys(%{$SymbolChanges{$Symbol}{$Kind}}))
                 {
-                    my $Priority = getProblemSeverity($Level, $Kind);
+                    my $Priority = $CompatRules{$Level}{$Kind}{"Severity"};
                     if($Priority ne $TargetSeverity) {
                         delete($SymbolChanges{$Symbol}{$Kind}{$Location});
                     }
@@ -16719,6 +16772,7 @@ sub get_Report_SymbolProblems($$)
                         {
                             my %Problem = %{$SymbolChanges{$Symbol}{$Kind}{$Location}};
                             $Problem{"Param_Pos"} = showPos($Problem{"Param_Pos"});
+                            
                             $INTERFACE_PROBLEMS .= "        <problem id=\"$Kind\">\n";
                             my $Change = $CompatRules{$Level}{$Kind}{"Change"};
                             $INTERFACE_PROBLEMS .= "          <change".getXmlParams($Change, \%Problem).">$Change</change>\n";
@@ -16830,11 +16884,11 @@ sub get_Report_TypeProblems($$)
         {
             if($CompatRules{$Level}{$Kind}{"Kind"} eq "Types")
             {
-                foreach my $Location (sort {cmp_locations($b, $a)} sort keys(%{$CompatProblems{$Level}{$Interface}{$Kind}}))
+                foreach my $Location (sort {cmpLocations($b, $a)} sort keys(%{$CompatProblems{$Level}{$Interface}{$Kind}}))
                 {
                     my $TypeName = $CompatProblems{$Level}{$Interface}{$Kind}{$Location}{"Type_Name"};
                     my $Target = $CompatProblems{$Level}{$Interface}{$Kind}{$Location}{"Target"};
-                    my $Severity = getProblemSeverity($Level, $Kind);
+                    my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
                     if($Severity eq "Safe"
                     and $TargetSeverity ne "Safe") {
                         next;
@@ -16855,9 +16909,9 @@ sub get_Report_TypeProblems($$)
         my %Kinds_Target = ();
         foreach my $Kind (sort keys(%{$TypeChanges{$TypeName}}))
         {
-            foreach my $Location (sort {cmp_locations($b, $a)} sort keys(%{$TypeChanges{$TypeName}{$Kind}}))
+            foreach my $Location (sort {cmpLocations($b, $a)} sort keys(%{$TypeChanges{$TypeName}{$Kind}}))
             {
-                my $Severity = getProblemSeverity($Level, $Kind);
+                my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
                 if($Severity ne $TargetSeverity)
                 { # other priority
                     delete($TypeChanges{$TypeName}{$Kind}{$Location});
@@ -16893,7 +16947,7 @@ sub get_Report_TypeProblems($$)
                 $TYPE_PROBLEMS .= "    <type name=\"".xmlSpecChars($TypeName)."\">\n";
                 foreach my $Kind (sort {$b=~/Size/ <=> $a=~/Size/} sort keys(%{$TypeChanges{$TypeName}}))
                 {
-                    foreach my $Location (sort {cmp_locations($b, $a)} sort keys(%{$TypeChanges{$TypeName}{$Kind}}))
+                    foreach my $Location (sort {cmpLocations($b, $a)} sort keys(%{$TypeChanges{$TypeName}{$Kind}}))
                     {
                         my %Problem = %{$TypeChanges{$TypeName}{$Kind}{$Location}};
                         $TYPE_PROBLEMS .= "      <problem id=\"$Kind\">\n";
@@ -16935,7 +16989,7 @@ sub get_Report_TypeProblems($$)
                     my $TYPE_REPORT = "";
                     foreach my $Kind (sort {$b=~/Size/ <=> $a=~/Size/} sort keys(%{$TypeChanges{$TypeName}}))
                     {
-                        foreach my $Location (sort {cmp_locations($b, $a)} sort keys(%{$TypeChanges{$TypeName}{$Kind}}))
+                        foreach my $Location (sort {cmpLocations($b, $a)} sort keys(%{$TypeChanges{$TypeName}{$Kind}}))
                         {
                             my %Problem = %{$TypeChanges{$TypeName}{$Kind}{$Location}};
                             if(my $Change = applyMacroses($Level, $Kind, $CompatRules{$Level}{$Kind}{"Change"}, \%Problem))
@@ -17111,13 +17165,65 @@ sub simpleVEntry($)
     return $VEntry;
 }
 
+sub adjustParamPos($$$)
+{
+    my ($Pos, $Symbol, $LibVersion) = @_;
+    if(defined $CompleteSignature{$LibVersion}{$Symbol})
+    {
+        if(not $CompleteSignature{$LibVersion}{$Symbol}{"Static"}
+        and $CompleteSignature{$LibVersion}{$Symbol}{"Class"})
+        {
+            return $Pos-1;
+        }
+        
+        return $Pos;
+    }
+    
+    return undef;
+}
+
+sub getParamPos($$$)
+{
+    my ($Name, $Symbol, $LibVersion) = @_;
+    
+    if(defined $CompleteSignature{$LibVersion}{$Symbol}
+    and defined $CompleteSignature{$LibVersion}{$Symbol}{"Param"})
+    {
+        my $Info = $CompleteSignature{$LibVersion}{$Symbol};
+        foreach (keys(%{$Info->{"Param"}}))
+        {
+            if($Info->{"Param"}{$_}{"name"} eq $Name)
+            {
+                return $_;
+            }
+        }
+    }
+    
+    return undef;
+}
+
+sub getParamName($)
+{
+    my $Loc = $_[0];
+    $Loc=~s/\->.*//g;
+    return $Loc;
+}
+
 sub getAffectedSymbols($$$$)
 {
     my ($Level, $Target_TypeName, $Kinds_Locations, $Syms) = @_;
     my $LIMIT = 1000;
-    if($#{$Syms}>=10000)
-    { # reduce size of the report
-        $LIMIT = 10;
+    
+    if(defined $AffectLimit)
+    {
+        $LIMIT = $AffectLimit;
+    }
+    else
+    {
+        if($#{$Syms}>=10000)
+        { # reduce size of the report
+            $LIMIT = 10;
+        }
     }
     my %SProblems = ();
     foreach my $Symbol (@{$Syms})
@@ -17125,7 +17231,7 @@ sub getAffectedSymbols($$$$)
         if(keys(%SProblems)>$LIMIT) {
             last;
         }
-        if(($Symbol=~/C2E|D2E|D0E/))
+        if(($Symbol=~/(C2|D2|D0)[EI]/))
         { # duplicated problems for C2 constructors, D2 and D0 destructors
             next;
         }
@@ -17153,9 +17259,10 @@ sub getAffectedSymbols($$$$)
                 my $Type_Name = $CompatProblems{$Level}{$Symbol}{$Kind}{$Location}{"Type_Name"};
                 next if($Type_Name ne $Target_TypeName);
                 
-                my $Position = $CompatProblems{$Level}{$Symbol}{$Kind}{$Location}{"Param_Pos"};
-                my $Param_Name = $CompatProblems{$Level}{$Symbol}{$Kind}{$Location}{"Param_Name"};
-                my $Severity = getProblemSeverity($Level, $Kind);
+                my $PName = getParamName($Location);
+                my $PPos = adjustParamPos(getParamPos($PName, $Symbol, 1), $Symbol, 1);
+                
+                my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
                 my $Path_Length = 0;
                 my $ProblemLocation = $Location;
                 if($Type_Name) {
@@ -17165,17 +17272,17 @@ sub getAffectedSymbols($$$$)
                     $Path_Length += 1;
                 }
                 if($MinPath_Length==-1 or ($Path_Length<=$MinPath_Length and $Severity_Val{$Severity}>$Severity_Max)
-                or (cmp_locations($ProblemLocation, $ProblemLocation_Last) and $Severity_Val{$Severity}==$Severity_Max))
+                or (cmpLocations($ProblemLocation, $ProblemLocation_Last) and $Severity_Val{$Severity}==$Severity_Max))
                 {
                     $MinPath_Length = $Path_Length;
                     $Severity_Max = $Severity_Val{$Severity};
                     $ProblemLocation_Last = $ProblemLocation;
                     %{$SProblems{$Symbol}} = (
-                        "Descr"=>getAffectDescription($Level, $Symbol, $Kind, $Location),
+                        "Descr"=>getAffectDesc($Level, $Symbol, $Kind, $Location),
                         "Severity_Max"=>$Severity_Max,
                         "Signature"=>$Signature,
-                        "Position"=>$Position,
-                        "Param_Name"=>$Param_Name,
+                        "Position"=>$PPos,
+                        "Param_Name"=>$PName,
                         "Location"=>$Location
                     );
                 }
@@ -17236,37 +17343,46 @@ sub getAffectedSymbols($$$$)
     return $Affected;
 }
 
-sub cmp_locations($$)
+sub cmpLocations($$)
 {
     my ($L1, $L2) = @_;
-    if($L2=~/\b(retval|this)\b/
-    and $L1!~/\b(retval|this)\b/ and $L1!~/\-\>/) {
-        return 1;
-    }
-    if($L2=~/\b(retval|this)\b/ and $L2=~/\-\>/
-    and $L1!~/\b(retval|this)\b/ and $L1=~/\-\>/) {
-        return 1;
+    if($L2=~/\A(retval|this)\b/
+    and $L1!~/\A(retval|this)\b/)
+    {
+        if($L1!~/\-\>/) {
+            return 1;
+        }
+        elsif($L2=~/\-\>/) {
+            return 1;
+        }
     }
     return 0;
 }
 
-sub getAffectDescription($$$$)
+sub getAffectDesc($$$$)
 {
     my ($Level, $Symbol, $Kind, $Location) = @_;
+    
     my %Problem = %{$CompatProblems{$Level}{$Symbol}{$Kind}{$Location}};
-    my $PPos = showPos($Problem{"Param_Pos"});
+    
+    my $Location_I = $Location;
+    $Location=~s/\A(.*)\-\>(.+?)\Z/$1/; # without the latest affected field
+    
     my @Sentence = ();
-    $Location=~s/\A(.*)\-\>.+?\Z/$1/;
+    
     if($Kind eq "Overridden_Virtual_Method"
     or $Kind eq "Overridden_Virtual_Method_B") {
         push(@Sentence, "The method '".$Problem{"New_Value"}."' will be called instead of this method.");
     }
     elsif($CompatRules{$Level}{$Kind}{"Kind"} eq "Types")
     {
+        my %SymInfo = %{$CompleteSignature{1}{$Symbol}};
+        
         if($Location eq "this" or $Kind=~/(\A|_)Virtual(_|\Z)/)
         {
-            my $METHOD_TYPE = $CompleteSignature{1}{$Symbol}{"Constructor"}?"constructor":"method";
-            my $ClassName = $TypeInfo{1}{$CompleteSignature{1}{$Symbol}{"Class"}}{"Name"};
+            my $METHOD_TYPE = $SymInfo{"Constructor"}?"constructor":"method";
+            my $ClassName = $TypeInfo{1}{$SymInfo{"Class"}}{"Name"};
+            
             if($ClassName eq $Problem{"Type_Name"}) {
                 push(@Sentence, "This $METHOD_TYPE is from \'".$Problem{"Type_Name"}."\' class.");
             }
@@ -17276,63 +17392,81 @@ sub getAffectDescription($$$$)
         }
         else
         {
+            my $TypeID = undef;
+            
             if($Location=~/retval/)
             { # return value
-                if($Location=~/\-\>/) {
+                if(index($Location, "->")!=-1) {
                     push(@Sentence, "Field \'".$Location."\' in return value");
                 }
                 else {
                     push(@Sentence, "Return value");
                 }
-                if(my $Init = $Problem{"InitialType_Type"})
-                {
-                    if($Init eq "Pointer") {
-                        push(@Sentence, "(pointer)");
-                    }
-                    elsif($Init eq "Ref") {
-                        push(@Sentence, "(reference)");
-                    }
-                }
+                
+                $TypeID = $SymInfo{"Return"};
             }
             elsif($Location=~/this/)
             { # "this" pointer
-                if($Location=~/\-\>/) {
+                if(index($Location, "->")!=-1) {
                     push(@Sentence, "Field \'".$Location."\' in the object of this method");
                 }
                 else {
                     push(@Sentence, "\'this\' pointer");
                 }
+                
+                $TypeID = $SymInfo{"Class"};
             }
             else
             { # parameters
-                if($Location=~/\-\>/) {
-                    push(@Sentence, "Field \'".$Location."\' in $PPos parameter");
+            
+                my $PName = getParamName($Location);
+                my $PPos = getParamPos($PName, $Symbol, 1);
+            
+                if(index($Location, "->")!=-1) {
+                    push(@Sentence, "Field \'".$Location."\' in ".showPos(adjustParamPos($PPos, $Symbol, 1))." parameter");
                 }
                 else {
-                    push(@Sentence, "$PPos parameter");
+                    push(@Sentence, showPos(adjustParamPos($PPos, $Symbol, 1))." parameter");
                 }
-                if($Problem{"Param_Name"}) {
-                    push(@Sentence, "\'".$Problem{"Param_Name"}."\'");
+                if($PName) {
+                    push(@Sentence, "\'".$PName."\'");
                 }
-                if(my $Init = $Problem{"InitialType_Type"})
+                
+                $TypeID = $SymInfo{"Param"}{$PPos}{"type"};
+            }
+            
+            if($Location!~/this/)
+            {
+                if(my %PureType = get_PureType($TypeID, $TypeInfo{1}))
                 {
-                    if($Init eq "Pointer") {
+                    if($PureType{"Type"} eq "Pointer") {
                         push(@Sentence, "(pointer)");
                     }
-                    elsif($Init eq "Ref") {
+                    elsif($PureType{"Type"} eq "Ref") {
                         push(@Sentence, "(reference)");
                     }
                 }
             }
+            
             if($Location eq "this") {
                 push(@Sentence, "has base type \'".$Problem{"Type_Name"}."\'.");
             }
-            elsif(defined $Problem{"Start_Type_Name"}
-            and $Problem{"Start_Type_Name"} eq $Problem{"Type_Name"}) {
-                push(@Sentence, "has type \'".$Problem{"Type_Name"}."\'.");
-            }
-            else {
-                push(@Sentence, "has base type \'".$Problem{"Type_Name"}."\'.");
+            else
+            {
+                my $Location_T = $Location;
+                $Location_T=~s/\A\w+(\->|\Z)//; # location in type
+                
+                my $TypeID_Problem = $TypeID;
+                if($Location_T) {
+                    $TypeID_Problem = getFieldType($Location_T, $TypeID, 1);
+                }
+                
+                if($TypeInfo{1}{$TypeID_Problem}{"Name"} eq $Problem{"Type_Name"}) {
+                    push(@Sentence, "has type \'".$Problem{"Type_Name"}."\'.");
+                }
+                else {
+                    push(@Sentence, "has base type \'".$Problem{"Type_Name"}."\'.");
+                }
             }
         }
     }
@@ -17340,6 +17474,29 @@ sub getAffectDescription($$$$)
         push(@Sentence, " This is a symbol from an external library that may use the \'$TargetLibraryName\' library and change the ABI after recompiling.");
     }
     return join(" ", @Sentence);
+}
+
+sub getFieldType($$$)
+{
+    my ($Location, $TypeId, $LibVersion) = @_;
+    
+    my @Fields = split("->", $Location);
+    
+    foreach my $Name (@Fields)
+    {
+        my %Info = get_BaseType($TypeId, $LibVersion);
+        
+        foreach my $Pos (keys(%{$Info{"Memb"}}))
+        {
+            if($Info{"Memb"}{$Pos}{"name"} eq $Name)
+            {
+                $TypeId = $Info{"Memb"}{$Pos}{"type"};
+                last;
+            }
+        }
+    }
+    
+    return $TypeId;
 }
 
 sub get_XmlSign($$)
@@ -18658,7 +18815,7 @@ sub readSymbols_App($)
         if(not $ReadelfCmd) {
             exitStatus("Not_Found", "can't find \"readelf\"");
         }
-        open(APP, "$ReadelfCmd -WhlSsdA \"$Path\" 2>\"$TMP_DIR/null\" |");
+        open(APP, "$ReadelfCmd -Ws \"$Path\" 2>\"$TMP_DIR/null\" |");
         my $symtab = undef; # indicates that we are processing 'symtab' section of 'readelf' output
         while(<APP>)
         {
@@ -19003,6 +19160,7 @@ sub readSymbols_Lib($$$$$$)
             }
         }
         close(LIB);
+        
         if($Deps)
         {
             if($LIB_TYPE eq "dynamic")
@@ -19026,16 +19184,16 @@ sub readSymbols_Lib($$$$$$)
         if(not $ReadelfCmd) {
             exitStatus("Not_Found", "can't find \"readelf\"");
         }
-        $ReadelfCmd .= " -WhlSsdA \"$Lib_Path\" 2>\"$TMP_DIR/null\"";
+        my $Cmd = $ReadelfCmd." -Ws \"$Lib_Path\" 2>\"$TMP_DIR/null\"";
         if($DebugPath)
         { # debug mode
           # write to file
-            system($ReadelfCmd." >\"$DebugPath\"");
+            system($Cmd." >\"$DebugPath\"");
             open(LIB, $DebugPath);
         }
         else
         { # write to pipe
-            open(LIB, $ReadelfCmd." |");
+            open(LIB, $Cmd." |");
         }
         my $symtab = undef; # indicates that we are processing 'symtab' section of 'readelf' output
         while(<LIB>)
@@ -19116,19 +19274,25 @@ sub readSymbols_Lib($$$$$$)
                     }
                 }
             }
-            elsif($LIB_TYPE eq "dynamic")
-            { # dynamic library specifics
-                if($Deps)
-                {
-                    if(/NEEDED.+\[([^\[\]]+)\]/)
-                    { # dependencies:
-                      # 0x00000001 (NEEDED) Shared library: [libc.so.6]
-                        $NeededLib{$1} = 1;
-                    }
-                }
-            }
         }
         close(LIB);
+        
+        if($Deps and $LIB_TYPE eq "dynamic")
+        { # dynamic library specifics
+            $Cmd = $ReadelfCmd." -Wd \"$Lib_Path\" 2>\"$TMP_DIR/null\"";
+            open(LIB, $Cmd." |");
+            
+            while(<LIB>)
+            {
+                if(/NEEDED.+\[([^\[\]]+)\]/)
+                { # dependencies:
+                  # 0x00000001 (NEEDED) Shared library: [libc.so.6]
+                    $NeededLib{$1} = 1;
+                }
+            }
+            
+            close(LIB);
+        }
     }
     if($Vers)
     {
@@ -19449,7 +19613,8 @@ sub skipHeader_I($$)
     if(my $Kind = $SkipHeaders{$LibVersion}{"Name"}{$Name}) {
         return $Kind;
     }
-    foreach my $D (keys(%{$SkipHeaders{$LibVersion}{"Path"}}))
+    foreach my $D (sort {$SkipHeaders{$LibVersion}{"Path"}{$a} cmp $SkipHeaders{$LibVersion}{"Path"}{$b}}
+    keys(%{$SkipHeaders{$LibVersion}{"Path"}}))
     {
         if(index($Path, $D)!=-1)
         {
@@ -19458,7 +19623,8 @@ sub skipHeader_I($$)
             }
         }
     }
-    foreach my $P (keys(%{$SkipHeaders{$LibVersion}{"Pattern"}}))
+    foreach my $P (sort {$SkipHeaders{$LibVersion}{"Pattern"}{$a} cmp $SkipHeaders{$LibVersion}{"Pattern"}{$b}}
+    keys(%{$SkipHeaders{$LibVersion}{"Pattern"}}))
     {
         if(my $Kind = $SkipHeaders{$LibVersion}{"Pattern"}{$P})
         {
@@ -20637,6 +20803,7 @@ sub detect_default_paths($)
         if(not $GCC_PATH) {
             exitStatus("Not_Found", "can't find GCC>=3.0 in PATH");
         }
+        
         if(not $CheckObjectsOnly_Opt)
         {
             if(my $GCC_Ver = get_dumpversion($GCC_PATH))
@@ -20647,6 +20814,13 @@ sub detect_default_paths($)
                 {
                     $OStarget = "symbian";
                     $LIB_EXT = $OS_LibExt{$LIB_TYPE}{$OStarget};
+                }
+                
+                # check GCC version
+                if($GCC_Ver=~/\A4\.8(|\.0|\.1)\Z/)
+                { # bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=57850
+                    printMsg("WARNING", "Not working properly with GCC $GCC_Ver. Please update or downgrade GCC or use a local installation by --gcc-path=PATH option.");
+                    $EMERGENCY_MODE_48 = 1;
                 }
             }
             else {
@@ -22261,6 +22435,9 @@ sub compareAPIs($)
             mergeConstants($Level);
         }
     }
+    
+    $Cache{"mergeTypes"} = (); # free memory
+    
     if($CheckHeadersOnly
     or $Level eq "Source")
     { # added/removed in headers

@@ -25,7 +25,7 @@ ADV. USAGE:
   For advanced usage, see doc/Readme.html or output of --help option.
   
 COMPATIBILITY:
-  ABI Dumper >= 0.97 (https://github.com/lvc/abi-dumper)
+  ABI Dumper >= 0.98 (https://github.com/lvc/abi-dumper)
   
 USAGE WITH ABI DUMPER:
 

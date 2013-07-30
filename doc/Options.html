@@ -21,7 +21,7 @@
 </style>
 <script src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=monobook&amp;*"></script>
 <script>if(window.mw){
-	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker_Options", "wgTitle": "ABI Compliance Checker Options", "wgCurRevisionId": 8290, "wgArticleId": 2442, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
+	mw.config.set({"wgCanonicalNamespace": "", "wgCanonicalSpecialPageName": false, "wgNamespaceNumber": 0, "wgPageName": "ABI_compliance_checker_Options", "wgTitle": "ABI Compliance Checker Options", "wgCurRevisionId": 8307, "wgArticleId": 2442, "wgIsArticle": true, "wgAction": "view", "wgUserName": null, "wgUserGroups": ["*"], "wgCategories": ["ABI Compliance Checker"], "wgBreakFrames": false, "wgRestrictionEdit": [], "wgRestrictionMove": []});
 }
 </script><script>if(window.mw){
 	mw.loader.load(["mediawiki.page.startup"]);
@@ -179,6 +179,9 @@
 <ul><li><b>-source|-src|-api</b>
 </li></ul>
 <div style="padding-left:40px;">Show source-compatibility problems only. Generate report to: compat_reports/LIB_NAME/V1_to_V2/src_compat_report.html</div><br />
+<ul><li><b>-affected-limit LIMIT</b>
+</li></ul>
+<div style="padding-left:40px;">The maximum number of affected symbols listed under the description of the changed type in the report.</div><br />
 <h2> <span class="mw-headline" id="Other_Options"> Other Options </span></h2>
 <ul><li><b>-test</b>
 </li></ul>
@@ -268,14 +271,17 @@
 <ul><li><b>-check</b>
 </li></ul>
 <div style="padding-left:40px;">Check completeness of the ABI dump.</div><br />
+<ul><li><b>-quick</b>
+</li></ul>
+<div style="padding-left:40px;">Quick analysis. Disable check of some template instances.</div><br />
 
 <!-- 
 NewPP limit report
-Preprocessor node count: 86/1000000
+Preprocessor node count: 88/1000000
 Post-expand include size: 0/2097152 bytes
 Template argument size: 0/2097152 bytes
 Expensive parser function count: 0/100
 -->
 
-<!-- Saved in parser cache with key rasispdb:pcache:idhash:2442-0!*!0!!en!*!* and timestamp 20130630174627 -->
+<!-- Saved in parser cache with key rasispdb:pcache:idhash:2442-0!*!0!!en!*!* and timestamp 20130730150352 -->
 </div></div></div></div></div></body></html>
