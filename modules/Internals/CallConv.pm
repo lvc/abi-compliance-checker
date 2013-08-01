@@ -941,6 +941,12 @@ sub getAlignment_Model($$$)
         elsif($TInfo->{$Tid}{"Type"} eq "Array")
         {
             my %Base = get_OneStep_BaseType($Tid, $TInfo);
+            
+            if($Base{"Tid"} eq $Tid)
+            { # emergency exit
+                return 0;
+            }
+            
             return getAlignment_Model($Base{"Tid"}, $TInfo, $Arch);
         }
         elsif($TInfo->{$Tid}{"Type"}=~/Intrinsic|Enum|Pointer|FuncPtr/)
@@ -950,6 +956,12 @@ sub getAlignment_Model($$$)
         else
         {
             my %PureType = get_PureType($Tid, $TInfo);
+            
+            if($PureType{"Tid"} eq $Tid)
+            { # emergency exit
+                return 0;
+            }
+            
             return getAlignment_Model($PureType{"Tid"}, $TInfo, $Arch);
         }
     }

@@ -14906,7 +14906,8 @@ sub detectTypeChange($$$$)
             }
         }
     }
-    if($Type1_Pure{"Type"} eq "Array")
+    if($Type1_Pure{"Type"} eq "Array"
+    and $Type1_Pure{"BaseType"})
     { # base_type[N] -> base_type[N]
       # base_type: older_structure -> typedef to newer_structure
         my %SubProblems = detectTypeChange($Type1_Base{"Tid"}, $Type2_Base{"Tid"}, $Prefix, $Level);
