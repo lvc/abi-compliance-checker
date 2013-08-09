@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.99.8.1
+# ABI Compliance Checker (ACC) 1.99.8.2
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -64,7 +64,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.8.1";
+my $TOOL_VERSION = "1.99.8.2";
 my $ABI_DUMP_VERSION = "3.2";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.1";
@@ -3960,8 +3960,12 @@ sub getTrivialName($$)
     if(defined $TemplateInstance{$Version}{"Type"}{$TypeId}
     and getTypeDeclId($TypeId) eq $TypeInfoId)
     {
-        my @TParams = getTParams($TypeId, "Type");
-        $TypeAttr{"Name"} = formatName($TypeAttr{"Name"}."< ".join(", ", @TParams)." >", "T");
+        if(my @TParams = getTParams($TypeId, "Type")) {
+            $TypeAttr{"Name"} = formatName($TypeAttr{"Name"}."< ".join(", ", @TParams)." >", "T");
+        }
+        else {
+            $TypeAttr{"Name"} = formatName($TypeAttr{"Name"}."<...>", "T");
+        }
     }
     return ($TypeAttr{"Name"}, $TypeAttr{"NameSpace"});
 }
@@ -4234,6 +4238,12 @@ sub setBaseClasses($$)
         {
             my ($Access, $BInfoId) = ($1, $2);
             my $ClassId = getBinfClassId($BInfoId);
+            
+            if($ClassId==$TypeId)
+            { # class A<N>:public A<N-1>
+                next;
+            }
+            
             my $CType = $LibInfo{$Version}{"info_type"}{$ClassId};
             if(not $CType or $CType eq "template_type_parm"
             or $CType eq "typename_type")
@@ -5172,12 +5182,16 @@ sub getSymbolInfo($)
             }
         }
         
-        my $PrmsInLine = join(", ", @TParams);
         if($SymbolInfo{$Version}{$InfoId}{"ShortName"}=~/\Aoperator\W+\Z/)
         { # operator<< <T>, operator>> <T>
             $SymbolInfo{$Version}{$InfoId}{"ShortName"} .= " ";
         }
-        $SymbolInfo{$Version}{$InfoId}{"ShortName"} .= "<".$PrmsInLine.">";
+        if(@TParams) {
+            $SymbolInfo{$Version}{$InfoId}{"ShortName"} .= "<".join(", ", @TParams).">";
+        }
+        else {
+            $SymbolInfo{$Version}{$InfoId}{"ShortName"} .= "<...>";
+        }
         $SymbolInfo{$Version}{$InfoId}{"ShortName"} = formatName($SymbolInfo{$Version}{$InfoId}{"ShortName"}, "S");
     }
     else
