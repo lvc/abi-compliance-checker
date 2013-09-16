@@ -429,7 +429,7 @@ EXTRA OPTIONS:
       Create XML-descriptor template ./VERSION.xml
 
   -app|-application PATH
-      This option allows to specify the application that should be checked
+      This option allows one to specify the application that should be checked
       for portability to the new library version.
 
   -static-libs
@@ -448,7 +448,7 @@ EXTRA OPTIONS:
 
   -v1|-version1 NUM
       Specify 1st library version outside the descriptor. This option is needed
-      if you have prefered an alternative descriptor type (see -d1 option).
+      if you have preferred an alternative descriptor type (see -d1 option).
 
       In general case you should specify it in the XML-descriptor:
           <version>
@@ -493,7 +493,7 @@ EXTRA OPTIONS:
       Show the symbol's return type in the report.
 
   -symbols-list PATH
-      This option allows to specify a file with a list of symbols (mangled
+      This option allows one to specify a file with a list of symbols (mangled
       names in C++) that should be checked, other symbols will not be checked.
       
   -skip-symbols PATH
@@ -648,7 +648,7 @@ OTHER OPTIONS:
   -test
       Run internal tests. Create two binary incompatible versions of a sample
       library and run the tool to check them for compatibility. This option
-      allows to check if the tool works correctly in the current environment.
+      allows one to check if the tool works correctly in the current environment.
 
   -test-dump
       Test ability to create, read and compare ABI dumps.
