@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.99.8.2
+# ABI Compliance Checker (ACC) 1.99.8.3
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -64,7 +64,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.8.2";
+my $TOOL_VERSION = "1.99.8.3";
 my $ABI_DUMP_VERSION = "3.2";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.1";
@@ -246,7 +246,7 @@ GetOptions("h|help!" => \$Help,
   "lang=s" => \$UserLang,
   "binary|bin|abi!" => \$BinaryOnly,
   "source|src|api!" => \$SourceOnly,
-  "affected-limit=s" => \$AffectLimit,
+  "limit-affected|affected-limit=s" => \$AffectLimit,
 # other options
   "test!" => \$TestTool,
   "test-dump!" => \$TestDump,
@@ -640,7 +640,7 @@ EXTRA OPTIONS:
       Generate report to:
         compat_reports/LIB_NAME/V1_to_V2/src_compat_report.html
         
-  -affected-limit LIMIT
+  -limit-affected LIMIT
       The maximum number of affected symbols listed under the description
       of the changed type in the report.
 
@@ -1662,6 +1662,13 @@ my $Content_Counter = 0;
 # Modes
 my $JoinReport = 1;
 my $DoubleReport = 0;
+
+my %Severity_Val=(
+    "High"=>3,
+    "Medium"=>2,
+    "Low"=>1,
+    "Safe"=>-1
+);
 
 sub get_Modules()
 {
@@ -3989,6 +3996,7 @@ sub getTrivialTypeAttr($)
         delete($TypeAttr{"Header"});
         delete($TypeAttr{"Line"});
     }
+    
     $TypeAttr{"Type"} = getTypeType($TypeId);
     ($TypeAttr{"Name"}, $TypeAttr{"NameSpace"}) = getTrivialName($TypeInfoId, $TypeId);
     if(not $TypeAttr{"Name"}) {
@@ -3996,6 +4004,18 @@ sub getTrivialTypeAttr($)
     }
     if(not $TypeAttr{"NameSpace"}) {
         delete($TypeAttr{"NameSpace"});
+    }
+    
+    if($TypeAttr{"Type"} eq "Intrinsic")
+    {
+        if(defined $TypeAttr{"Header"})
+        {
+            if($TypeAttr{"Header"}=~/\Adump[1-2]\.[ih]\Z/)
+            { # support for SUSE 11.2
+              # integer_type has srcp dump{1-2}.i
+                delete($TypeAttr{"Header"});
+            }
+        }
     }
     
     my $Tmpl = undef;
@@ -11359,25 +11379,6 @@ sub find_MemberPair_Pos_byVal($$)
     return "lost";
 }
 
-my %Severity_Val=(
-    "High"=>3,
-    "Medium"=>2,
-    "Low"=>1,
-    "Safe"=>-1
-);
-
-sub cmpSeverities($$)
-{
-    my ($S1, $S2) = @_;
-    if(not $S1) {
-        return 0;
-    }
-    elsif(not $S2) {
-        return 1;
-    }
-    return ($Severity_Val{$S1}>$Severity_Val{$S2});
-}
-
 sub isRecurType($$$)
 {
     foreach (@{$_[2]})
@@ -15625,14 +15626,18 @@ sub get_TypeProblems_Count($$$)
             foreach my $Location (keys(%{$TypeChanges->{$Type_Name}{$Kind}}))
             {
                 my $Target = $TypeChanges->{$Type_Name}{$Kind}{$Location}{"Target"};
-                my $Priority = $CompatRules{$Level}{$Kind}{"Severity"};
-                next if($Priority ne $TargetPriority);
+                my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
+                next if($Severity ne $TargetPriority);
                 if($Kinds_Target{$Kind}{$Target}) {
                     next;
                 }
-                if(cmpSeverities($Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target}, $Priority))
-                { # select a problem with the highest priority
-                    next;
+                
+                if(my $MaxSeverity = $Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target})
+                {
+                    if($Severity_Val{$MaxSeverity}>$Severity_Val{$Severity})
+                    { # select a problem with the highest priority
+                        next;
+                    }
                 }
                 $Kinds_Target{$Kind}{$Target} = 1;
                 $Type_Problems_Count += 1;
@@ -15690,32 +15695,32 @@ sub get_Summary($)
             {
                 foreach my $Location (sort keys(%{$CompatProblems{$Level}{$Interface}{$Kind}}))
                 {
-                    my $Priority = $CompatRules{$Level}{$Kind}{"Severity"};
+                    my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
                     if($Kind eq "Added_Symbol") {
                         $Added += 1;
                     }
                     elsif($Kind eq "Removed_Symbol")
                     {
                         $Removed += 1;
-                        $TotalAffected{$Level}{$Interface} = $Priority;
+                        $TotalAffected{$Level}{$Interface} = $Severity;
                     }
                     else
                     {
-                        if($Priority eq "Safe") {
+                        if($Severity eq "Safe") {
                             $I_Other += 1;
                         }
-                        elsif($Priority eq "High") {
+                        elsif($Severity eq "High") {
                             $I_Problems_High += 1;
                         }
-                        elsif($Priority eq "Medium") {
+                        elsif($Severity eq "Medium") {
                             $I_Problems_Medium += 1;
                         }
-                        elsif($Priority eq "Low") {
+                        elsif($Severity eq "Low") {
                             $I_Problems_Low += 1;
                         }
-                        if(($Priority ne "Low" or $StrictCompat)
-                        and $Priority ne "Safe") {
-                            $TotalAffected{$Level}{$Interface} = $Priority;
+                        if(($Severity ne "Low" or $StrictCompat)
+                        and $Severity ne "Safe") {
+                            $TotalAffected{$Level}{$Interface} = $Severity;
                         }
                     }
                 }
@@ -15733,25 +15738,25 @@ sub get_Summary($)
                 {
                     my $Type_Name = $CompatProblems{$Level}{$Interface}{$Kind}{$Location}{"Type_Name"};
                     my $Target = $CompatProblems{$Level}{$Interface}{$Kind}{$Location}{"Target"};
-                    my $Priority = $CompatRules{$Level}{$Kind}{"Severity"};
+                    my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
                     my $MaxSeverity = $Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target};
                     
-                    if($MaxSeverity and $Severity_Val{$MaxSeverity}>$Severity_Val{$Priority})
+                    if($MaxSeverity and $Severity_Val{$MaxSeverity}>$Severity_Val{$Severity})
                     { # select a problem with the highest priority
                         next;
                     }
                     
-                    if(($Priority ne "Low" or $StrictCompat)
-                    and $Priority ne "Safe")
+                    if(($Severity ne "Low" or $StrictCompat)
+                    and $Severity ne "Safe")
                     {
                         if(defined $TotalAffected{$Level}{$Interface})
                         {
-                            if($Severity_Val{$Priority}>$Severity_Val{$TotalAffected{$Level}{$Interface}}) {
-                                $TotalAffected{$Level}{$Interface} = $Priority;
+                            if($Severity_Val{$Severity}>$Severity_Val{$TotalAffected{$Level}{$Interface}}) {
+                                $TotalAffected{$Level}{$Interface} = $Severity;
                             }
                         }
                         else {
-                            $TotalAffected{$Level}{$Interface} = $Priority;
+                            $TotalAffected{$Level}{$Interface} = $Severity;
                         }
                     }
                     
@@ -15759,12 +15764,12 @@ sub get_Summary($)
                     
                     if($MaxSeverity)
                     {
-                        if($Severity_Val{$Priority}>$Severity_Val{$MaxSeverity}) {
-                            $Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target} = $Priority;
+                        if($Severity_Val{$Severity}>$Severity_Val{$MaxSeverity}) {
+                            $Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target} = $Severity;
                         }
                     }
                     else {
-                        $Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target} = $Priority;
+                        $Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target} = $Severity;
                     }
                 }
             }
@@ -16725,6 +16730,7 @@ sub get_Report_SymbolProblems($$)
     my ($TargetSeverity, $Level) = @_;
     my $INTERFACE_PROBLEMS = "";
     my (%ReportMap, %SymbolChanges) = ();
+    
     foreach my $Symbol (sort keys(%{$CompatProblems{$Level}}))
     {
         my ($SN, $SS, $SV) = separate_symbol($Symbol);
@@ -16753,8 +16759,8 @@ sub get_Report_SymbolProblems($$)
                 %{$SymbolChanges{$Symbol}{$Kind}} = %{$CompatProblems{$Level}{$Symbol}{$Kind}};
                 foreach my $Location (sort keys(%{$SymbolChanges{$Symbol}{$Kind}}))
                 {
-                    my $Priority = $CompatRules{$Level}{$Kind}{"Severity"};
-                    if($Priority ne $TargetSeverity) {
+                    my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
+                    if($Severity ne $TargetSeverity) {
                         delete($SymbolChanges{$Symbol}{$Kind}{$Location});
                     }
                 }
@@ -16770,6 +16776,7 @@ sub get_Report_SymbolProblems($$)
             delete($SymbolChanges{$Symbol});
         }
     }
+    
     if($ReportFormat eq "xml")
     { # XML
         foreach my $HeaderName (sort {lc($a) cmp lc($b)} keys(%ReportMap))
@@ -16874,6 +16881,7 @@ sub get_Report_SymbolProblems($$)
                 }
             }
         }
+        
         if($INTERFACE_PROBLEMS)
         {
             $INTERFACE_PROBLEMS = insertIDs($INTERFACE_PROBLEMS);
@@ -16893,6 +16901,7 @@ sub get_Report_TypeProblems($$)
     my ($TargetSeverity, $Level) = @_;
     my $TYPE_PROBLEMS = "";
     my (%ReportMap, %TypeChanges) = ();
+    
     foreach my $Interface (sort keys(%{$CompatProblems{$Level}}))
     {
         foreach my $Kind (keys(%{$CompatProblems{$Level}{$Interface}}))
@@ -16904,24 +16913,30 @@ sub get_Report_TypeProblems($$)
                     my $TypeName = $CompatProblems{$Level}{$Interface}{$Kind}{$Location}{"Type_Name"};
                     my $Target = $CompatProblems{$Level}{$Interface}{$Kind}{$Location}{"Target"};
                     my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
+                    
                     if($Severity eq "Safe"
                     and $TargetSeverity ne "Safe") {
                         next;
                     }
                     
-                    if(cmpSeverities($Type_MaxSeverity{$Level}{$TypeName}{$Kind}{$Target}, $Severity))
-                    { # select a problem with the highest priority
-                        next;
+                    if(my $MaxSeverity = $Type_MaxSeverity{$Level}{$TypeName}{$Kind}{$Target})
+                    {
+                        if($Severity_Val{$MaxSeverity}>$Severity_Val{$Severity})
+                        { # select a problem with the highest priority
+                            next;
+                        }
                     }
-                    %{$TypeChanges{$TypeName}{$Kind}{$Location}} = %{$CompatProblems{$Level}{$Interface}{$Kind}{$Location}};
+                    
+                    $TypeChanges{$TypeName}{$Kind}{$Location} = $CompatProblems{$Level}{$Interface}{$Kind}{$Location};
                 }
             }
         }
     }
+    
     my %Kinds_Locations = ();
     foreach my $TypeName (keys(%TypeChanges))
     {
-        my %Kinds_Target = ();
+        my %Kind_Target = ();
         foreach my $Kind (sort keys(%{$TypeChanges{$TypeName}}))
         {
             foreach my $Location (sort {cmpLocations($b, $a)} sort keys(%{$TypeChanges{$TypeName}{$Kind}}))
@@ -16934,12 +16949,12 @@ sub get_Report_TypeProblems($$)
                 }
                 $Kinds_Locations{$TypeName}{$Kind}{$Location} = 1;
                 my $Target = $TypeChanges{$TypeName}{$Kind}{$Location}{"Target"};
-                if($Kinds_Target{$Kind}{$Target})
+                if($Kind_Target{$Kind}{$Target})
                 { # duplicate target
                     delete($TypeChanges{$TypeName}{$Kind}{$Location});
                     next;
                 }
-                $Kinds_Target{$Kind}{$Target} = 1;
+                $Kind_Target{$Kind}{$Target} = 1;
                 my $HeaderName = $TypeInfo{1}{$TName_Tid{1}{$TypeName}}{"Header"};
                 $ReportMap{$HeaderName}{$TypeName} = 1;
             }
@@ -16951,6 +16966,7 @@ sub get_Report_TypeProblems($$)
             delete($TypeChanges{$TypeName});
         }
     }
+    
     my @Symbols = sort {lc($tr_name{$a}?$tr_name{$a}:$a) cmp lc($tr_name{$b}?$tr_name{$b}:$b)} keys(%{$CompatProblems{$Level}});
     if($ReportFormat eq "xml")
     { # XML
@@ -17002,6 +17018,7 @@ sub get_Report_TypeProblems($$)
                 {
                     my $ProblemNum = 1;
                     my $TYPE_REPORT = "";
+                    
                     foreach my $Kind (sort {$b=~/Size/ <=> $a=~/Size/} sort keys(%{$TypeChanges{$TypeName}}))
                     {
                         foreach my $Location (sort {cmpLocations($b, $a)} sort keys(%{$TypeChanges{$TypeName}{$Kind}}))
@@ -17038,6 +17055,7 @@ sub get_Report_TypeProblems($$)
                 $TYPE_PROBLEMS .= "<br/>";
             }
         }
+        
         if($TYPE_PROBLEMS)
         {
             $TYPE_PROBLEMS = insertIDs($TYPE_PROBLEMS);
@@ -17235,44 +17253,59 @@ sub getAffectedSymbols($$$$)
     }
     else
     {
-        if($#{$Syms}>=10000)
+        if($#{$Syms}>=1999)
         { # reduce size of the report
-            $LIMIT = 10;
+            $AffectLimit = 10;
+            
+            printMsg("WARNING", "reducing limit of affected symbols shown in the report to $AffectLimit");
+            $LIMIT = $AffectLimit;
         }
     }
     my %SProblems = ();
-    foreach my $Symbol (@{$Syms})
+    LOOP: foreach my $Symbol (@{$Syms})
     {
-        if(keys(%SProblems)>$LIMIT) {
-            last;
-        }
-        if(($Symbol=~/(C2|D2|D0)[EI]/))
+        if(index($Symbol, "_Z")==0
+        and $Symbol=~/(C2|D2|D0)[EI]/)
         { # duplicated problems for C2 constructors, D2 and D0 destructors
             next;
         }
-        my ($SN, $SS, $SV) = separate_symbol($Symbol);
-        if($Level eq "Source")
-        { # remove symbol version
-            $Symbol=$SN;
-        }
+        
         my ($MinPath_Length, $ProblemLocation_Last) = (-1, "");
         my $Severity_Max = 0;
-        my $Signature = get_Signature($Symbol, 1);
-        foreach my $Kind (keys(%{$CompatProblems{$Level}{$Symbol}}))
+        
+        foreach my $Kind (keys(%{$Kinds_Locations}))
         {
-            foreach my $Location (keys(%{$CompatProblems{$Level}{$Symbol}{$Kind}}))
+            if(not defined $CompatProblems{$Level}{$Symbol}
+            or not defined $CompatProblems{$Level}{$Symbol}{$Kind}) {
+                next;
+            }
+            
+            foreach my $Location (keys(%{$Kinds_Locations->{$Kind}}))
             {
-                if(not defined $Kinds_Locations->{$Kind}
-                or not $Kinds_Locations->{$Kind}{$Location}) {
+                if(keys(%SProblems)>$LIMIT) {
+                    last LOOP;
+                }
+                
+                if(not defined $CompatProblems{$Level}{$Symbol}{$Kind}{$Location}) {
                     next;
                 }
+                
+                my ($SN, $SS, $SV) = separate_symbol($Symbol);
+                if($Level eq "Source")
+                { # remove symbol version
+                    $Symbol=$SN;
+                }
+                
                 if($SV and defined $CompatProblems{$Level}{$SN}
                 and defined $CompatProblems{$Level}{$SN}{$Kind}{$Location})
                 { # duplicated problems for versioned symbols
                     next;
                 }
+                
                 my $Type_Name = $CompatProblems{$Level}{$Symbol}{$Kind}{$Location}{"Type_Name"};
-                next if($Type_Name ne $Target_TypeName);
+                if($Type_Name ne $Target_TypeName) {
+                    next;
+                }
                 
                 my $PName = getParamName($Location);
                 my $PPos = adjustParamPos(getParamPos($PName, $Symbol, 1), $Symbol, 1);
@@ -17295,7 +17328,7 @@ sub getAffectedSymbols($$$$)
                     %{$SProblems{$Symbol}} = (
                         "Descr"=>getAffectDesc($Level, $Symbol, $Kind, $Location),
                         "Severity_Max"=>$Severity_Max,
-                        "Signature"=>$Signature,
+                        "Signature"=>get_Signature($Symbol, 1),
                         "Position"=>$PPos,
                         "Param_Name"=>$PName,
                         "Location"=>$Location
@@ -17346,7 +17379,7 @@ sub getAffectedSymbols($$$$)
             $Affected .= "<span class='iname_a'>".highLight_Signature_PPos_Italic($Signature, $Pos, 1, 0, 0)."</span><br/><div class='affect'>".htmlSpecChars($Description)."</div>\n";
         }
         if(keys(%SProblems)>$LIMIT) {
-            $Affected .= "and others ...<br/>";
+            $Affected .= " ...<br/>"; # and others ...
         }
         $Affected = "<div class='affected'>".$Affected."</div>";
         if($Affected)
@@ -17355,6 +17388,7 @@ sub getAffectedSymbols($$$$)
             $Affected = $ContentSpanStart_Affected."[+] affected symbols (".(keys(%SProblems)>$LIMIT?">".$LIMIT:keys(%SProblems)).")".$ContentSpanEnd.$Affected;
         }
     }
+    
     return $Affected;
 }
 
@@ -17693,7 +17727,6 @@ sub getReport($)
     my $Level = $_[0];
     if($ReportFormat eq "xml")
     { # XML
-        
         if($Level eq "Join")
         {
             my $Report = "<reports>\n";
@@ -17814,12 +17847,12 @@ sub getReportFooter($$)
 
 sub get_Report_Problems($$)
 {
-    my ($Priority, $Level) = @_;
-    my $Report = get_Report_TypeProblems($Priority, $Level);
-    if(my $SProblems = get_Report_SymbolProblems($Priority, $Level)) {
+    my ($Severity, $Level) = @_;
+    my $Report = get_Report_TypeProblems($Severity, $Level);
+    if(my $SProblems = get_Report_SymbolProblems($Severity, $Level)) {
         $Report .= $SProblems;
     }
-    if($Priority eq "Low")
+    if($Severity eq "Low")
     {
         $Report .= get_Report_ChangedConstants("Low", $Level);
         if($ReportFormat eq "html")
@@ -17829,7 +17862,7 @@ sub get_Report_Problems($$)
             }
         }
     }
-    if($Priority eq "Safe")
+    if($Severity eq "Safe")
     {
         $Report .= get_Report_ChangedConstants("Safe", $Level);
     }
@@ -17839,20 +17872,20 @@ sub get_Report_Problems($$)
         { # add anchor
             if($JoinReport)
             {
-                if($Priority eq "Safe") {
+                if($Severity eq "Safe") {
                     $Report = "<a name=\'Other_".$Level."_Changes\'></a>".$Report;
                 }
                 else {
-                    $Report = "<a name=\'".$Priority."_Risk_".$Level."_Problems\'></a>".$Report;
+                    $Report = "<a name=\'".$Severity."_Risk_".$Level."_Problems\'></a>".$Report;
                 }
             }
             else
             {
-                if($Priority eq "Safe") {
+                if($Severity eq "Safe") {
                     $Report = "<a name=\'Other_Changes\'></a>".$Report;
                 }
                 else {
-                    $Report = "<a name=\'".$Priority."_Risk_Problems\'></a>".$Report;
+                    $Report = "<a name=\'".$Severity."_Risk_Problems\'></a>".$Report;
                 }
             }
         }
