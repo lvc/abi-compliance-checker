@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.99.8.3
+# ABI Compliance Checker (ACC) 1.99.8.4
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -64,7 +64,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.8.3";
+my $TOOL_VERSION = "1.99.8.4";
 my $ABI_DUMP_VERSION = "3.2";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.1";
@@ -93,7 +93,7 @@ $SkipHeadersPath, $CppCompat, $LogMode, $StdOut, $ListAffected, $ReportFormat,
 $UserLang, $TargetHeadersPath, $BinaryOnly, $SourceOnly, $BinaryReportPath,
 $SourceReportPath, $UseXML, $Browse, $OpenReport, $SortDump, $DumpFormat,
 $ExtraInfo, $ExtraDump, $Force, $Tolerance, $Tolerant, $SkipSymbolsListPath,
-$CheckInfo, $Quick, $AffectLimit, $AllAffected);
+$CheckInfo, $Quick, $AffectLimit, $AllAffected, $CppIncompat);
 
 my $CmdName = get_filename($0);
 my %OS_LibExt = (
@@ -252,6 +252,7 @@ GetOptions("h|help!" => \$Help,
   "test-dump!" => \$TestDump,
   "debug!" => \$Debug,
   "cpp-compatible!" => \$CppCompat,
+  "cpp-incompatible!" => \$CppIncompat,
   "p|params=s" => \$ParamNamesPath,
   "relpath1|relpath=s" => \$RelativeDirectory{1},
   "relpath2=s" => \$RelativeDirectory{2},
@@ -664,6 +665,9 @@ OTHER OPTIONS:
       If your header files are written in C language and can be compiled
       by the G++ compiler (i.e. don't use C++ keywords), then you can tell
       the tool about this and speedup the analysis.
+      
+  -cpp-incompatible
+      Set this option if input C header files use C++ keywords.
 
   -p|-params PATH
       Path to file with the function parameter names. It can be used
@@ -8686,9 +8690,16 @@ sub getDump()
         { # try to recompile
           # FIXME: handle other errors and try to recompile
             if($CppMode{$Version}==1
-            and index($Errors, "c99_")!=-1)
+            and index($Errors, "c99_")!=-1
+            and not defined $CppIncompat)
             { # disable c99 mode and try again
                 $CppMode{$Version}=-1;
+                
+                if($Debug)
+                {
+                    # printMsg("INFO", $Errors);
+                }
+                
                 printMsg("INFO", "Disabling C++ compatibility mode");
                 resetLogging($Version);
                 $TMP_DIR = tempdir(CLEANUP=>1);
@@ -14961,15 +14972,15 @@ sub tNameLock($$)
     my $TN1 = $TypeInfo{1}{$Tid1}{"Name"};
     my $TN2 = $TypeInfo{2}{$Tid2}{"Name"};
     
+    my $TT1 = $TypeInfo{1}{$Tid1}{"Type"};
+    my $TT2 = $TypeInfo{2}{$Tid2}{"Type"};
+    
     if($Changed)
     { # different formats
         if($UseOldDumps)
         { # old dumps
             return 0;
         }
-        
-        my $TT1 = $TypeInfo{1}{$Tid1}{"Type"};
-        my $TT2 = $TypeInfo{2}{$Tid2}{"Type"};
         
         my %Base1 = get_Type($Tid1, 1);
         while(defined $Base1{"Type"} and $Base1{"Type"} eq "Typedef") {
@@ -15026,6 +15037,20 @@ sub tNameLock($$)
         if(index($TN2, " ".$TN1)!=-1)
         {
             if($TN2=~/\A(struct|union|enum) \Q$TN1\E\Z/) {
+                return 0;
+            }
+        }
+        
+        if($TT1 eq "FuncPtr"
+        and $TT2 eq "FuncPtr")
+        {
+            my $TN1_C = $TN1;
+            my $TN2_C = $TN2;
+            
+            $TN1_C=~s/\b(struct|union) //g;
+            $TN2_C=~s/\b(struct|union) //g;
+            
+            if($TN1_C eq $TN2_C) {
                 return 0;
             }
         }
@@ -19446,7 +19471,13 @@ sub checkSystemFiles()
     {
         next if(not -d $DevelPath);
         
-        my @Files = cmd_find($DevelPath);
+        my @Files = cmd_find($DevelPath,"f");
+        foreach my $Link (cmd_find($DevelPath,"l"))
+        { # add symbolic links
+            if(-f $Link) {
+                push(@Files, $Link);
+            }
+        }
         
         if(not $CheckObjectsOnly)
         {
@@ -20867,6 +20898,8 @@ sub detect_default_paths($)
                 # check GCC version
                 if($GCC_Ver=~/\A4\.8(|\.0|\.1)\Z/)
                 { # bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=57850
+                  # introduced in 4.8
+                  # fixed in 4.9
                     printMsg("WARNING", "Not working properly with GCC $GCC_Ver. Please update or downgrade GCC or use a local installation by --gcc-path=PATH option.");
                     $EMERGENCY_MODE_48 = 1;
                 }
