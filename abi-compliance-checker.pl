@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.99.8.4
+# ABI Compliance Checker (ACC) 1.99.8.5
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -64,7 +64,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.8.4";
+my $TOOL_VERSION = "1.99.8.5";
 my $ABI_DUMP_VERSION = "3.2";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.1";
@@ -13993,13 +13993,15 @@ sub mergeSymbols($)
                 {
                     if(get_PLevel($ReturnType1_Id, 1)==0)
                     {
-                        foreach my $SubProblemType (keys(%{$Sub_SubProblems}))
+                        if(defined $Sub_SubProblems->{"DataType_Size"})
                         { # add "Global_Data_Size" problem
-                            my $New_Value = $Sub_SubProblems->{$SubProblemType}{"New_Value"};
-                            my $Old_Value = $Sub_SubProblems->{$SubProblemType}{"Old_Value"};
-                            if($SubProblemType eq "DataType_Size")
-                            { # add a new problem
-                                $AddProblems->{"Global_Data_Size"} = $Sub_SubProblems->{$SubProblemType};
+                            foreach my $Loc (keys(%{$Sub_SubProblems->{"DataType_Size"}}))
+                            {
+                                if(index($Loc,"->")==-1)
+                                { # add a new problem
+                                    $AddProblems->{"Global_Data_Size"} = $Sub_SubProblems->{"DataType_Size"};
+                                    last;
+                                }
                             }
                         }
                     }
@@ -14025,7 +14027,10 @@ sub mergeSymbols($)
             {
                 foreach my $SubLocation (keys(%{$AddProblems->{$SubProblemType}}))
                 {
-                    my $NewLocation = ($SubLocation)?"retval->".$SubLocation:"retval";
+                    my $NewLocation = "retval";
+                    if($SubLocation and $SubLocation ne "retval") {
+                        $NewLocation = "retval->".$SubLocation;
+                    }
                     $CompatProblems{$Level}{$Symbol}{$SubProblemType}{$NewLocation} = $AddProblems->{$SubProblemType}{$SubLocation};
                 }
             }
@@ -14034,7 +14039,10 @@ sub mergeSymbols($)
             {
                 foreach my $SubLocation (keys(%{$Sub_SubProblems->{$SubProblemType}}))
                 {
-                    my $NewLocation = ($SubLocation)?"retval->".$SubLocation:"retval";
+                    my $NewLocation = "retval";
+                    if($SubLocation and $SubLocation ne "retval") {
+                        $NewLocation = "retval->".$SubLocation;
+                    }
                     $CompatProblems{$Level}{$Symbol}{$SubProblemType}{$NewLocation} = $Sub_SubProblems->{$SubProblemType}{$SubLocation};
                 }
             }
