@@ -1,12 +1,12 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.99.8.5
+# ABI Compliance Checker (ACC) 1.99.9
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-# Copyright (C) 2011-2013 ROSA Laboratory
+# Copyright (C) 2011-2014 ROSA Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -17,7 +17,7 @@
 # REQUIREMENTS
 # ============
 #  Linux
-#    - G++ (3.0-4.7, recommended 4.5 or newer)
+#    - G++ (3.0-4.7, 4.8.3, recommended 4.5 or newer)
 #    - GNU Binutils (readelf, c++filt, objdump)
 #    - Perl 5 (5.8 or newer)
 #    - Ctags (5.8 or newer)
@@ -64,10 +64,10 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.8.5";
+my $TOOL_VERSION = "1.99.9";
 my $ABI_DUMP_VERSION = "3.2";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
-my $XML_REPORT_VERSION = "1.1";
+my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
 my $OSgroup = get_OSgroup();
 my $ORIG_DIR = cwd();
@@ -93,7 +93,7 @@ $SkipHeadersPath, $CppCompat, $LogMode, $StdOut, $ListAffected, $ReportFormat,
 $UserLang, $TargetHeadersPath, $BinaryOnly, $SourceOnly, $BinaryReportPath,
 $SourceReportPath, $UseXML, $Browse, $OpenReport, $SortDump, $DumpFormat,
 $ExtraInfo, $ExtraDump, $Force, $Tolerance, $Tolerant, $SkipSymbolsListPath,
-$CheckInfo, $Quick, $AffectLimit, $AllAffected, $CppIncompat);
+$CheckInfo, $Quick, $AffectLimit, $AllAffected, $CppIncompat, $SkipInternal);
 
 my $CmdName = get_filename($0);
 my %OS_LibExt = (
@@ -154,7 +154,7 @@ my %HomePage = (
 
 my $ShortUsage = "ABI Compliance Checker (ACC) $TOOL_VERSION
 A tool for checking backward compatibility of a C/C++ library API
-Copyright (C) 2012 ROSA Laboratory
+Copyright (C) 2014 ROSA Laboratory
 License: GNU LGPL or GNU GPL
 
 Usage: $CmdName [options]
@@ -277,7 +277,8 @@ GetOptions("h|help!" => \$Help,
   "tolerant!" => \$Tolerant,
   "check!" => \$CheckInfo,
   "quick!" => \$Quick,
-  "all-affected!" => \$AllAffected
+  "all-affected!" => \$AllAffected,
+  "skip-internal=s" => \$SkipInternal
 ) or ERR_MESSAGE();
 
 sub ERR_MESSAGE()
@@ -785,6 +786,9 @@ OTHER OPTIONS:
       
   -quick
       Quick analysis. Disable check of some template instances.
+      
+  -skip-internal PATTERN
+      Do not check internal interfaces matched by the pattern.
 
 REPORT:
     Compatibility report will be generated to:
@@ -2259,7 +2263,7 @@ sub readTUDump($)
     unlink($DumpPath);
     
     $Content=~s/\n[ ]+/ /g;
-    my @Lines = split("\n", $Content);
+    my @Lines = split(/\n/, $Content);
     
     # clean memory
     undef $Content;
@@ -8375,9 +8379,10 @@ sub preChange($$)
         
         my $Detected = undef;
         
-        while($Content=~s/(\A|\n[^\#\/\n][^\n]*?|\n)(\*\s*|\s+|\@|\,|\()($RegExp_C|$RegExp_F)(\s*(\,|\)|\;|\-\>|\.|\:\s*\d))/$1$2c99_$3$4/g)
+        while($Content=~s/(\A|\n[^\#\/\n][^\n]*?|\n)(\*\s*|\s+|\@|\,|\()($RegExp_C|$RegExp_F)(\s*([\,\)\;\.\[]|\-\>|\:\s*\d))/$1$2c99_$3$4/g)
         { # MATCH:
           # int foo(int new, int class, int (*new)(int));
+          # int foo(char template[], char*);
           # unsigned private: 8;
           # DO NOT MATCH:
           # #pragma GCC visibility push(default)
@@ -8675,6 +8680,9 @@ sub getDump()
     writeLog($Version, "Temporary header file \'$TmpHeaderPath\' with the following content will be compiled to create GCC translation unit dump:\n".readFile($TmpHeaderPath)."\n");
     # create TU dump
     my $TUdump = "-fdump-translation-unit -fkeep-inline-functions -c";
+    if($UserLang eq "C") {
+        $TUdump .= " -U__cplusplus -D_Bool=\"bool\"";
+    }
     if($CppMode{$Version}==1
     or $MinGWMode{$Version}==1) {
         $TUdump .= " -fpreprocessed";
@@ -10516,7 +10524,7 @@ sub isReserved($)
     if($MName=~/reserved|padding|f_spare/i) {
         return 1;
     }
-    if($MName=~/\A[_]*(spare|pad|unused)[_\d]*\Z/i) {
+    if($MName=~/\A[_]*(spare|pad|unused|dummy)[_\d]*\Z/i) {
         return 1;
     }
     if($MName=~/(pad\d+)/i) {
@@ -10994,7 +11002,7 @@ sub mergeBases($)
                     if($Size_Old ne $Size_New
                     and $Size_Old and $Size_New)
                     {
-                        my $ProblemType = "";
+                        my $ProblemType = undef;
                         if(isCopyingClass($BaseId, 1)) {
                             $ProblemType = "Size_Of_Copying_Class";
                         }
@@ -11654,6 +11662,7 @@ sub mergeTypes($$$)
         and $Base_1{"Name"} ne $Base_2{"Name"})
         {
             if($Level eq "Binary"
+            and $Type1{"Size"} and $Type2{"Size"}
             and $Type1{"Size"} ne $Type2{"Size"})
             {
                 %{$SubProblems{"DataType_Size"}{$Typedef_1{"Name"}}}=(
@@ -11716,6 +11725,7 @@ sub mergeTypes($$$)
     and $Type1_Pure{"Type"}=~/\A(Struct|Class|Union)\Z/)
     { # checking size
         if($Level eq "Binary"
+        and $Type1_Pure{"Size"} and $Type2_Pure{"Size"}
         and $Type1_Pure{"Size"} ne $Type2_Pure{"Size"})
         {
             my $ProblemKind = "DataType_Size";
@@ -12070,6 +12080,7 @@ sub mergeTypes($$$)
                 my $MemberType1_Name = $TypeInfo{1}{$MemberType1_Id}{"Name"};
                 my $MemberType2_Name = $TypeInfo{2}{$MemberType2_Id}{"Name"};
                 if($Level eq "Binary"
+                and $SizeV1 and $SizeV2
                 and $SizeV1 ne $SizeV2)
                 {
                     if($MemberType1_Name eq $MemberType2_Name or (isAnon($MemberType1_Name) and isAnon($MemberType2_Name))
@@ -12101,7 +12112,6 @@ sub mergeTypes($$$)
                         }
                         if($ProblemType eq "Private_Field_Size")
                         { # private field size with no effect
-                            $ProblemType = "";
                         }
                         if($ProblemType eq "Field_Size")
                         {
@@ -12225,6 +12235,8 @@ sub mergeTypes($$$)
                     }
                     else
                     {
+                        # TODO: Private_Field_Type rule?
+                        
                         if(not isPublic(\%Type1_Pure, $Member_Pos)
                         or isUnnamed($Member_Name)) {
                             next;
@@ -12232,7 +12244,6 @@ sub mergeTypes($$$)
                     }
                     if($ProblemType eq "Private_Field_Type_And_Size")
                     { # private field change with no effect
-                        next;
                     }
                     %{$SubProblems{$ProblemType}{$Member_Name}}=(
                         "Target"=>$Member_Name,
@@ -12584,6 +12595,12 @@ sub symbolFilter($$$$)
     { # non-public global data
         return 0;
     }
+    
+    if(defined $SkipInternal)
+    {
+        return 0 if($Symbol=~/($SkipInternal)/);
+    }
+    
     if($CheckObjectsOnly) {
         return 0 if($Symbol=~/\A(_init|_fini)\Z/);
     }
@@ -13995,12 +14012,16 @@ sub mergeSymbols($)
                     {
                         if(defined $Sub_SubProblems->{"DataType_Size"})
                         { # add "Global_Data_Size" problem
+                            
                             foreach my $Loc (keys(%{$Sub_SubProblems->{"DataType_Size"}}))
                             {
                                 if(index($Loc,"->")==-1)
-                                { # add a new problem
-                                    $AddProblems->{"Global_Data_Size"} = $Sub_SubProblems->{"DataType_Size"};
-                                    last;
+                                { 
+                                    if($Loc eq $Sub_SubProblems->{"DataType_Size"}{$Loc}{"Type_Name"})
+                                    {
+                                        $AddProblems->{"Global_Data_Size"}{$Loc} = $Sub_SubProblems->{"DataType_Size"}{$Loc}; # add a new problem
+                                        last;
+                                    }
                                 }
                             }
                         }
@@ -15025,7 +15046,7 @@ sub tNameLock($$)
         
         if(not checkDump(1, "2.20")
         or not checkDump(2, "2.20"))
-        { # added restrict attribute in 2.6
+        { # added type prefix in 2.20
             if($TN1=~/\A(struct|union|enum) \Q$TN2\E\Z/
             or $TN2=~/\A(struct|union|enum) \Q$TN1\E\Z/) {
                 return 0;
@@ -15063,6 +15084,16 @@ sub tNameLock($$)
             }
         }
     }
+    
+    my ($N1, $N2) = ($TN1, $TN2);
+    $N1=~s/\b(struct|union) //g;
+    $N2=~s/\b(struct|union) //g;
+
+    if($N1 eq $N2)
+    { # QList<struct QUrl> and QList<QUrl>
+        return 0;
+    }
+    
     return 1;
 }
 
@@ -15917,13 +15948,13 @@ sub get_Summary($)
         $TestInfo .= "  <library>$TargetLibraryName</library>\n";
         $TestInfo .= "  <version1>\n";
         $TestInfo .= "    <number>".$Descriptor{1}{"Version"}."</number>\n";
-        $TestInfo .= "    <architecture>$Arch1</architecture>\n";
+        $TestInfo .= "    <arch>$Arch1</arch>\n";
         $TestInfo .= "    <gcc>$GccV1</gcc>\n";
         $TestInfo .= "  </version1>\n";
         
         $TestInfo .= "  <version2>\n";
         $TestInfo .= "    <number>".$Descriptor{2}{"Version"}."</number>\n";
-        $TestInfo .= "    <architecture>$Arch2</architecture>\n";
+        $TestInfo .= "    <arch>$Arch2</arch>\n";
         $TestInfo .= "    <gcc>$GccV2</gcc>\n";
         $TestInfo .= "  </version2>\n";
         $TestInfo = "<test_info>\n".$TestInfo."</test_info>\n\n";
@@ -16319,7 +16350,9 @@ sub get_Report_ChangedConstants($$)
                     $CHANGED_CONSTANTS .= "      <problem id=\"$Kind\">\n";
                     $CHANGED_CONSTANTS .= "        <change".getXmlParams($Change, $CompatProblems_Constants{$Level}{$Constant}{$Kind}).">$Change</change>\n";
                     $CHANGED_CONSTANTS .= "        <effect".getXmlParams($Effect, $CompatProblems_Constants{$Level}{$Constant}{$Kind}).">$Effect</effect>\n";
-                    $CHANGED_CONSTANTS .= "        <overcome".getXmlParams($Overcome, $CompatProblems_Constants{$Level}{$Constant}{$Kind}).">$Overcome</overcome>\n";
+                    if($Overcome) {
+                        $CHANGED_CONSTANTS .= "        <overcome".getXmlParams($Overcome, $CompatProblems_Constants{$Level}{$Constant}{$Kind}).">$Overcome</overcome>\n";
+                    }
                     $CHANGED_CONSTANTS .= "      </problem>\n";
                 }
                 $CHANGED_CONSTANTS .= "    </constant>\n";
@@ -16818,7 +16851,8 @@ sub get_Report_SymbolProblems($$)
             foreach my $DyLib (sort {lc($a) cmp lc($b)} keys(%{$ReportMap{$HeaderName}}))
             {
                 $INTERFACE_PROBLEMS .= "    <library name=\"$DyLib\">\n";
-                foreach my $Symbol (sort {lc($tr_name{$a}?$tr_name{$a}:$a) cmp lc($tr_name{$b}?$tr_name{$b}:$b)} keys(%SymbolChanges))
+                my @SortedInterfaces = sort {lc($tr_name{$a}?$tr_name{$a}:$a) cmp lc($tr_name{$b}?$tr_name{$b}:$b)} keys(%{$ReportMap{$HeaderName}{$DyLib}});
+                foreach my $Symbol (@SortedInterfaces)
                 {
                     $INTERFACE_PROBLEMS .= "      <symbol name=\"$Symbol\">\n";
                     foreach my $Kind (keys(%{$SymbolChanges{$Symbol}}))
@@ -16833,8 +16867,9 @@ sub get_Report_SymbolProblems($$)
                             $INTERFACE_PROBLEMS .= "          <change".getXmlParams($Change, \%Problem).">$Change</change>\n";
                             my $Effect = $CompatRules{$Level}{$Kind}{"Effect"};
                             $INTERFACE_PROBLEMS .= "          <effect".getXmlParams($Effect, \%Problem).">$Effect</effect>\n";
-                            my $Overcome = $CompatRules{$Level}{$Kind}{"Overcome"};
-                            $INTERFACE_PROBLEMS .= "          <overcome".getXmlParams($Overcome, \%Problem).">$Overcome</overcome>\n";
+                            if(my $Overcome = $CompatRules{$Level}{$Kind}{"Overcome"}) {
+                                $INTERFACE_PROBLEMS .= "          <overcome".getXmlParams($Overcome, \%Problem).">$Overcome</overcome>\n";
+                            }
                             $INTERFACE_PROBLEMS .= "        </problem>\n";
                         }
                     }
@@ -17019,8 +17054,9 @@ sub get_Report_TypeProblems($$)
                         $TYPE_PROBLEMS .= "        <change".getXmlParams($Change, \%Problem).">$Change</change>\n";
                         my $Effect = $CompatRules{$Level}{$Kind}{"Effect"};
                         $TYPE_PROBLEMS .= "        <effect".getXmlParams($Effect, \%Problem).">$Effect</effect>\n";
-                        my $Overcome = $CompatRules{$Level}{$Kind}{"Overcome"};
-                        $TYPE_PROBLEMS .= "        <overcome".getXmlParams($Overcome, \%Problem).">$Overcome</overcome>\n";
+                        if(my $Overcome = $CompatRules{$Level}{$Kind}{"Overcome"}) {
+                            $TYPE_PROBLEMS .= "        <overcome".getXmlParams($Overcome, \%Problem).">$Overcome</overcome>\n";
+                        }
                         $TYPE_PROBLEMS .= "      </problem>\n";
                     }
                 }
@@ -17387,16 +17423,23 @@ sub getAffectedSymbols($$$$)
             my $Description = $SProblems{$Symbol}{"Descr"};
             my $Location = $SProblems{$Symbol}{"Location"};
             my $Target = "";
-            if($Param_Name) {
-                $Target = " affected=\"param\" param_name=\"$Param_Name\"";
+            if($Param_Name)
+            {
+                $Target .= " param=\"$Param_Name\"";
+                $Description=~s/parameter $Param_Name /parameter \@param /;
             }
             elsif($Location=~/\Aretval(\-|\Z)/i) {
-                $Target = " affected=\"retval\"";
+                $Target .= " affected=\"retval\"";
             }
             elsif($Location=~/\Athis(\-|\Z)/i) {
-                $Target = " affected=\"this\"";
+                $Target .= " affected=\"this\"";
             }
-            $Affected .= "        <symbol$Target name=\"$Symbol\">\n";
+            
+            if($Description=~s/\AField ([^\s]+) /Field \@field /) {
+                $Target .= " field=\"$1\"";
+            }
+            
+            $Affected .= "        <symbol name=\"$Symbol\"$Target>\n";
             $Affected .= "          <comment>".xmlSpecChars($Description)."</comment>\n";
             $Affected .= "        </symbol>\n";
         }
@@ -17555,14 +17598,23 @@ sub getAffectDesc($$$$)
     if($ExtendedSymbols{$Symbol}) {
         push(@Sentence, " This is a symbol from an external library that may use the \'$TargetLibraryName\' library and change the ABI after recompiling.");
     }
-    return join(" ", @Sentence);
+    
+    my $Sent = join(" ", @Sentence);
+    
+    if($ReportFormat eq "xml")
+    {
+        $Sent=~s/->/./g;
+        $Sent=~s/'//g;
+    }
+    
+    return $Sent;
 }
 
 sub getFieldType($$$)
 {
     my ($Location, $TypeId, $LibVersion) = @_;
     
-    my @Fields = split("->", $Location);
+    my @Fields = split(/\->/, $Location);
     
     foreach my $Name (@Fields)
     {
@@ -17775,7 +17827,10 @@ sub getReport($)
             $Report .= $Summary."\n";
             $Report .= get_Report_Added($Level).get_Report_Removed($Level);
             $Report .= get_Report_Problems("High", $Level).get_Report_Problems("Medium", $Level).get_Report_Problems("Low", $Level).get_Report_Problems("Safe", $Level);
-            $Report .= get_Report_SymbolsInfo($Level);
+            
+            # additional symbols info (if needed)
+            # $Report .= get_Report_SymbolsInfo($Level);
+            
             $Report .= "</report>\n";
             return $Report;
         }
@@ -20132,7 +20187,14 @@ sub read_ABI_Dump($$)
         }
     }
     $SymVer{$LibVersion} = $ABI->{"SymbolVersion"};
-    $Descriptor{$LibVersion}{"Version"} = $ABI->{"LibraryVersion"};
+    
+    if(my $V = $TargetVersion{$LibVersion}) {
+        $Descriptor{$LibVersion}{"Version"} = $V;
+    }
+    else {
+        $Descriptor{$LibVersion}{"Version"} = $ABI->{"LibraryVersion"};
+    }
+    
     $SkipTypes{$LibVersion} = $ABI->{"SkipTypes"};
     if(not $SkipTypes{$LibVersion})
     { # support for old dumps
@@ -20904,10 +20966,10 @@ sub detect_default_paths($)
                 }
                 
                 # check GCC version
-                if($GCC_Ver=~/\A4\.8(|\.0|\.1)\Z/)
+                if($GCC_Ver=~/\A4\.8(|\.[012])\Z/)
                 { # bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=57850
                   # introduced in 4.8
-                  # fixed in 4.9
+                  # fixed in 4.8.3
                     printMsg("WARNING", "Not working properly with GCC $GCC_Ver. Please update or downgrade GCC or use a local installation by --gcc-path=PATH option.");
                     $EMERGENCY_MODE_48 = 1;
                 }
@@ -22692,7 +22754,7 @@ sub scenario()
     }
     if($ShowVersion)
     {
-        printMsg("INFO", "ABI Compliance Checker (ACC) $TOOL_VERSION\nCopyright (C) 2012 ROSA Laboratory\nLicense: LGPL or GPL <http://www.gnu.org/licenses/>\nThis program is free software: you can redistribute it and/or modify it.\n\nWritten by Andrey Ponomarenko.");
+        printMsg("INFO", "ABI Compliance Checker (ACC) $TOOL_VERSION\nCopyright (C) 2014 ROSA Laboratory\nLicense: LGPL or GPL <http://www.gnu.org/licenses/>\nThis program is free software: you can redistribute it and/or modify it.\n\nWritten by Andrey Ponomarenko.");
         exit(0);
     }
     if($DumpVersion)

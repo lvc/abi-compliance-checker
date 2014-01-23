@@ -2,15 +2,15 @@
 Copyright (C) 2009-2010 The Linux Foundation
 Copyright (C) 2009-2011 Institute for System Programming, RAS
 Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-Copyright (C) 2011-2013 ROSA Laboratory
+Copyright (C) 2011-2014 ROSA Laboratory
 All rights reserved.
 
 
 RELEASE INFORMATION
 
 Project:           ABI Compliance Checker (ACC)
-Version:           1.99.8.5
-Date:              2013-10-03
+Version:           1.99.9
+Date:              2014-01-23
 
 
 This file explains how to install and setup environment
@@ -30,7 +30,7 @@ Content:
 1. REQUIREMENTS FOR LINUX AND FREEBSD
 =====================================
 
-   1. G++ (3.0-4.7, recommended 4.5 or newer)
+   1. G++ (3.0-4.7, 4.8.3, recommended 4.5 or newer)
    2. GNU Binutils (c++filt, readelf, objdump)
    3. Perl 5 (5.8 or newer)
    4. Ctags (5.8 or newer)
