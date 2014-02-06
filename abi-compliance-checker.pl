@@ -19829,7 +19829,7 @@ sub getSONAME($)
     if(not $ObjdumpCmd) {
         exitStatus("Not_Found", "can't find \"objdump\"");
     }
-    my $SonameCmd = "$ObjdumpCmd -x $Path 2>$TMP_DIR/null";
+    my $SonameCmd = "$ObjdumpCmd -x \"$Path\" 2>$TMP_DIR/null";
     if($OSgroup eq "windows") {
         $SonameCmd .= " | find \"SONAME\"";
     }
