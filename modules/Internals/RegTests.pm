@@ -4748,7 +4748,7 @@ sub runTests($$$$$$$$)
             $BuildCmd = $GCC_PATH." -shared -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT -g";
             $BuildCmd_Test = $GCC_PATH." -x c++ test.$Ext -lstdc++ -Wl,libsample.$LIB_EXT -o test";
         }
-        if(getArch(1)=~/\A(arm|x86_64)\Z/i)
+        if(getArch_GCC(1)=~/\A(arm|x86_64)\Z/i)
         { # relocation R_ARM_MOVW_ABS_NC against `a local symbol' can not be used when making a shared object; recompile with -fPIC
             $BuildCmd .= " -fPIC";
             $BuildCmd_Test .= " -fPIC";
@@ -4781,6 +4781,13 @@ sub runTests($$$$$$$$)
             $BuildCmd_Test = $GCC_PATH." -x c++ test.$Ext -Wl,libsample.$LIB_EXT -o test";
         }
     }
+    
+    if(my $Opts = getGCC_Opts(1))
+    { # user-defined options
+        $BuildCmd .= " ".$Opts;
+        $BuildCmd_Test .= " ".$Opts;
+    }
+    
     my $MkContent = "all:\n\t$BuildCmd\ntest:\n\t$BuildCmd_Test\n";
     if($OSgroup eq "windows") {
         $MkContent .= "clean:\n\tdel test libsample.so\n";

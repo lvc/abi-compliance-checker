@@ -1295,6 +1295,24 @@
 
 <rule>
     <id>
+        Private_Field_Type_And_Size
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Fields
+    </kind>
+    <change>
+        Type of field @target has been changed from @old_value (@old_size) to @new_value (@new_size).
+    </change>
+    <effect>
+        No effect.
+    </effect>
+</rule>
+
+<rule>
+    <id>
         Private_Field_Type_And_Size_And_Type_Size
     </id>
     <severity>
@@ -1509,6 +1527,24 @@
     </change>
     <effect>
         Previous accesses of applications and library functions to the fields at higher positions of the structure definition may be broken.
+    </effect>
+</rule>
+
+<rule>
+    <id>
+        Private_Field_Size
+    </id>
+    <severity>
+        Safe
+    </severity>
+    <kind>
+        Fields
+    </kind>
+    <change>
+        Size of field @target has been changed from @old_size to @new_size.
+    </change>
+    <effect>
+        No effect.
     </effect>
 </rule>
 
