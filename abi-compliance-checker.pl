@@ -19840,6 +19840,16 @@ sub getArch_Object($)
         "200" => "ia64"
     );
     
+    my %ArchName = (
+        "s390:31-bit" => "s390",
+        "s390:64-bit" => "s390x",
+        "powerpc:common" => "ppc32",
+        "powerpc:common64" => "ppc64",
+        "i386:x86-64" => "x86_64",
+        "mips:3000" => "mips",
+        "sparc:v8plus" => "sparcv9"
+    );
+    
     if($OSgroup eq "windows")
     {
         my $DumpbinCmd = get_CmdPath("dumpbin");
@@ -19875,29 +19885,22 @@ sub getArch_Object($)
             {
                 my $Suffix = $1;
                 
-                if($Suffix eq "x86-64") {
-                    $Arch = $Suffix;
-                }
-                
-                if($Arch eq "powerpc")
+                if(my $Name = $ArchName{$Arch.":".$Suffix})
                 {
-                    if($Suffix eq "common64")
-                    {
-                        $Arch = "ppc64";
-                    }
-                    elsif($Suffix eq "common")
-                    {
-                        $Arch = "ppc32";
-                    }
+                    $Arch = $Name;
                 }
             }
             
-            if($Arch=~/i[3-7]86/) {
+            if($Arch=~/i[3-6]86/) {
                 $Arch = "x86";
             }
             
             if($Arch eq "x86-64") {
                 $Arch = "x86_64";
+            }
+            
+            if($Arch eq "ia64-elf64") {
+                $Arch = "ia64";
             }
             
             return $Arch;
@@ -20028,7 +20031,7 @@ sub getGCC_Opts($)
     return undef;
 }
 
-sub getArch_GCC($) # get_dumpmachine
+sub getArch_GCC($)
 {
     my $LibVersion = $_[0];
     
@@ -20074,7 +20077,7 @@ sub detectWordSize($)
     # speed up detection
     if(my $Arch = getArch($LibVersion))
     {
-        if($Arch=~/\A(x86_64|s390x|ppc64|ia64)\Z/) {
+        if($Arch=~/\A(x86_64|s390x|ppc64|ia64|alpha)\Z/) {
             $Size = "8";
         }
         elsif($Arch=~/\A(x86|s390|ppc32)\Z/) {
