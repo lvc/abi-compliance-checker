@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ACC) 1.99.9
+# ABI Compliance Checker (ABICC) 1.99.9.1
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2010 The Linux Foundation
@@ -17,7 +17,7 @@
 # REQUIREMENTS
 # ============
 #  Linux
-#    - G++ (3.0-4.7, 4.8.3, recommended 4.5 or newer)
+#    - G++ (3.0-4.7, 4.9 or newer)
 #    - GNU Binutils (readelf, c++filt, objdump)
 #    - Perl 5 (5.8 or newer)
 #    - Ctags (5.8 or newer)
@@ -27,7 +27,7 @@
 #    - Ctags (5.8 or newer)
 #
 #  MS Windows
-#    - MinGW (3.0-4.7, recommended 4.5 or newer)
+#    - MinGW (3.0-4.7, 4.9 or newer)
 #    - MS Visual C++ (dumpbin, undname, cl)
 #    - Active Perl 5 (5.8 or newer)
 #    - Sigcheck v1.71 or newer
@@ -64,7 +64,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.9";
+my $TOOL_VERSION = "1.99.9.1";
 my $ABI_DUMP_VERSION = "3.2";
 my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.2";
@@ -149,11 +149,10 @@ my %ERROR_CODE = (
 
 my %HomePage = (
     "Wiki"=>"http://ispras.linuxbase.org/index.php/ABI_compliance_checker",
-    "Dev1"=>"https://github.com/lvc/abi-compliance-checker",
-    "Dev2"=>"http://forge.ispras.ru/projects/abi-compliance-checker"
+    "Dev"=>"https://github.com/lvc/abi-compliance-checker"
 );
 
-my $ShortUsage = "ABI Compliance Checker (ACC) $TOOL_VERSION
+my $ShortUsage = "ABI Compliance Checker (ABICC) $TOOL_VERSION
 A tool for checking backward compatibility of a C/C++ library API
 Copyright (C) 2014 ROSA Laboratory
 License: GNU LGPL or GNU GPL
@@ -307,7 +306,7 @@ NAME:
   Check backward compatibility of a C/C++ library API
 
 DESCRIPTION:
-  ABI Compliance Checker (ACC) is a tool for checking backward binary and
+  ABI Compliance Checker (ABICC) is a tool for checking backward binary and
   source-level compatibility of a $SLIB_TYPE C/C++ library. The tool checks
   header files and $SLIB_TYPE libraries (*.$LIB_EXT) of old and new versions and
   analyzes changes in API and ABI (ABI=API+compiler ABI) that may break binary
@@ -815,7 +814,7 @@ REPORT BUGS TO:
 
 MORE INFORMATION:
     ".$HomePage{"Wiki"}."
-    ".$HomePage{"Dev1"}."\n");
+    ".$HomePage{"Dev"}."\n");
 }
 
 my $DescriptorTemplate = "
@@ -4430,7 +4429,7 @@ sub mangle_symbol($$$)
 }
 
 sub mangle_symbol_MSVC($$)
-{
+{ # TODO
     my ($InfoId, $LibVersion) = @_;
     return "";
 }
@@ -8999,6 +8998,7 @@ sub unpackDump($)
     }
     elsif($FileName=~s/\Q.tar.gz\E(\.\w+|)\Z//g)
     { # *.tar.gz
+      # *.tar.gz.amd64 (dh & cdbs)
         if($OSgroup eq "windows")
         { # -xvzf option is not implemented in tar.exe (2003)
           # use "gzip.exe -k -d -f" + "tar.exe -xvf" instead
@@ -19816,7 +19816,7 @@ sub registerObject($$)
         $RegisteredObjects_Short{$LibVersion}{$Short} = $Path;
     }
     
-    if(not $CheckedArch{$LibVersion})
+    if(not $CheckedArch{$LibVersion} and -f $Path)
     {
         if(my $ObjArch = getArch_Object($Path))
         {
@@ -22297,7 +22297,8 @@ sub printErrorLog($)
 
 sub isDump($)
 {
-    if(get_filename($_[0])=~/\A(.+)\.(abi|abidump|dump)(\.tar\.gz|\.zip|\.xml|)(\.\w+|)\Z/) {
+    if(get_filename($_[0])=~/\A(.+)\.(abi|abidump|dump)(\.tar\.gz(\.\w+|)|\.zip|\.xml|)\Z/)
+    { # NOTE: name.abi.tar.gz.amd64 (dh & cdbs)
         return $1;
     }
     return 0;
@@ -22305,7 +22306,7 @@ sub isDump($)
 
 sub isDump_U($)
 {
-    if(get_filename($_[0])=~/\A(.+)\.(abi|abidump|dump)(\.xml|)(\.\w+|)\Z/) {
+    if(get_filename($_[0])=~/\A(.+)\.(abi|abidump|dump)(\.xml|)\Z/) {
         return $1;
     }
     return 0;
@@ -22938,7 +22939,7 @@ sub scenario()
     }
     if($ShowVersion)
     {
-        printMsg("INFO", "ABI Compliance Checker (ACC) $TOOL_VERSION\nCopyright (C) 2014 ROSA Laboratory\nLicense: LGPL or GPL <http://www.gnu.org/licenses/>\nThis program is free software: you can redistribute it and/or modify it.\n\nWritten by Andrey Ponomarenko.");
+        printMsg("INFO", "ABI Compliance Checker (ABICC) $TOOL_VERSION\nCopyright (C) 2014 ROSA Laboratory\nLicense: LGPL or GPL <http://www.gnu.org/licenses/>\nThis program is free software: you can redistribute it and/or modify it.\n\nWritten by Andrey Ponomarenko.");
         exit(0);
     }
     if($DumpVersion)

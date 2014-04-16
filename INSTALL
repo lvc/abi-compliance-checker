@@ -9,8 +9,8 @@ All rights reserved.
 RELEASE INFORMATION
 
 Project:           ABI Compliance Checker (ACC)
-Version:           1.99.9
-Date:              2014-03-06
+Version:           1.99.9.1
+Date:              2014-04-16
 
 
 This file explains how to install and setup environment
@@ -30,7 +30,7 @@ Content:
 1. REQUIREMENTS FOR LINUX AND FREEBSD
 =====================================
 
-   1. G++ (3.0-4.7, 4.8.3, recommended 4.5 or newer)
+   1. G++ (3.0-4.7, 4.9 or newer)
    2. GNU Binutils (c++filt, readelf, objdump)
    3. Perl 5 (5.8 or newer)
    4. Ctags (5.8 or newer)
@@ -48,7 +48,7 @@ Content:
 3. REQUIREMENTS FOR MS WINDOWS
 ==============================
 
-   1. MinGW (3.0-4.7, recommended 4.5 or newer)
+   1. MinGW (3.0-4.7, 4.9 or newer)
    2. MS Visual C++ (dumpbin, undname, cl)
    3. Active Perl 5 (5.8 or newer)
    4. Sigcheck v1.71 or newer
