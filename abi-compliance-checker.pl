@@ -21945,6 +21945,12 @@ sub diffSets($$)
     return 0;
 }
 
+sub defaultDumpPath($$)
+{
+    my ($N, $V) = @_;
+    return "abi_dumps/".$N."/".$N."_".$V.".abi.".$AR_EXT; # gzipped by default
+}
+
 sub create_ABI_Dump()
 {
     if(not -e $DumpAPI) {
@@ -21977,8 +21983,7 @@ sub create_ABI_Dump()
     initLogging(1);
     detect_default_paths("inc|lib|bin|gcc"); # complete analysis
     
-    my $DumpPath = "abi_dumps/$TargetLibraryName/".$TargetLibraryName."_".$Descriptor{1}{"Version"}.".abi";
-    $DumpPath .= ".".$AR_EXT; # gzipped by default
+    my $DumpPath = defaultDumpPath($TargetLibraryName, $Descriptor{1}{"Version"});
     if($OutputDumpPath)
     { # user defined path
         $DumpPath = $OutputDumpPath;
@@ -22439,8 +22444,8 @@ sub compareInit()
     if($UseDumps)
     { # --use-dumps
       # parallel processing
-        my $DumpPath1 = "abi_dumps/$TargetLibraryName/".$TargetLibraryName."_".$Descriptor{1}{"Version"}.".abi.$AR_EXT";
-        my $DumpPath2 = "abi_dumps/$TargetLibraryName/".$TargetLibraryName."_".$Descriptor{2}{"Version"}.".abi.$AR_EXT";
+        my $DumpPath1 = defaultDumpPath($TargetLibraryName, $Descriptor{1}{"Version"});
+        my $DumpPath2 = defaultDumpPath($TargetLibraryName, $Descriptor{2}{"Version"});
         
         unlink($DumpPath1);
         unlink($DumpPath2);

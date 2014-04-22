@@ -1062,7 +1062,8 @@ sub readSystemDescriptor($)
             exitStatus("Access_Error", "can't access \'$Path\'");
         }
         $Path = get_abs_path($Path);
-        $SysDescriptor{"Libs"}{clean_path($Path)} = 1;
+        $Path=~s/[\/\\]+\Z//g;
+        $SysDescriptor{"Libs"}{$Path} = 1;
     }
     foreach my $Path (split(/\s*\n\s*/, parseTag(\$Content, "search_libs")))
     { # target libs
@@ -1070,7 +1071,8 @@ sub readSystemDescriptor($)
             exitStatus("Access_Error", "can't access directory \'$Path\'");
         }
         $Path = get_abs_path($Path);
-        $SysDescriptor{"SearchLibs"}{clean_path($Path)} = 1;
+        $Path=~s/[\/\\]+\Z//g;
+        $SysDescriptor{"SearchLibs"}{$Path} = 1;
     }
     foreach my $Path (split(/\s*\n\s*/, parseTag(\$Content, "skip_libs")))
     { # skip libs
@@ -1082,7 +1084,8 @@ sub readSystemDescriptor($)
             exitStatus("Access_Error", "can't access \'$Path\'");
         }
         $Path = get_abs_path($Path);
-        $SysDescriptor{"Headers"}{clean_path($Path)} = 1;
+        $Path=~s/[\/\\]+\Z//g;
+        $SysDescriptor{"Headers"}{$Path} = 1;
     }
     foreach my $Path (split(/\s*\n\s*/, parseTag(\$Content, "search_headers")))
     {
@@ -1090,7 +1093,8 @@ sub readSystemDescriptor($)
             exitStatus("Access_Error", "can't access directory \'$Path\'");
         }
         $Path = get_abs_path($Path);
-        $SysDescriptor{"SearchHeaders"}{clean_path($Path)} = 1;
+        $Path=~s/[\/\\]+\Z//g;
+        $SysDescriptor{"SearchHeaders"}{$Path} = 1;
     }
     foreach my $Path (split(/\s*\n\s*/, parseTag(\$Content, "tools")))
     {
@@ -1098,12 +1102,14 @@ sub readSystemDescriptor($)
             exitStatus("Access_Error", "can't access directory \'$Path\'");
         }
         $Path = get_abs_path($Path);
-        $Path = clean_path($Path);
+        $Path=~s/[\/\\]+\Z//g;
         $SysDescriptor{"Tools"}{$Path} = 1;
         push(@Tools, $Path);
     }
-    foreach my $Path (split(/\s*\n\s*/, parseTag(\$Content, "gcc_options"))) {
-        $SysDescriptor{"GccOpts"}{clean_path($Path)} = 1;
+    foreach my $Path (split(/\s*\n\s*/, parseTag(\$Content, "gcc_options")))
+    {
+        $Path=~s/[\/\\]+\Z//g;
+        $SysDescriptor{"GccOpts"}{$Path} = 1;
     }
     if($SysDescriptor{"CrossPrefix"} = parseTag(\$Content, "cross_prefix"))
     { # <cross_prefix> section of XML descriptor
@@ -1466,7 +1472,7 @@ sub dumpSystem($)
             if(not defined $LibSoname{$LName}) {
                 $LibSoname{$LName}=$Soname;
             }
-            if(-l $LPath and my $Path = resolve_symlink($LPath))
+            if(-l $LPath and my $Path = realpath($LPath))
             {
                 my $Name = get_filename($Path);
                 if(not defined $LibSoname{$Name}) {
@@ -1572,7 +1578,7 @@ sub dumpSystem($)
         }
         if(-l $LPath)
         { # symlinks
-            if(my $Path = resolve_symlink($LPath)) {
+            if(my $Path = realpath($LPath)) {
                 $SysLibs{$Path} = 1;
             }
         }
@@ -1586,7 +1592,7 @@ sub dumpSystem($)
                 {
                     my $Candidate = $Candidates[0];
                     if(-l $Candidate
-                    and my $Path = resolve_symlink($Candidate)) {
+                    and my $Path = realpath($Candidate)) {
                         $Candidate = $Path;
                     }
                     $SysLibs{$Candidate} = 1;
