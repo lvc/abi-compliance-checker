@@ -17,7 +17,7 @@
 # REQUIREMENTS
 # ============
 #  Linux
-#    - G++ (3.0-4.7, 4.9 or newer)
+#    - G++ (3.0-4.7, 4.8.3, 4.9 or newer)
 #    - GNU Binutils (readelf, c++filt, objdump)
 #    - Perl 5 (5.8 or newer)
 #    - Ctags (5.8 or newer)
@@ -27,7 +27,7 @@
 #    - Ctags (5.8 or newer)
 #
 #  MS Windows
-#    - MinGW (3.0-4.7, 4.9 or newer)
+#    - MinGW (3.0-4.7, 4.8.3, 4.9 or newer)
 #    - MS Visual C++ (dumpbin, undname, cl)
 #    - Active Perl 5 (5.8 or newer)
 #    - Sigcheck v1.71 or newer
@@ -461,6 +461,10 @@ EXTRA OPTIONS:
 
   -v2|-version2 NUM
       Specify 2nd library version outside the descriptor.
+
+  -vnum NUM
+      Specify the library version in the generated ABI dump. The <version> section
+      of the input XML descriptor will be overwritten in this case.
 
   -s|-strict
       Treat all compatibility warnings as problems. Add a number of \"Low\"
