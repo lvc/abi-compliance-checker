@@ -32,3 +32,7 @@ div.tab {
     width:97%;
     clear:both;
 }
+div.double_report {
+    width:97%;
+    padding:7px 0 0 12px;
+}

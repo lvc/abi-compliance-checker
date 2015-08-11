@@ -1,7 +1,6 @@
 body {
     font-family:Arial, sans-serif;
     color:Black;
-    font-size:14px;
 }
 hr {
     color:Black;
@@ -12,18 +11,17 @@ hr {
 h1 {
     margin-bottom:0px;
     padding-bottom:0px;
-    font-size:26px;
+    font-size:1.625em;
 }
 h2 {
     margin-bottom:0px;
     padding-bottom:0px;
-    font-size:20px;
+    font-size:1.25em;
     white-space:nowrap;
 }
 span.section {
     font-weight:bold;
     cursor:pointer;
-    font-size:16px;
     color:#003E69;
     white-space:nowrap;
     margin-left:5px;
@@ -31,12 +29,11 @@ span.section {
 span.new_sign {
     font-weight:bold;
     margin-left:26px;
-    font-size:16px;
     color:#003E69;
 }
 span.new_sign_lbl {
     margin-left:28px;
-    font-size:14px;
+    font-size:0.875em;
     color:Black;
 }
 span:hover.section {
@@ -46,56 +43,50 @@ span.section_affected {
     cursor:pointer;
     margin-left:7px;
     padding-left:15px;
-    font-size:14px;
+    font-size:0.875em;
     color:#cc3300;
 }
 span.section_info {
     cursor:pointer;
     margin-left:7px;
     padding-left:15px;
-    font-size:14px;
+    font-size:0.875em;
     color:Black;
 }
 span.extendable {
     font-weight:100;
-    font-size:16px;
 }
 span.h_name {
     color:#cc3300;
-    font-size:14px;
+    font-size:0.875em;
     font-weight:bold;
 }
-div.h_list {
-    font-size:15px;
+div.h_list, div.lib_list {
+    font-size:0.94em;
     padding-left:5px;
 }
 span.ns {
     color:#408080;
-    font-size:15px;
-}
-div.lib_list {
-    font-size:15px;
-    padding-left:5px;
+    font-size:0.94em;
 }
 span.lib_name {
     color:Green;
-    font-size:14px;
+    font-size:0.875em;
     font-weight:bold;
 }
 span.iname {
     font-weight:bold;
-    font-size:16px;
     color:#003E69;
     margin-left:5px;
 }
 span.iname_b {
     font-weight:bold;
-    font-size:15px;
+    font-size:0.94em;
 }
 span.iname_a {
     color:#333333;
     font-weight:bold;
-    font-size:15px;
+    font-size:0.94em;
 }
 span.sym_p {
     font-weight:normal;
@@ -103,14 +94,14 @@ span.sym_p {
 }
 div.affect {
     padding-left:15px;
-    padding-bottom:4px;
-    font-size:14px;
+    padding-bottom:15px;
+    font-size:0.875em;
     font-style:italic;
-    line-height:13px;
+    line-height:0.81em;
 }
 div.affected {
     padding-left:30px;
-    padding-top:5px;
+    padding-top:15px;
 }
 table.ptable {
     border-collapse:collapse;
@@ -120,10 +111,12 @@ table.ptable {
     margin-top:3px;
     margin-bottom:3px;
     width:900px;
+    
 }
 table.ptable td {
     border:1px solid gray;
     padding: 3px;
+    font-size:0.875em;
 }
 table.vtable {
     border-collapse:collapse;
@@ -143,7 +136,7 @@ table.ptable th, table.vtable th {
     font-weight:bold;
     color:#333333;
     font-family:Verdana, Arial;
-    font-size:13px;
+    font-size:0.81em;
     border:1px solid gray;
     text-align:center;
     vertical-align:top;
@@ -158,38 +151,20 @@ table.summary th {
     background-color:#eeeeee;
     font-weight:100;
     text-align:left;
-    font-size:15px;
+    font-size:0.94em;
     white-space:nowrap;
     border:1px inset gray;
     padding: 3px;
 }
 table.summary td {
     text-align:right;
-    font-size:16px;
     white-space:nowrap;
     border:1px inset gray;
     padding: 3px 5px 3px 10px;
 }
-table.code_view {
-    cursor:text;
-    margin-top:7px;
-    margin-left:15px;
-    font-family:Monaco, Consolas, 'DejaVu Sans Mono', 'Droid Sans Mono', Monospace;
-    font-size:14px;
-    padding:10px;
-    border:1px solid #e0e8e5;
-    color:#444444;
-    background-color:#eff3f2;
-    overflow:auto;
-}
-table.code_view td {
-    padding-left:15px;
-    text-align:left;
-    white-space:nowrap;
-}
 span.mangled {
     padding-left:15px;
-    font-size:14px;
+    font-size:0.875em;
     cursor:text;
     color:#444444;
 }
@@ -211,7 +186,8 @@ span.param {
 }
 span.focus_p {
     font-style:italic;
-    color:Red;
+    /* color:Red; */
+    background-color:#FFCCCC;
 }
 span.ttype {
     font-weight:100;
@@ -234,4 +210,10 @@ td.failed {
 }
 td.new {
     background-color:#C6DEFF;
+}
+.top_ref {
+    font-size:0.69em;
+}
+.footer {
+    font-size:0.75em;
 }

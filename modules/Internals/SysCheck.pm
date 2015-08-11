@@ -1,10 +1,10 @@
 ###########################################################################
 # Module for ABI Compliance Checker to compare Operating Systems
 #
-# Copyright (C) 2009-2010 The Linux Foundation
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-# Copyright (C) 2011-2013 ROSA Laboratory
+# Copyright (C) 2012-2013 ROSA Laboratory
+# Copyright (C) 2013-2015 Andrey Ponomarenko's ABI laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -26,9 +26,9 @@ use File::Temp qw(tempdir);
 use Cwd qw(abs_path cwd);
 use Fcntl;
 
-my ($Debug, $Quiet, $LogMode, $CheckHeadersOnly, $SystemRoot, $MODULES_DIR, $GCC_PATH,
-$CrossPrefix, $TargetSysInfo, $TargetLibraryName, $CrossGcc, $UseStaticLibs, $NoStdInc,
-$OStarget, $BinaryOnly, $SourceOnly);
+my ($Debug, $Quiet, $LogMode, $CheckHeadersOnly, $SystemRoot, $GCC_PATH,
+$CrossPrefix, $TargetSysInfo, $TargetLibraryName, $CrossGcc, $UseStaticLibs,
+$NoStdInc, $OStarget, $BinaryOnly, $SourceOnly);
 
 my $OSgroup = get_OSgroup();
 my $TMP_DIR = tempdir(CLEANUP=>1);
@@ -1141,7 +1141,6 @@ sub initModule($)
     $CheckHeadersOnly = $S->{"CheckHeadersOnly"};
     
     $SystemRoot = $S->{"SystemRoot"};
-    $MODULES_DIR = $S->{"MODULES_DIR"};
     $GCC_PATH = $S->{"GCC_PATH"};
     $TargetSysInfo = $S->{"TargetSysInfo"};
     $CrossPrefix = $S->{"CrossPrefix"};
@@ -1203,7 +1202,7 @@ sub filter_format($)
     }
 }
 
-sub read_sys_descriptor($)
+sub readSysDescriptor($)
 {
     my $Path = $_[0];
     my $Content = readFile($Path);
@@ -1262,36 +1261,31 @@ sub read_sys_descriptor($)
     return \%DInfo;
 }
 
-sub read_sys_info($)
+sub readSysInfo($)
 {
     my $Target = $_[0];
-    my $SYS_INFO_PATH = $MODULES_DIR."/Targets";
-    if(-d $SYS_INFO_PATH."/".$Target)
-    { # symbian, windows
-        $SYS_INFO_PATH .= "/".$Target;
+    
+    if(not $TargetSysInfo) {
+        exitStatus("Error", "system info path is not specified");
     }
-    else
-    { # default
-        $SYS_INFO_PATH .= "/unix";
-    }
-    if($TargetSysInfo)
-    { # user-defined target
-        $SYS_INFO_PATH = $TargetSysInfo;
-    }
-    if(not -d $SYS_INFO_PATH) {
-        exitStatus("Module_Error", "can't access \'$SYS_INFO_PATH\'");
+    if(not -d $TargetSysInfo) {
+        exitStatus("Module_Error", "can't access \'$TargetSysInfo\'");
     }
     # Library Specific Info
     my %SysInfo = ();
-    if(not -d $SYS_INFO_PATH."/descriptors/") {
-        exitStatus("Module_Error", "can't access \'$SYS_INFO_PATH/descriptors\'");
-    }
-    foreach my $DPath (cmd_find($SYS_INFO_PATH."/descriptors/","f","",1))
+    if(-d $TargetSysInfo."/descriptors/")
     {
-        my $LSName = get_filename($DPath);
-        $LSName=~s/\.xml\Z//;
-        $SysInfo{$LSName} = read_sys_descriptor($DPath);
+        foreach my $DPath (cmd_find($TargetSysInfo."/descriptors/","f","",1))
+        {
+            my $LSName = get_filename($DPath);
+            $LSName=~s/\.xml\Z//;
+            $SysInfo{$LSName} = readSysDescriptor($DPath);
+        }
     }
+    else {
+        printMsg("WARNING", "can't find \'$TargetSysInfo/descriptors\'");
+    }
+    
     # Exceptions
     if(check_gcc($GCC_PATH, "4.4"))
     { # exception for libstdc++
@@ -1305,11 +1299,16 @@ sub read_sys_info($)
     { # GL/gl.h: No such file
         $SysInfo{"libSDL"}{"skip_headers"}=["SDL_opengl.h"];
     }
+    
     # Common Info
-    if(not -f $SYS_INFO_PATH."/common.xml") {
-        exitStatus("Module_Error", "can't access \'$SYS_INFO_PATH/common.xml\'");
+    my $SysCInfo = {};
+    if(-f $TargetSysInfo."/common.xml") {
+        $SysCInfo = readSysDescriptor($TargetSysInfo."/common.xml");
     }
-    my $SysCInfo = read_sys_descriptor($SYS_INFO_PATH."/common.xml");
+    else {
+        printMsg("Module_Error", "can't find \'$TargetSysInfo/common.xml\'");
+    }
+    
     my @CompilerOpts = ();
     if($SysDescriptor{"Name"}=~/maemo|meego/i) {
         push(@CompilerOpts, "-DMAEMO_CHANGES", "-DM_APPLICATION_NAME=\\\"app\\\"");
@@ -1424,7 +1423,7 @@ sub dumpSystem($)
         "libc",
         "libpthread"
     );
-    my ($SysInfo, $SysCInfo) = read_sys_info($OStarget);
+    my ($SysInfo, $SysCInfo) = readSysInfo($OStarget);
     
     foreach (keys(%{$SysCInfo->{"non_prefix"}}))
     {

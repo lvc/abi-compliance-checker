@@ -1,16 +1,16 @@
 
-Copyright (C) 2009-2010 The Linux Foundation
 Copyright (C) 2009-2011 Institute for System Programming, RAS
 Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-Copyright (C) 2011-2014 ROSA Laboratory
+Copyright (C) 2012-2013 ROSA Laboratory
+Copyright (C) 2013-2015 Andrey Ponomarenko's ABI Laboratory
 All rights reserved.
 
 
 RELEASE INFORMATION
 
 Project:           ABI Compliance Checker (ACC)
-Version:           1.99.9.1
-Date:              2014-04-22
+Version:           1.99.10
+Date:              2015-08-11
 
 
 This file explains how to install and setup environment
@@ -65,18 +65,14 @@ Content:
 4. CONFIGURING AND INSTALLING
 =============================
 
-   This command will install an abi-compliance-checker program in the
+   This command will install the abi-compliance-checker program into the
    PREFIX/bin system directory and private modules into the PREFIX/share:
 
-     sudo perl Makefile.pl -install --prefix=PREFIX [/usr, /usr/local, ...]
+     sudo make install prefix=PREFIX [/usr, /usr/local, ...]
 
-4.1 Update
+4.1 Remove
 
-     sudo perl Makefile.pl -update --prefix=PREFIX
-
-4.2 Remove
-
-     sudo perl Makefile.pl -remove --prefix=PREFIX
+     sudo make uninstall prefix=PREFIX
 
 
 

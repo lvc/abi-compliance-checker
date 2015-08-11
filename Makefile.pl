@@ -3,10 +3,10 @@
 # Makefile for ABI Compliance Checker
 # Install/remove the tool for GNU/Linux, FreeBSD and Mac OS X
 #
-# Copyright (C) 2009-2010 The Linux Foundation
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-# Copyright (C) 2011-2014 ROSA Laboratory
+# Copyright (C) 2012-2013 ROSA Laboratory
+# Copyright (C) 2013-2015 Andrey Ponomarenko's ABI laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -46,7 +46,6 @@ DESCRIPTION:
 
 USAGE:
   sudo perl $0 -install -prefix /usr
-  sudo perl $0 -update -prefix /usr
   sudo perl $0 -remove -prefix /usr
 
 OPTIONS:
@@ -54,13 +53,10 @@ OPTIONS:
       Print this help.
 
   --prefix=PREFIX
-      Install files in PREFIX [/usr/local].
+      Install files in PREFIX [/usr].
 
   -install
       Command to install the tool.
-
-  -update
-      Command to update existing installation.
 
   -remove
       Command to remove the tool.
@@ -79,14 +75,13 @@ if(not @ARGV)
     exit(0);
 }
 
-my ($PREFIX, $DESTDIR, $Help, $Install, $Update, $Remove);
+my ($PREFIX, $DESTDIR, $Help, $Install, $Remove);
 
 GetOptions(
     "h|help!" => \$Help,
     "prefix=s" => \$PREFIX,
     "destdir=s" => \$DESTDIR,
     "install!" => \$Install,
-    "update!" => \$Update,
     "remove!" => \$Remove
 ) or exit(1);
 
@@ -97,18 +92,24 @@ sub scenario()
         print $HELP_MSG;
         exit(0);
     }
-    if(not $Install and not $Update and not $Remove)
+    if(not $Install and not $Remove)
     {
-        print STDERR "ERROR: command is not selected (-install, -update or -remove)\n";
+        print STDERR "ERROR: command is not selected (-install or -remove)\n";
         exit(1);
     }
+    
+    if($Install)
+    { # remove old version first
+        $Remove = 1;
+    }
+    
     if($PREFIX ne "/") {
         $PREFIX=~s/[\/]+\Z//g;
     }
     if(not $PREFIX)
     { # default prefix
         if($Config{"osname"}!~/win/i) {
-            $PREFIX = "/usr/local";
+            $PREFIX = "/usr";
         }
     }
     if(my $Var = $ENV{"DESTDIR"})
@@ -165,12 +166,15 @@ sub scenario()
         print STDERR "ERROR: you should be root\n";
         exit(1);
     }
-    if($Remove or $Update)
+    if($Remove)
     {
         if(-e $EXE_PATH."/".$TOOL_SNAME)
         { # remove executable
             print "-- Removing $TOOL_PATH\n";
             unlink($EXE_PATH."/".$TOOL_SNAME);
+        }
+        elsif(not $Install) {
+            print "The tool is not installed\n";
         }
         
         if(-d $MODULES_PATH)
@@ -178,18 +182,12 @@ sub scenario()
             print "-- Removing $MODULES_PATH\n";
             rmtree($MODULES_PATH);
         }
-    }
-    if($Install or $Update)
-    {
-        if(-e $EXE_PATH."/".$TOOL_SNAME or -e $MODULES_PATH)
-        { # check installed
-            if(not $Remove)
-            {
-                print STDERR "ERROR: you should remove old version first (`perl $0 -remove --prefix=$PREFIX`)\n";
-                exit(1);
-            }
+        elsif(not $Install) {
+            print "The modules of the tool are not installed\n";
         }
-        
+    }
+    if($Install)
+    {
         # configure
         my $Content = readFile($ARCHIVE_DIR."/".$TOOL_SNAME.".pl");
         if($DESTDIR) { # relative path
@@ -212,9 +210,9 @@ sub scenario()
         # copy modules
         if(-d $ARCHIVE_DIR."/modules")
         {
-                print "-- Installing $MODULES_PATH\n";
-                mkpath($MODULES_PATH);
-                copyDir($ARCHIVE_DIR."/modules", $MODULES_PATH);
+            print "-- Installing $MODULES_PATH\n";
+            mkpath($MODULES_PATH);
+            copyDir($ARCHIVE_DIR."/modules", $MODULES_PATH);
         }
         
         # check PATH
@@ -254,7 +252,8 @@ sub copyDir($$)
     }
     foreach my $Path (sort keys(%Files))
     {
-        if($Config{"osname"}!~/win/ and $Path=~/Targets\/(windows|symbian)/) {
+        if($Path=~/Targets\//)
+        { # Do not install descriptors
             next;
         }
         my $Inst = $Path;
