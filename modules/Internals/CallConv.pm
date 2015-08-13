@@ -4,7 +4,7 @@
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
 # Copyright (C) 2012-2013 ROSA Laboratory
-# Copyright (C) 2013-2015 Andrey Ponomarenko's ABI laboratory
+# Copyright (C) 2013-2015 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #

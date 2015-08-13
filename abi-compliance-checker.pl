@@ -6,7 +6,7 @@
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
 # Copyright (C) 2012-2013 ROSA Laboratory
-# Copyright (C) 2013-2015 Andrey Ponomarenko's ABI laboratory
+# Copyright (C) 2013-2015 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -81,10 +81,10 @@ my %RULES_PATH = (
     "Binary" => $MODULES_DIR."/RulesBin.xml",
     "Source" => $MODULES_DIR."/RulesSrc.xml");
 
-my ($Help, $ShowVersion, %Descriptor, $TargetLibraryName, $GenerateTemplate,
+my ($Help, $ShowVersion, %Descriptor, $TargetLibraryName,
 $TestTool, $DumpAPI, $SymbolsListPath, $CheckHeadersOnly_Opt, $UseDumps,
 $CheckObjectsOnly_Opt, $AppPath, $StrictCompat, $DumpVersion, $ParamNamesPath,
-%RelativeDirectory, $TargetLibraryFName, $TestDump, $LoggingPath,
+%RelativeDirectory, $TargetTitle, $TestDump, $LoggingPath,
 %TargetVersion, $InfoMsg, $UseOldDumps, $CrossGcc, %OutputLogPath,
 $OutputReportPath, $OutputDumpPath, $ShowRetVal, $SystemRoot_Opt, $DumpSystem,
 $CmpSystems, $TargetLibsPath, $Debug, $CrossPrefix, $UseStaticLibs, $NoStdInc,
@@ -213,7 +213,6 @@ GetOptions("h|help!" => \$Help,
   "dump|dump-abi|dump_abi=s" => \$DumpAPI,
   "old-dumps!" => \$UseOldDumps,
 # extra options
-  "d|descriptor-template!" => \$GenerateTemplate,
   "app|application=s" => \$AppPath,
   "static-libs!" => \$UseStaticLibs,
   "gcc-path|cross-gcc=s" => \$CrossGcc,
@@ -268,7 +267,7 @@ GetOptions("h|help!" => \$Help,
   "log2-path=s" => \$OutputLogPath{2},
   "logging-mode=s" => \$LogMode,
   "list-affected!" => \$ListAffected,
-  "l-full|lib-full=s" => \$TargetLibraryFName,
+  "title|l-full|lib-full=s" => \$TargetTitle,
   "component=s" => \$TargetComponent_Opt,
   "extra-info=s" => \$ExtraInfo,
   "extra-dump!" => \$ExtraDump,
@@ -427,9 +426,6 @@ sub INFO_MESSAGE()
 {
     printMsg("INFO", "$HelpMessage
 EXTRA OPTIONS:
-  -d|-descriptor-template
-      Create XML-descriptor template ./VERSION.xml
-
   -app|-application PATH
       This option allows to specify the application that should be checked
       for portability to the new library version.
@@ -756,7 +752,7 @@ OTHER OPTIONS:
       Default:
           library
 
-  -l-full|-lib-full NAME
+  -title NAME
       Change library name in the report title to NAME. By default
       will be displayed a name specified by -l option.
       
@@ -808,127 +804,6 @@ MORE INFORMATION:
     ".$HomePage{"Wiki"}."
     ".$HomePage{"Dev"}."\n");
 }
-
-my $DescriptorTemplate = "
-<?xml version=\"1.0\" encoding=\"utf-8\"?>
-<descriptor>
-
-/* Primary sections */
-
-<version>
-    /* Version of the library */
-</version>
-
-<headers>
-    /* The list of paths to header files and/or
-       directories with header files, one per line */
-</headers>
-
-<libs>
-    /* The list of paths to shared libraries (*.$LIB_EXT) and/or
-       directories with shared libraries, one per line */
-</libs>
-
-/* Optional sections */
-
-<include_paths>
-    /* The list of include paths that will be provided
-       to GCC to compile library headers, one per line.
-       NOTE: If you define this section then the tool
-       will not automatically generate include paths */
-</include_paths>
-
-<add_include_paths>
-    /* The list of include paths that will be added
-       to the automatically generated include paths, one per line */
-</add_include_paths>
-
-<skip_include_paths>
-    /* The list of include paths that will be removed from the
-       list of automatically generated include paths, one per line */
-</skip_include_paths>
-
-<gcc_options>
-    /* Additional GCC options, one per line */
-</gcc_options>
-
-<include_preamble>
-    /* The list of header files that will be
-       included before other headers, one per line  */
-</include_preamble>
-
-<defines>
-    /* The list of defines that will be added at the
-       headers compiling stage, one per line:
-          #define A B
-          #define C D */
-</defines>
-
-<add_namespaces>
-    /* The list of namespaces that should be added to the alanysis
-       if the tool cannot find them automatically, one per line */
-</add_namespaces>
-
-<skip_types>
-    /* The list of data types, that
-       should not be checked, one per line */
-</skip_types>
-
-<skip_symbols>
-    /* The list of functions (mangled/symbol names in C++),
-       that should not be checked, one per line */
-</skip_symbols>
-
-<skip_namespaces>
-    /* The list of C++ namespaces, that
-       should not be checked, one per line */
-</skip_namespaces>
-
-<skip_constants>
-    /* The list of constants that should
-       not be checked, one name per line */
-</skip_constants>
-
-<skip_headers>
-    /* The list of header files and/or directories
-       with header files that should not be checked, one per line */
-</skip_headers>
-
-<skip_libs>
-    /* The list of shared libraries and/or directories
-       with shared libraries that should not be checked, one per line */
-</skip_libs>
-
-<skip_including>
-    /* The list of header files, that cannot be included
-       directly (or non-self compiled ones), one per line */
-</skip_including>
-
-<search_headers>
-    /* List of directories to be searched
-       for header files to automatically
-       generate include paths, one per line. */
-</search_headers>
-
-<search_libs>
-    /* List of directories to be searched
-       for shared librariess to resolve
-       dependencies, one per line */
-</search_libs>
-
-<tools>
-    /* List of directories with tools used
-       for analysis (GCC toolchain), one per line */
-</tools>
-
-<cross_prefix>
-    /* GCC toolchain prefix.
-       Examples:
-           arm-linux-gnueabi
-           arm-none-symbianelf */
-</cross_prefix>
-
-</descriptor>";
 
 my %Operator_Indication = (
     "not" => "~",
@@ -15515,7 +15390,7 @@ sub get_Report_Title($)
     }
     else
     {
-        $Title .= " report for the <span style='color:Blue;'>$TargetLibraryFName</span> $TargetComponent";
+        $Title .= " report for the <span style='color:Blue;'>$TargetTitle</span> $TargetComponent";
         $Title .= " between <span style='color:Red;'>".$Descriptor{1}{"Version"}."</span> and <span style='color:Red;'>".$Descriptor{2}{"Version"}."</span> versions";
     }
     
@@ -15931,7 +15806,7 @@ sub get_Summary($)
         # test info
         $TestInfo = "<h2>Test Info</h2><hr/>\n";
         $TestInfo .= "<table class='summary'>\n";
-        $TestInfo .= "<tr><th>".ucfirst($TargetComponent)." Name</th><td>$TargetLibraryFName</td></tr>\n";
+        $TestInfo .= "<tr><th>".ucfirst($TargetComponent)." Name</th><td>$TargetTitle</td></tr>\n";
         
         my (@VInf1, @VInf2, $AddTestInfo) = ();
         if($Arch1 ne "unknown"
@@ -17604,9 +17479,9 @@ sub getReport($)
         {
             $CssStyles .= "\n".readModule("Styles", "Tabs.css");
             $JScripts .= "\n".readModule("Scripts", "Tabs.js");
-            my $Title = $TargetLibraryFName.": ".$Descriptor{1}{"Version"}." to ".$Descriptor{2}{"Version"}." compatibility report";
-            my $Keywords = $TargetLibraryFName.", compatibility, API, report";
-            my $Description = "Compatibility report for the $TargetLibraryFName $TargetComponent between ".$Descriptor{1}{"Version"}." and ".$Descriptor{2}{"Version"}." versions";
+            my $Title = $TargetTitle.": ".$Descriptor{1}{"Version"}." to ".$Descriptor{2}{"Version"}." compatibility report";
+            my $Keywords = $TargetTitle.", compatibility, API, report";
+            my $Description = "Compatibility report for the $TargetTitle $TargetComponent between ".$Descriptor{1}{"Version"}." and ".$Descriptor{2}{"Version"}." versions";
             my ($BSummary, $BMetaData) = get_Summary("Binary");
             my ($SSummary, $SMetaData) = get_Summary("Source");
             my $Report = "<!-\- $BMetaData -\->\n<!-\- $SMetaData -\->\n".composeHTML_Head($Title, $Keywords, $Description, $CssStyles, $JScripts)."<body><a name='Source'></a><a name='Binary'></a><a name='Top'></a>";
@@ -17617,16 +17492,16 @@ sub getReport($)
             </div>";
             $Report .= "<div id='BinaryTab' class='tab'>\n$BSummary\n".get_Report_Added("Binary").get_Report_Removed("Binary").get_Report_Problems("High", "Binary").get_Report_Problems("Medium", "Binary").get_Report_Problems("Low", "Binary").get_Report_Problems("Safe", "Binary").get_SourceInfo()."<br/><br/><br/></div>";
             $Report .= "<div id='SourceTab' class='tab'>\n$SSummary\n".get_Report_Added("Source").get_Report_Removed("Source").get_Report_Problems("High", "Source").get_Report_Problems("Medium", "Source").get_Report_Problems("Low", "Source").get_Report_Problems("Safe", "Source").get_SourceInfo()."<br/><br/><br/></div>";
-            $Report .= getReportFooter($TargetLibraryFName, not $JoinReport);
+            $Report .= getReportFooter($TargetTitle, not $JoinReport);
             $Report .= "\n</body></html>\n";
             return $Report;
         }
         else
         {
             my ($Summary, $MetaData) = get_Summary($Level);
-            my $Title = $TargetLibraryFName.": ".$Descriptor{1}{"Version"}." to ".$Descriptor{2}{"Version"}." ".lc($Level)." compatibility report";
-            my $Keywords = $TargetLibraryFName.", ".lc($Level)." compatibility, API, report";
-            my $Description = "$Level compatibility report for the ".$TargetLibraryFName." ".$TargetComponent." between ".$Descriptor{1}{"Version"}." and ".$Descriptor{2}{"Version"}." versions";
+            my $Title = $TargetTitle.": ".$Descriptor{1}{"Version"}." to ".$Descriptor{2}{"Version"}." ".lc($Level)." compatibility report";
+            my $Keywords = $TargetTitle.", ".lc($Level)." compatibility, API, report";
+            my $Description = "$Level compatibility report for the ".$TargetTitle." ".$TargetComponent." between ".$Descriptor{1}{"Version"}." and ".$Descriptor{2}{"Version"}." versions";
             if($Level eq "Binary")
             {
                 if(getArch(1) eq getArch(2)
@@ -17640,7 +17515,7 @@ sub getReport($)
             $Report .= get_Report_Problems("High", $Level).get_Report_Problems("Medium", $Level).get_Report_Problems("Low", $Level).get_Report_Problems("Safe", $Level);
             $Report .= get_SourceInfo();
             $Report .= "</div>\n<br/><br/><br/><hr/>\n";
-            $Report .= getReportFooter($TargetLibraryFName, not $JoinReport);
+            $Report .= getReportFooter($TargetTitle, not $JoinReport);
             $Report .= "\n</body></html>\n";
             return $Report;
         }
@@ -22323,11 +22198,12 @@ sub compareInit()
             }
         }
         waitpid($pid, 0);
+        
         my @CMP_PARAMS = ("-l", $TargetLibraryName);
         @CMP_PARAMS = (@CMP_PARAMS, "-d1", $DumpPath1);
         @CMP_PARAMS = (@CMP_PARAMS, "-d2", $DumpPath2);
-        if($TargetLibraryFName ne $TargetLibraryName) {
-            @CMP_PARAMS = (@CMP_PARAMS, "-l-full", $TargetLibraryFName);
+        if($TargetTitle ne $TargetLibraryName) {
+            @CMP_PARAMS = (@CMP_PARAMS, "-title", $TargetTitle);
         }
         if($ShowRetVal) {
             @CMP_PARAMS = (@CMP_PARAMS, "-show-retval");
@@ -22822,12 +22698,6 @@ sub scenario()
         cmpSystems($Descriptor{1}{"Path"}, $Descriptor{2}{"Path"}, getSysOpts());
         exit(0);
     }
-    if($GenerateTemplate)
-    {
-        writeFile("VERSION.xml", $DescriptorTemplate."\n");
-        printMsg("INFO", "XML-descriptor template ./VERSION.xml has been generated");
-        exit(0);
-    }
     if(not $TargetLibraryName) {
         exitStatus("Error", "library name is not selected (-l option)");
     }
@@ -22837,8 +22707,8 @@ sub scenario()
             exitStatus("Error", "\"\\\", \"\/\" and \"*\" symbols are not allowed in the library name");
         }
     }
-    if(not $TargetLibraryFName) {
-        $TargetLibraryFName = $TargetLibraryName;
+    if(not $TargetTitle) {
+        $TargetTitle = $TargetLibraryName;
     }
     if($CheckHeadersOnly_Opt and $CheckObjectsOnly_Opt) {
         exitStatus("Error", "you can't specify both -headers-only and -objects-only options at the same time");
