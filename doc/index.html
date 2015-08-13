@@ -1,0 +1,708 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="keywords" content="C, C++, ABI, API, compatibility, checker" />
+  <meta name="description" content="A tool for checking backward API/ABI compatibility of a C/C++ library" />
+  <title>ABI Compliance Checker</title>
+
+  <style type="text/css">
+    body {
+      margin-top: 1.0em;
+      background-color: #deeef7;
+      font-family: Helvetica, Arial, FreeSans, san-serif;
+      color: #000000;
+    }
+    #container {
+      margin: 0 auto;
+      width: 700px;
+    }
+    h1 { font-size: 3.8em; color: #211108; margin-bottom: 3px;margin-top:0px;padding-top:0px;}
+    h1 .small { font-size: 0.4em; }
+    h1 a { text-decoration: none }
+    h2 { font-size: 1.5em; color: #211108; }
+    h3 { text-align: center; color: #211108; }
+    a { color: #211108; }
+    .description { font-size: 1.2em; margin-bottom: 30px; margin-top: 30px; font-style: italic;}
+    .download { float: right; }
+    pre {padding: 0px;margin: 0px;padding-left: 10px;word-wrap:break-word;white-space: pre-wrap;}
+    hr { border: 0; width: 80%; border-bottom: 1px solid #aaa}
+    .footer { text-align:center; padding-top:30px; font-style: italic; }
+    .code {border: dashed 1px gray; background-color: #f0f0f0;}
+    .listing {padding: 10px;border: 1px solid black;width: 70%;font-family:"DejaVu Sans Mono", "Monaco", "Courier New", monospace;font-size:14px;}
+    .summary {border:1px solid black;border-collapse:collapse;}
+    table.summary td, table.summary th {border:1px solid black;padding:2px;}
+  </style>
+
+</head>
+
+<body>
+  <a href="https://github.com/lvc/abi-compliance-checker"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" /></a>
+
+  <div id="container">
+
+    <div class="download">
+      <a href="https://github.com/lvc/abi-compliance-checker/zipball/master">
+        <img style="border: 0;" width="90" src="https://github.com/images/modules/download/zip.png" alt="" /></a>
+      <a href="https://github.com/lvc/abi-compliance-checker/tarball/master">
+        <img style="border: 0;" width="90" src="https://github.com/images/modules/download/tar.png" alt="" /></a>
+    </div>
+   
+    <h1>ABI Compliance Checker</h1>
+
+    <div class="description">
+      A tool for checking backward API/ABI compatibility of a C/C++ library
+    </div>
+
+      <p/>
+      ABI Compliance Checker (ABICC) is a tool for checking backward binary and source-level compatibility of a C/C++ library. The tool checks header files and shared libraries of old and new versions and analyzes changes in API and ABI (ABI=API+compiler ABI) that may break binary and/or source compatibility: changes in calling stack, v-table changes, removed symbols, renamed fields, etc.
+      
+      <p/>
+      Binary incompatibility may result in crashing or incorrect behavior of applications built with an old version of a library if they run on a new one. Source incompatibility may result in recompilation errors with a new library version. The tool is intended for developers of software libraries and Linux maintainers who are interested in ensuring backward compatibility, i.e. allow old applications to run or to be recompiled with newer library versions.
+
+<table class='summary'><tr><td>
+<div>Table of Contents</div>
+<ul>
+<li><a href="#Downloads">Downloads</a></li>
+<li><a href="#License">License</a></li>
+<li><a href="#Supported_Platforms">Supported Platforms</a></li>
+<li><a href="#Dependencies">Dependencies</a></li>
+<li><a href="#Installation">Installation</a></li>
+<li><a href="#Usage">Usage</a></li>
+<li><a href="#Examples">Examples</a></li>
+<li><a href="#BinaryProblems">Detectable Binary-Compatibility Problems</a></li>
+<li><a href="#SourceProblems">Detectable Source-Compatibility Problems</a></li>
+<li><a href="#Dump">Create ABI Dumps</a></li>
+<li><a href="#ABI_Dumper">Usage with ABI Dumper</a></li>
+<li><a href="#Report">Report Format</a></li>
+<li><a href="#Verdict">Verdict on Compatibility</a></li>
+<li><a href="#Error">Error Codes</a></li>
+<li><a href="#FAQ">FAQ</a></li>
+<li><a href="#Similar">Similar Tools</a></li>
+<li><a href="#Tutorial">Tutorial</a></li>
+<li><a href="#Bugs">Bugs</a></li>
+<li><a href="#Maintainers">Maintainers</a></li>
+<li><a href="#ChangeLog">Changes</a></li>
+<li><a href="#Articles">Articles</a></li>
+</ul>
+</td></tr></table>
+
+<a name="Downloads"></a>
+<h2>Downloads</h2>
+<p>All releases can be downloaded from <a href="https://github.com/lvc/abi-compliance-checker/">this page</a>.</p>
+
+<p>Latest release: <a href="https://github.com/lvc/abi-compliance-checker/archive/1.99.9.tar.gz">abi-compliance-checker-1.99.9.tar.gz</a></p>
+
+<p>Read-only access to the latest development version:</p>
+
+<code class='code'>&nbsp;git clone git://github.com/lvc/abi-compliance-checker&nbsp;</code>
+
+<a name="License"></a>
+<h2>License</h2>
+<p>This program is free software. You may use, redistribute and/or modify it under the terms of the <a href="http://www.gnu.org/licenses/">GNU GPL</a> or <a href="http://www.gnu.org/licenses/">GNU LGPL</a></p>
+
+<a name="Supported_Platforms"></a>
+<h2>Supported Platforms</h2>
+GNU/Linux, FreeBSD, Mac OS X, MS Windows.
+    
+<a name="Dependencies"></a>
+<h2>Dependencies</h2>
+<ul>
+<li>
+  <a href="http://gcc.gnu.org/">G++</a> (3.0-4.7, 4.8.3, 4.9 or newer)
+</li>
+<li>
+  <a href="http://www.gnu.org/software/binutils/">GNU Binutils</a> (readelf, c++filt, objdump)
+</li>
+<li>
+  <a href="http://www.perl.org/">Perl 5</a> (5.8 or newer)
+</li>
+<li>
+  <a href="http://ctags.sourceforge.net/">Ctags</a> (5.8 or newer)
+</li>
+</ul>
+
+WARNING: if you are using ccache program (i.e. gcc points to /usr/lib/ccache/gcc) then it should be newer than 3.1.2 or disabled. 
+<p/>
+On Mac OS X the tool also requires Xcode (g++, c++filt, nm and otool).
+<p/>
+On MS Windows the tool also requires MinGW, MS Visual C++ (dumpbin, undname, cl), Active Perl 5, adding of tool locations to the PATH and execution of vsvars32.bat script (C:\Microsoft Visual Studio 9.0\Common7\Tools\). 
+
+<a name="Installation"></a>
+<h2>Installation</h2>
+<p>The tool is <b>ready-to-use</b> after extracting the archive.</p>
+
+<p>You can also use a Makefile to install the tool into the system:</p>
+<code class='code'>&nbsp;sudo make install prefix=PREFIX [/usr, /usr/local]&nbsp;</code>
+<p>This command will install the <code>abi-compliance-checker</code> program into the <code>PREFIX/bin</code> system directory and private modules into the <code>PREFIX/share</code>.</p>
+
+<a name="Usage"></a>
+<h2>Usage</h2>
+
+For using the tool, you should provide the <a href='Xml-Descriptor.html'>XML descriptors</a> for two library versions: <code>v1.xml</code> and <code>v2.xml</code> files. Library descriptor is a simple XML-file that specifies version number, paths to header files and shared libraries and other optional information. An example of the descriptor is the following (<code>0.3.4.xml</code>):
+<p/>
+<div class='listing'>
+<pre>
+<span style='color:Green'>&lt;version&gt;</span>
+    0.3.4
+<span style='color:Green'>&lt;/version&gt;</span>
+
+<span style='color:Green'>&lt;headers&gt;</span>
+    /usr/local/libssh/0.3.4/include/
+<span style='color:Green'>&lt;/headers&gt;</span>
+
+<span style='color:Green'>&lt;libs&gt;</span>
+    /usr/local/libssh/0.3.4/lib/
+<span style='color:Green'>&lt;/libs&gt;</span>
+</pre>
+</div>
+<p/>
+
+Command to compare two versions of a library:
+<p/>
+<code class='code'>abi-compliance-checker -lib NAME -old V1.xml -new V2.xml</code>
+<p/>
+The compatibility report will be generated to:
+<p/>
+<code class='code'>compat_reports/NAME/V1_to_V2/compat_report.html</code>
+<p/>
+
+<a name="Examples"></a>
+<h2>Examples</h2>
+<table class='summary'>
+<tr><th>Library</th><th>Versions</th><th>Report</th></tr>
+<tr>
+<td>NetCDF</td>
+<td>4.0.1 to 4.1.1</td>
+<td><a href='http://upstream-tracker.org/compat_reports/netcdf/4.0.1_to_4.1.1/compat_report.html'>report</a></td>
+</tr>
+<tr>
+<td>MySQL++</td>
+<td>3.0.9 to 3.1.0</td>
+<td><a href='http://upstream-tracker.org/compat_reports/mysql++/3.0.9_to_3.1.0/abi_compat_report.html'>report</a></td>
+</tr>
+<tr>
+<td>libssh</td>
+<td>0.3.4 to 0.4.0</td>
+<td><a href='http://upstream-tracker.org/compat_reports/libssh/0.3.4_to_0.4.0/abi_compat_report.html'>report</a></td>
+</tr>
+</table>
+
+<a name="BinaryProblems"></a>
+<h2>Detectable Binary Compatibility Problems</h2>
+<ul>
+<li>
+
+<b>Problems with Data Types</b>
+<ul>
+    <li>
+    Structures and Classes
+        <ul>
+            <li>
+                added/removed fields (change of a memory layout)
+            </li>
+            <li>
+                change of size
+            </li>
+            <li>
+                changed order of fields
+            </li>
+            <li>
+                change of a field type
+            </li>
+            <li>
+                changes in fields (recursive analysis)
+            </li>
+        </ul>
+    </li>
+    <li>
+    Classes
+        <ul>
+            <li>
+                added/removed virtual functions (change of a v-table layout)
+            </li>
+            <li>
+                change of virtual function position
+            </li>
+            <li>
+                overridden virtual functions
+            </li>
+            <li>
+                added/removed base classes
+            </li>
+            <li>
+                changes in base classes (recursive analysis)
+            </li>
+        </ul>
+    </li>
+    <li>
+    Unions
+        <ul>
+            <li>
+                added/removed fields
+            </li>
+            <li>
+                change of size
+            </li>
+            <li>
+                change of a field type
+            </li>
+            <li>
+                changes in fields (recursive analysis)
+            </li>
+        </ul>
+    </li>
+    <li>
+    Enumerations
+        <ul>
+            <li>
+                change of a member value
+            </li>
+            <li>
+                removed/renamed members
+                
+                <br/>
+                <br/>
+            </li>
+        </ul>
+    </li>
+</ul>
+
+</li>
+<li>
+
+<b>Problems with Symbols</b>
+<ul>
+    <li>
+        removed symbols (functions or global data)
+    </li>
+    <li>
+        added/removed parameters
+    </li>
+    <li>
+        change of a parameter/return value type
+    </li>
+    <li>
+        change of default parameter value
+    </li>
+    <li>
+        renamed parameters
+    </li>
+    <li>
+        incorrect version change
+    </li>
+    <li>
+        changed attributes (const, volatile, static, etc.)
+        
+        <br/>
+        <br/>
+    </li>
+</ul>
+
+</li>
+<li>
+<b>Problems with Constants (#defines)</b>
+<ul>
+<li>
+    changed value 
+</li>
+</ul>
+
+</li>
+</ul>
+<p/>
+
+See <a href='http://techbase.kde.org/Policies/Binary_Compatibility_Issues_With_C++'>"Binary Compatibility Issues With C++"</a> article from KDE TechBase for more info. 
+
+<a name="SourceProblems"></a>
+<h2>Detectable Source Compatibility Problems</h2>
+<ul>
+<li>
+
+<b>Problems with Data Types</b>
+<ul>
+    <li>
+    Structures, Classes and Unions
+        <ul>
+            <li>
+                removed/renamed fields
+            </li>
+            <li>
+                change of a field type
+            </li>
+            <li>
+                 changes in fields (recursive analysis)
+            </li>
+        </ul>
+    </li>
+    <li>
+    Classes
+        <ul>
+            <li>
+                added/removed base classes
+            </li>
+            <li>
+                change access level of a field or method
+            </li>
+            <li>
+                 added pure virtual methods
+            </li>
+        </ul>
+    </li>
+    <li>
+    Enumerations
+        <ul>
+            <li>
+                removed/renamed members
+                
+                <br/>
+                <br/>
+            </li>
+        </ul>
+    </li>
+</ul>
+</li>
+
+<li>
+
+<b>Problems with Symbols</b>
+<ul>
+    <li>
+        removed symbols (functions or global data) 
+    </li>
+    <li>
+        added/removed parameters 
+    </li>
+    <li>
+        change of a parameter type 
+    </li>
+    <li>
+        removed default value of parameter
+    </li>
+    <li>
+        change of return value type 
+    </li>
+    <li>
+        changed attributes (const, static, etc.) 
+    </li>
+</ul>
+
+</li>
+
+</ul>
+
+<a name="Dump"></a>
+<h2>Create ABI Dumps</h2>
+The library ABI is a representation of the library API at the binary level. The ABI dump is a dump of the model of the ABI used in the tool.
+<p/>
+The ABI dump consists of:
+
+<ul>
+
+<li>
+    <b>Types Information</b>
+    <ul>
+        <li>
+            Attributes (name, size, header, access, base types, etc.)
+        </li>
+        <li>
+            Fields (name, type, size, position, alignment, access, specifiers, etc.)
+        </li>
+        <li>
+            V-table structure (offsets, entries)
+        </li>
+        <li>
+            Etc. 
+        </li>
+    </ul>
+</li>
+
+<li>
+    <b>Symbols Information</b>
+    <ul>
+        <li>
+            Attributes (name, mangled name, header, access, specifiers, etc.)
+        </li>
+        <li>
+            Parameters (name, type, position, alignment, etc.)
+        </li>
+        <li>
+            Etc.
+        </li>
+    </ul>
+</li>
+
+<li>
+    Etc.
+</li>
+
+</ul>
+
+The ABI dump can be used to create a snapshot of a library ABI in the particular environment and then compare it with any other state of the ABI changed due to changes in the environment (compiler version, external libraries, etc.) or changes in the library API (header files).
+
+<p/>
+The typical case is the comparing of two versions of the same library that require incompatible states of the environment (i.e. these versions cannot be installed simultaneously). In this case one can create a dump for one version of the library and then switch the environment and create ABI dump for other version of the library. Two ABI dumps can be compared by the tool to create the API compatibility report.
+<p/>
+To create an ABI dump use <code>-dump</code> option:
+<p/>
+<code class='code'>abi-compliance-checker -lib NAME -dump VER.xml</code>
+<p/>
+The ABI dump will be generated to:
+<p/>
+<code class='code'>abi_dumps/NAME/NAME_VER.abi.tar.gz</code>
+<p/>
+To compare ABI dumps pass them as the descriptors:
+<p/>
+<code class='code'>abi-compliance-checker -lib NAME -old V1.abi.tar.gz -new V2.abi.tar.gz</code>
+
+<a name="ABI_Dumper"></a>
+<h2>Usage with ABI Dumper</h2>
+The analyzed library should be compiled with "-g -Og" GCC options to contain DWARF debug info.
+<p/>
+Create ABI dumps for both library versions using the <a href='https://github.com/lvc/abi-dumper'>ABI Dumper</a> tool:
+<p/>
+<code class='code'>abi-dumper OLD.so -o ABI-0.dump -lver 0</code>
+<p/>
+<code class='code'>abi-dumper NEW.so -o ABI-1.dump -lver 1</code>
+<p/>
+Compare ABI dumps:
+<code class='code'>abi-compliance-checker -l NAME -old ABI-0.dump -new ABI-1.dump</code>
+
+<a name="Report"></a>
+<h2>Report Format</h2>
+The tool supports two formats of a compatibility report: HTML (default) and XML. To generate XML report you should specify <code>-xml</code> additional option.
+<p/>
+The report consists of:
+
+<ul>
+    <li>
+        <b>Test Info</b> - The library name and compared version numbers. Environment info: GCC version and CPU type.
+    </li>
+    <li>
+        <b>Test Results</b> - Verdict on compatibility. Number of header files, shared libraries, symbols and data types checked by the tool.
+    </li>
+    <li>
+        <b>Problem Summary</b> - Classification of compatibility problems.
+    </li>
+    <li>
+        <b>Added Symbols</b> - The list of added symbols.
+    </li>
+    <li>
+        <b>Removed Symbols</b> - The list of removed symbols.
+    </li>
+    <li>
+        <b>Problems with Data Types</b> - The list of compatibility problems caused by changes in data types (divided by the severity level: High, Medium and Low). List of affected symbols.
+    </li>
+    <li>
+        <b>Problems with Symbols</b> - The list of compatibility problems caused by changes in symbol parameters or attributes (divided by the severity level).
+    </li>
+    <li>
+        <b>Problems with Constants</b> - The list of changed constants (#defines).
+    </li>
+    <li>
+        <b>Other Changes in Data Types</b> - The list of compatible changes in data types.
+    </li>
+    <li>
+        <b>Other Changes in Symbols</b> - The list of compatible changes in symbols.
+    </li>
+</ul>
+
+<a name="Verdict"></a>
+<h2>Verdict on Compatibility</h2>
+If the tool detects problems with high or medium level of severity or at least one removed symbol then the compatibility verdict is <b>incompatible</b> (otherwise <b>compatible</b>). Low-severity problems can be considered as <b>warnings</b> and don't affect the compatibility verdict unless the <code>-strict</code> option is specified.
+
+<a name="Error"></a>
+<h2>Error Codes</h2>
+<table class='summary'>
+<tr><th>Code</th><th>Meaning</th></tr>
+<tr><td>0</td><td>Compatible. The tool has run without any errors.</td></tr>
+<tr><td>1</td><td>Incompatible. The tool has run without any errors.</td></tr>
+<tr><td>2</td><td>Common error code (undifferentiated).</td></tr>
+<tr><td>3</td><td>A system command is not found.</td></tr>
+<tr><td>4</td><td>Cannot access input files.</td></tr>
+<tr><td>5</td><td>Cannot compile header files.</td></tr>
+<tr><td>6</td><td>Headers have been compiled with minor errors.</td></tr>
+<tr><td>7</td><td>Invalid input ABI dump.</td></tr>
+<tr><td>8</td><td>Unsupported version of input ABI dump.</td></tr>
+<tr><td>9</td><td>Cannot find a module.</td></tr>
+<tr><td>10</td><td>Empty intersection between headers and shared objects.</td></tr>
+<tr><td>11</td><td>Empty set of symbols in headers.</td></tr>
+</table>
+
+<a name="FAQ"></a>
+<h2>FAQ</h2>
+<ul>
+    <li>
+        <b>What is an ABI and how does it differ from an API?</b>
+        <p/>
+        An Application Binary Interface (ABI) is the set of supported run-time interfaces provided by a software component or set of components for applications to use, whereas an Application Programming Interface (API) is the set of build-time interfaces. The ABI may be defined by the formula: ABI = API + compiler ABI.
+    </li>
+    <li>
+        <b>Why does this tool need both shared libraries and header files to check ABI compliance?</b>
+        <p/>
+        Without header files it is impossible to determine public symbols in ABI and data type definitions. Without shared libraries it is impossible to determine exported symbols in the ABI of the target library and also impossible to detect added/removed symbols. 
+    </li>
+</ul>
+
+<a name="Similar"></a>
+<h2>Similar Tools </h2>
+<ul>
+    <li>
+         <b>icheck</b> - C interface ABI/API checker.
+    </li>
+    <li>
+         <b>BCS</b> - The Symbian binary compatibility suite.
+    </li>
+    <li>
+         <b>shlib-compat</b> - ABI compatibility checker that uses DWARF debug info.
+    </li>
+    <li>
+         <b>qbic</b> - A tool to check for binary incompatibilities in Qt4 Toolkit.
+    </li>
+    <li>
+         <b>libabigail</b> - A C++ library for ABI analysis.
+    </li>
+    <li>
+         <b>chkshlib, cmpdylib, cmpshlib</b> - Tools to compare binary symbols.
+    </li>
+</ul>
+
+<a name="Tutorial"></a>
+<h2>Tutorial</h2>
+An excellent tutorial <a href='http://blog.famillecollet.com/post/2010/06/20/ABI-%3A-stability-check'>"ABI: stability check"</a> is available at Les RPM de Remi Blog. See also <a href='http://sourceware.org/glibc/wiki/Testing/ABI_checker'>ABI compliance checker Notes</a> at glibc wiki. 
+<p/>
+
+<a name="Bugs"></a>
+<h2>Bugs</h2>
+Please post bug reports, feature requests and questions to the <a href="https://github.com/lvc/abi-compliance-checker/issues">issue tracker</a>.
+<p/>
+
+<a name="Maintainers"></a>
+<h2>Maintainers</h2>
+The tool is developed by <a href="http://www.linkedin.com/pub/andrey-ponomarenko/67/366/818">Andrey Ponomarenko</a>.
+
+<a name="ChangeLog"></a>
+<h2>Changes</h2>
+You can find changelog <a href='Changelog.html'>here</a>.
+
+<a name="Articles"></a>
+<h2>Articles</h2>
+
+<ul>
+    <li>
+        <a href='http://techbase.kde.org/Policies/Binary_Compatibility_Issues_With_C++'>"Binary Compatibility Issues With C++"</a>, KDE TechBase 
+    </li>
+    <li>
+        <a href='http://techbase.kde.org/Policies/Binary_Compatibility_Examples'>"Binary Compatibility Examples"</a>, KDE TechBase 
+    </li>
+    <li>
+        <a href='http://doi.ieeecomputersociety.org/10.1109/VALID.2010.27'>"Automated Verification of Shared Libraries for Backward Binary Compatibility"</a>, A. Ponomarenko and V. Rubanov, VALID 2010
+    </li>
+    <li>
+        <a href='http://www.springerlink.com/content/905067689q7n0166/'>"Backward compatibility of software interfaces: Steps towards automatic verification"</a>, A. Ponomarenko and V. Rubanov, Programming and Computer Software 2012
+    </li>
+    <li>
+        <a href='http://refspecs.linux-foundation.org/cxxabi-1.83.html'>"Itanium C++ ABI"</a>, linux-foundation.org 
+    </li>
+    <li>
+        <a href='http://www.ros.org/reps/rep-0009.html'>"ABI Compatibility"</a>, Josh Faust 
+    </li>
+    <li>
+        <a href='http://blog.famillecollet.com/post/2010/06/20/ABI-%3A-stability-check'>"ABI : stability check"</a>, Les RPM de Remi - Blog 
+    </li>
+    <li>
+        <a href='http://www.agner.org/optimize/calling_conventions.pdf'>"Calling conventions for different C++ compilers and operating systems"</a>, Agner Fog 
+    </li>
+    <li>
+        <a href='http://www.angelcode.com/dev/callconv/callconv.html'>"Calling conventions on the x86 platform"</a>, Andreas Jonsson
+    </li>
+    <li>
+        <a href='http://blog.qt.digia.com/blog/2009/08/12/some-thoughts-on-binary-compatibility/'>"Some thoughts on binary compatibility"</a>, Thiago Macieira
+    </li>
+    <li>
+        <a href='http://syrcose.ispras.ru/2009/files/02_paper.pdf'>"Binary Compatibility of C++ shared libraries on GNU/Linux"</a>, Pavel Shved, Denis Silakov
+    </li>
+    <li>
+        <a href='http://www.usenix.org/publications/library/proceedings/als00/2000papers/papers/full_papers/browndavid/browndavid_html/'>"Library Interface Versioning in Solaris and Linux"</a>, David J. Brown and Karl Runge
+    </li>
+    <li>
+        <a href='http://h21007.www2.hp.com/portal/download/files/prot/files/STK/pdfs/V_4version.pdf'>"Steps to Version Your Shared Library"</a>, hp.com
+    </li>
+    <li>
+        <a href='http://chadaustin.me/cppinterface.html'>"Binary-compatible C++ Interfaces"</a>, Chad Austin
+    </li>
+    <li>
+        <a href='http://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html'>"ABI Policy and Guidelines"</a>, gnu.org
+    </li>
+    <li>
+        <a href='http://gcc.gnu.org/onlinedocs/gcc/Compatibility.html'>"Binary Compatibility"</a>, gnu.org
+    </li>
+    <li>
+        <a href='http://www.oracle.com/technetwork/articles/servers-storage-dev/stablecplusplusabi-333927.html'>"Stability of the C++ ABI: Evolution of a Programing Language"</a>, Stephen Clamage
+    </li>
+    <li>
+        <a href='http://www.netfort.gr.jp/~dancer/column/libpkg-guide/libpkg-guide.html#binarycompat'>"When binary compatibility breaks"</a>, Debian Library Packaging guide
+    </li>
+    <li>
+        <a href='http://techbase.kde.org/Policies/Library_Code_Policy'>"Library Code Policy"</a>, KDE TechBase
+    </li>
+    <li>
+        <a href='http://people.redhat.com/drepper/dsohowto.pdf'>"How To Write Shared Libraries"</a>, Ulrich Drepper
+    </li>
+    <li>
+        <a href='http://tldp.org/HOWTO/Program-Library-HOWTO/'>"Program Library HOWTO"</a>, linux.org
+    </li>
+    <li>
+        <a href='http://plan99.net/~mike/writing-shared-libraries.html'>"Writing shared libraries"</a>, Mike Hearn
+    </li>
+    <li>
+        <a href='http://www.ayukov.com/essays/linuxdll.html'>"Shared libraries in Linux: growing pains or fundamental problem?"</a>, Sergey Ayukov
+    </li>
+    <li>
+        <a href='http://c2.com/cgi/wiki?FragileBinaryInterfaceProblem'>"Fragile Binary Interface Problem"</a>, Steven Newton
+    </li>
+    <li>
+        <a href='http://www.oocities.org/mrshrap/linker.html'>"The amazing world of library incompatibility"</a>, oocities.org
+    </li>
+    <li>
+        <a href='http://www.elpauer.org/?p=230'>"ABI compatibility in C++"</a>, elpauer.org
+    </li>
+    <li>
+        <a href='http://blogs.gentoo.org/mgorny/2012/08/20/the-impact-of-cxx-templates-on-library-abi/'>"The impact of C++ templates on library ABI"</a>, Michał Górny
+    </li>
+    <li>
+        <a href='http://sourceware.org/glibc/wiki/Testing/ABI_checker'>"ABI compliance checker Notes"</a>, sourceware.org
+    </li>
+    <li>
+        <a href='http://developer.symbian.org/wiki/index.php/Preserving_Compatibility'>"Preserving Compatibility"</a>, symbian.org
+    </li>
+    <li>
+        <a href='http://www.macieira.org/blog/2012/01/architectures-and-abis-detailed/'>"Architectures and ABIs detailed"</a>, Thiago Macieira's blog
+    </li>
+    <li>
+        <a href='http://accu.org/index.php/journals/1718'>"Interface Versioning in C++"</a>, ACCU
+    </li>
+    <li>
+        Processor ABI standards: <a href='http://refspecs.linuxbase.org/elf/abi386-4.pdf'>Intel386</a>, <a href='http://www.x86-64.org/documentation/abi.pdf'>AMD64</a>, <a href='http://infocenter.arm.com/help/topic/com.arm.doc.ihi0042d/IHI0042D_aapcs.pdf'>ARM</a>, <a href='http://refspecs.linuxbase.org/elf/elfspec_ppc.pdf'>PowerPC</a>, <a href='http://download.boulder.ibm.com/ibmdl/pub/software/dw/linux390/docu/l390abi0.pdf'> S/390</a>, <a href='http://refspecs.linuxbase.org/elf/IA64-SysV-psABI.pdf'>Itanium</a>, <a href='http://refspecs.linuxbase.org/elf/mipsabi.pdf'>MIPS</a>, <a href='sparc.org/wp-content/uploads/2014/01/psABI3rd.pdf.gz'>SPARC</a>, <a href='http://refspecs.linuxbase.org/elf/elf-pa.pdf'>PA-RISK</a>, <a href='http://www.linux-m32r.org/cmn/m32r/M32R-elf-abi.pdf'>M32R</a>
+    </li>
+    <li>
+        <a href='https://refspecs.linuxbase.org/elf/gabi41.pdf'>"Generic ABI Standard"</a>, <a href='http://refspecs.linuxbase.org/elf/'>"ELF and ABI Standards"</a>, freestandards.org
+    </li>
+    <li>
+        <a href='http://events.linuxfoundation.org/sites/events/files/slides/Binary_Compatibility_for_library_devs.pdf'>"Binary compatibility for library developers"</a>, <a href='https://www.youtube.com/watch?v=PHrXGHDd9no'>Video</a>, Thiago Macieira
+    </li>
+    <li>
+        <a href='http://debconf14-video.debian.net/video/286/acc-for-abi-breaks'>"ACC for abi breaks"</a>, Dimitri Ledkov
+    </li>
+</ul>
+
+<div class="footer">
+    get the source code on GitHub : <a href="https://github.com/lvc/abi-compliance-checker">lvc/abi-compliance-checker</a>
+</div>
+
+<br/>
+<br/>
+
+</div>
+</body>
+</html>

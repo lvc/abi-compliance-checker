@@ -1,0 +1,1887 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="description" content="Changelog for ABI Compliance Checker" />
+  <title>ABI Compliance Checker: History</title>
+
+  <style type="text/css">
+    body {
+      margin-top: 1.0em;
+      background-color: #deeef7;
+      font-family: Helvetica, Arial, FreeSans, san-serif;
+      color: #000000;
+    }
+    #container {
+      margin: 0 auto;
+      width: 700px;
+    }
+    h1 { font-size: 3.8em; color: #211108; margin-bottom: 3px;margin-top:0px;padding-top:0px;}
+    h1 .small { font-size: 0.4em; }
+    h1 a { text-decoration: none }
+    h2 { font-size: 1.5em; color: #211108; }
+    h3 { text-align: center; color: #211108; }
+    a { color: #211108; }
+    .description { font-size: 1.2em; margin-bottom: 30px; margin-top: 30px; font-style: italic;}
+    .download { float: right; }
+    pre {padding: 0px;margin: 0px;padding-left: 10px;word-wrap:break-word;white-space: pre-wrap;}
+    hr { border: 0; width: 80%; border-bottom: 1px solid #aaa}
+    .footer { text-align:center; padding-top:30px; font-style: italic; }
+    .code {border: dashed 1px gray; background-color: #f0f0f0;}
+    .listing {padding: 10px;border: 1px solid black;width: 70%;font-family:"DejaVu Sans Mono", "Monaco", "Courier New", monospace;font-size:14px;}
+    .summary {border:1px solid black;border-collapse:collapse;}
+    table.summary td, table.summary th {border:1px solid black;padding:2px;}
+  </style>
+
+</head>
+
+<body>
+<a href="https://github.com/lvc/abi-compliance-checker"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" /></a>
+
+<div id="container">
+
+<h1>ABI Compliance<br/>Checker: History</h1>
+<p/>
+<br/>
+
+<b>Version 1.99.9 (January 23, 2014)</b><br/>
+<b>New Options</b>
+<ul>
+    <li>
+        -skip-internal: do not check internal interfaces matched by the pattern 
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Fixed duplicated entries in the XML report 
+    </li>
+    <li>
+        Reduced size of the XML report 
+    </li>
+    <li>
+        Fixed duplicated problems related to changed size of a global data 
+    </li>
+    <li>
+        Options -v1 and -v2 can now be used when comparing ABI dumps to change library versions shown in the report 
+    </li>
+    <li>
+        Fixed false positives with the size change of a template instance type 
+    </li>
+    <li>
+        Fixed false positives with the change of a parameter/field type name 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.99.8.5 (October 03, 2013)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Optimized performance and memory usage (up to 90%) on input objects with a huge number of changes and deep data type trees (e.g. Linux kernel)
+    </li>
+    <li>
+        Partial support for GCC 4.8.{0-1}, waiting for a fix for the bug <a href='http://gcc.gnu.org/bugzilla/show_bug.cgi?id=57850'>57850</a> in the next GCC versions
+    </li>
+    <li>
+        Support for incomplete ABI dumps
+    </li>
+</ul>
+<b>New Options</b>
+<ul>
+    <li>
+        -affected-limit
+    </li>
+    <li>
+        -cpp-incompatible
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Fixed identification of template constructors and destructors 
+    </li>
+    <li>
+        Do not show "this" first argument of methods in the report
+    </li>
+    <li>
+        Corrected descriptions of affected symbols in the report 
+    </li>
+    <li>
+        Fixed false alarms on changed offset of parameters 
+    </li>
+    <li>
+        Do not hang on class A&lt;N&gt;:public A&lt;N-1&gt; 
+    </li>
+    <li>
+        Corrected identification of header files in the include_preamble 
+    </li>
+    <li>
+        Corrected comparison of function pointer types 
+    </li>
+    <li>
+        Corrected rule Global_Data_Size 
+    </li>
+</ul>
+<b>Other</b>
+<ul>
+    <li>
+        Code refactoring
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.99.7 (July 01, 2013)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Added missed fields of template instance types to the ABI dump 
+    </li>
+    <li>
+        Improved support for old ABI dumps 
+    </li>
+    <li>
+        Added Struct_Field_Size_Increased rule 
+    </li>
+    <li>
+        Support for vector types (GCC extension) 
+    </li>
+    <li>
+        Removed duplicates from the ABI dump 
+    </li>
+    <li>
+        Corrected visualization of v-table content in the report 
+    </li>
+    <li>
+        Corrected identification of target headers 
+    </li>
+    <li>
+        Corrected source-compatibility check 
+    </li>
+    <li>
+        Performance optimization (5%) 
+    </li>
+</ul>
+<b>New Options</b>
+<ul>
+    <li>
+        -check - to check completeness of the ABI dump 
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Fixed default arguments of methods (broken in 1.99.1 due to added "this" parameter) 
+    </li>
+</ul>
+<b>Other</b>
+<ul>
+    <li>
+        Extended test suite 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.99.1 (June 07, 2013)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Support for ABI Dumper 0.97 
+    </li>
+    <li>
+        Show added/removed inline virtual functions in the binary compatibility report 
+    </li>
+    <li>
+        Added "this" hidden parameter to non-static class methods in the ABI dump 
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Fixed XmlDump module 
+    </li>
+    <li>
+        Fixed CallConv module 
+    </li>
+</ul>
+<b>Other</b>
+<ul>
+    <li>
+        Support for old ABI dumps
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.99 (May 24, 2013)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Support for ABI Dumper 0.95 
+    </li>
+    <li>
+        Added 14 binary-compatibility rules
+    </li>
+    <li>
+        Added 10 source-compatibility rules 
+    </li>
+    <li>
+        Improved model of type alignment 
+    </li>
+    <li>
+        Changed version of ABI dump format to 3.0 
+    </li>
+    <li>
+        Added _vptr member to virtual classes 
+    </li>
+    <li>
+        Added constants defined by GCC to ABI dump 
+    </li>
+    <li>
+        Improved analysis of constants 
+    </li>
+</ul>
+<b>New Options</b>
+<ul>
+    <li>
+        -skip-symbols
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Increased severity of Field_Became_Non_Mutable rule 
+    </li>
+</ul>
+<b>Other</b>
+<ul>
+    <li>
+        Support for old ABI dumps 
+    </li>
+    <li>
+        Extended test suite (+11 test cases) 
+    </li>
+    <li>
+        Code cleaning 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.98.8 (February 07, 2013)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Show added and removed constants (#defines) in the report 
+    </li>
+    <li>
+        Show changes in unnamed enumerations 
+    </li>
+    <li>
+        Avoid false alarm about renamed field if old name of this field is defined to new (SC) 
+    </li>
+    <li>
+        Recursive comparing of structured data types in *_Format rules 
+    </li>
+    <li>
+        Added Typedef_BaseType_Format rule to check format changes in the typedef base type 
+    </li>
+</ul>
+<b>New Options</b>
+<ul>
+    <li>
+        -tolerant 
+    </li>
+    <li>
+        -tolerance 
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Increased severity of Parameter_BaseType_And_Size BC rule (Low to Medium) 
+    </li>
+    <li>
+        Increased severity of Added_Field SC rule (Safe to Low) 
+    </li>
+    <li>
+        Corrected handling of the tool error codes in the test suite 
+    </li>
+    <li>
+        Corrected handling of relative paths in the descriptor options 
+    </li>
+    <li>
+        Skipping linker-related options in gcc_options option of the descriptor 
+    </li>
+    <li>
+        Corrected internal mangler for C++ functions 
+    </li>
+    <li>
+        Corrected conditions for enabling of C++ compatibility mode 
+    </li>
+    <li>
+        Corrected handling of C++ keywords in C-code 
+    </li>
+    <li>
+        Corrected -extended option 
+    </li>
+    <li>
+        Corrected Typedef_BaseType rule 
+    </li>
+    <li>
+        Corrected parsing of default function arguments 
+    </li>
+    <li>
+        Do not check presence of archive utilities if not used 
+    </li>
+    <li>
+        Other fixes 
+    </li>
+</ul>
+<b>Other</b>
+<ul>
+    <li>
+        Extended test suite 
+    </li>
+    <li>
+        Code cleaning 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.98.7 (December 14, 2012)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Extended extra info dumped by -extra-info option 
+    </li>
+    <li>
+        Extended additional info dumped by -extra-dump option 
+    </li>
+    <li>
+        Added specifiers for structs, unions and enums in the report and ABI dump 
+    </li>
+    <li>
+        Improved support for old ABI dumps 
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected -debug option 
+    </li>
+    <li>
+        Corrected creating of archives with ABI dumps 
+    </li>
+    <li>
+        Corrected parsing of includes in header files 
+    </li>
+    <li>
+        Corrected processing of undefined symbols 
+    </li>
+    <li>
+        Corrected -app option 
+    </li>
+    <li>
+        Corrected processing of default paths to system libraries 
+    </li>
+    <li>
+        Corrected Makefile 
+    </li>
+    <li>
+        Other fixes 
+    </li>
+</ul>
+<b>Other</b>
+<ul>
+    <li>
+        Code cleaning and refactoring 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.98.6 (December 04, 2012)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Extended -extra-info and -extra-dump options 
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected processing of input XML descriptor 
+    </li>
+    <li>
+        Corrected "Parameter_Default_Value_Removed" rule 
+    </li>
+    <li>
+        Other fixes 
+    </li>
+</ul>
+<b>Other</b>
+<ul>
+    <li>
+        Code cleaning 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.98.5 (November 30, 2012)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Support for Mac OS X 10.8 
+    </li>
+    <li>
+        Support for OpenBSD 
+    </li>
+    <li>
+        Support for old GCC versions &lt;= 4.2 
+    </li>
+    <li>
+        Added "throw" and "weak" attributes of methods to ABI dump 
+    </li>
+</ul>
+<b>New Options</b>
+<ul>
+    <li>
+        -extra-info
+    </li>
+    <li>
+        -extra-dump
+    </li>
+    <li>
+        -force
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected order of user-defined include paths 
+    </li>
+    <li>
+        Corrected internal C++ mangler 
+    </li>
+    <li>
+        Removed false positives of the "Parameter_Type_Format" rule 
+    </li>
+    <li>
+        Other fixes 
+    </li>
+</ul>
+<b>Other</b>
+<ul>
+    <li>
+        Extended test suite 
+    </li>
+    <li>
+        Code cleaning 
+    </li>
+    <li>
+        Docs cleaning 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.98.4 (October 18, 2012)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Optimization of memory usage (5%-10%) and performance (5%-10%) 
+    </li>
+    <li>
+        Added "Used Reserved Field" rule of binary compatibility analysis 
+    </li>
+    <li>
+        Improved design of the operating system compatibility report 
+    </li>
+    <li>
+        Added meta descriptors for 334 libraries 
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Fixed an issue with diagnostics of added virtual functions 
+    </li>
+    <li>
+        Corrected the list of functions affected by the compatibility problem 
+    </li>
+    <li>
+        Avoid false alarm about removed function if this function became macro (SC) 
+    </li>
+    <li>
+        Corrected parser of C header files 
+    </li>
+    <li>
+        Other fixes 
+    </li>
+</ul>
+<b>Other</b>
+<ul>
+    <li>
+        Extended test suite 
+    </li>
+    <li>
+        Code cleaning 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.98.3 (July 19, 2012)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Implemented a model of calling conventions on x86 and x86_64 
+    </li>
+    <li>
+        Improved diagnostics of changes in function parameters and return value (distribution on registers and stack) 
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+       Corrected parser of C++ header files to detect non-member functions inside namespaces 
+    </li>
+</ul>
+<b>Other</b>
+<ul>
+    <li>
+        Added requirement for Ctags (5.8 or newer) 
+    </li>
+    <li>
+        Code cleaning 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.98.2 (June 26, 2012)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Support for reading ABI dumps in XML format 
+    </li>
+    <li>
+        Automatic enabling of c++0x support if needed to compile headers 
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected XML and Perl (default) formats of ABI dumps 
+    </li>
+    <li>
+        Improved support for old ABI dumps 
+    </li>
+    <li>
+        Improved -dump-system option 
+    </li>
+</ul>
+<b>Other</b>
+<ul>
+    <li>
+        Improved documentation 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.98.1 (June 18, 2012)</b><br/>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Removed symbols marked as LOCAL in a shared library from lists of added/removed symbols in source-compatibility report 
+    </li>
+    <li>
+        Fixed a false positive with some removed extern "C" symbols in source-compatibility report 
+    </li>
+    <li>
+        Fixed a bug with removed debug/ directory when using -use-dumps and -debug options together 
+    </li>
+    <li>
+        Added support for "skip_including" section of target system XML descriptors (modules/Targets) used by -dump-system option 
+    </li>
+    <li>
+        Extended XML ABI dumps by size attribute of library symbols 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.98.0 (June 14, 2012)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        Implemented XML format of ABI dumps 
+    </li>
+</ul>
+<b>New Options</b>
+<ul>
+    <li>
+        -dump-format 
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Improved support for old ABI dumps 
+    </li>
+    <li>
+        Other fixes 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.97.8 (June 08, 2012)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Redesigned format of ABI dump 
+    </li>
+    <li>
+        Optimization of memory usage (5%-10%) and performance (5%-10%) 
+    </li>
+    <li>
+        Improved support for GCC 4.0-4.5 
+    </li>
+    <li>
+        Added "add_namespaces" section of the XML descriptor 
+    </li>
+</ul>
+<b>New Options</b>
+<ul>
+    <li>
+        -open
+    </li>
+    <li>
+        -sort
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Improved support for old ABI dumps 
+    </li>
+    <li>
+        Fixed a bug with auto-detection of include paths when comparing two XML descriptors 
+    </li>
+    <li>
+        Corrected output of -debug option 
+    </li>
+    <li>
+        Corrected -dump-system and -cmp-systems options 
+    </li>
+    <li>
+        Other fixes 
+    </li>
+</ul>
+<b>Other</b>
+<ul>
+    <li>
+        Code cleaning 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.97.5 (May 14, 2012)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Extended ABI dumps by source-level type declarations 
+    </li>
+    <li>
+        Improved support for old ABI dumps 
+    </li>
+    <li>
+        Optimization of memory usage (20%-30%) and performance (10%-20%) 
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected auto-detection of a set of target headers to check/dump in -headers-only mode 
+    </li>
+    <li>
+        Other fixes 
+    </li>
+</ul>
+<b>Other</b>
+<ul>
+    <li>
+        Extended regression test suite 
+    </li>
+    <li>
+        Code cleaning 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.97.4 (April 16, 2012)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        Added 16 new binary-compatibility rules 
+    </li>
+    <li>
+        Added 17 new source-compatibility rules 
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Added some missed typedef types to function signatures 
+    </li>
+</ul>
+<b>Other</b>
+<ul>
+    <li>
+        Improved support for old ABI dumps 
+    </li>
+    <li>
+        Support for GCC 4.7 
+    </li>
+    <li>
+        Extended regression test suite 
+    </li>
+    <li>
+        Code cleaning 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.97.3 (April 03, 2012)</b><br/>
+<b>Completed Tasks</b>
+<ul>
+    <li>
+        Implement source-level compatibility checks
+    </li>
+    <li>
+        Implement 2.0 architecture
+    </li>
+</ul>
+<b>New Features</b>
+<ul>
+    <li>
+        Added -browse=PROG option 
+    </li>
+    <li>
+        Added -xml alias option for --report-format=xml
+    </li>
+    <li>
+        Added -binary option to generate binary-compatibility report only 
+    </li>
+    <li>
+        Added -source option to generate source-compatibility report only 
+    </li>
+    <li>
+        Added -bin-report-path option: path to binary-compatibility report 
+    </li>
+    <li>
+        Added -src-report-path option: path to source-compatibility report 
+    </li>
+</ul>
+<b>Other Features</b>
+<ul>
+    <li>
+        Improved debug mode (-debug) 
+    </li>
+    <li>
+        Improved mark-up of the HTML report 
+    </li>
+    <li>
+        Improved mark-up of the HTML report 
+    </li>
+    <li>
+        Improved support for old ABI dumps 
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected ABI dumps 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.96.8 (February 17, 2012)</b><br/>
+<b>Completed Tasks</b>
+<ul>
+    <li>
+        Implement XML format of compatibility report
+    </li>
+    <li>
+        Testing on MeeGo 1.2 Harmattan Beta2
+    </li>
+</ul>
+<b>New Features</b>
+<ul>
+    <li>
+        Added hidden statistics line to compatibility report for operating systems
+    </li>
+    <li>
+        Added -headers-list option
+    </li>
+    <li>
+        Added -lang option
+    </li>
+    <li>
+        Support for symbolic links in /usr/include and /usr/lib
+    </li>
+    <li>
+        Added "skip_include_paths" section of the XML-descriptor 
+    </li>
+    <li>
+        Added "skip_including" section of the XML-descriptor
+    </li>
+    <li>
+        Added -list-affected option to create plain list of incompatible symbols
+    </li>
+    <li>
+        Added -quiet option to print all errors and warnings to the log file instead of stderr and stdout
+    </li>
+    <li>
+        Added -stdout option to print results to stdout
+    </li>
+    <li>
+        Added an option to check binary compatibility in the extended sense
+    </li>
+    <li>
+        Improve diagnostic messages for added base classes with virtual functions
+    </li>
+    <li>
+        Added -update option to installer
+    </li>
+    <li>
+        Added a relative default directory to locate modules after installation
+    </li>
+    <li>
+        Compatibility rate = (high+1/2*medium+1/4*low) / number of symbols
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Some symbols with extern "C" linkage are missed in -headers-only mode
+    </li>
+    <li>
+        Changes in global data are not detected under Windows
+    </li>
+    <li>
+        False negative: change global data to be "const"
+    </li>
+    <li>
+        Removed middle enumeration value is reported as renamed
+    </li>
+    <li>
+        False positive: change parameter type from "const int" to "int"
+    </li>
+    <li>
+        Support for old ABI dump format of ACC 1.21.6
+    </li>
+    <li>
+        The tool doesn't search for included headers in /usr/lib/qt4/include/
+    </li>
+    <li>
+        False Negative: Header is incompatible with itself
+    </li>
+    <li>
+        Check libstdc++ in -headers-only mode
+    </li>
+    <li>
+        Restrict checked header files in the -headers-only mode
+    </li>
+    <li>
+        Problem with mangled C++ functions using old ABI dump formats in -headers-only mode
+    </li>
+    <li>
+        Incorrect size of method pointer in ABI dumps
+    </li>
+    <li>
+        False negative: add/remove "register" modifier of the parameter
+    </li>
+    <li>
+        Incorrect WORD size when using old ABI dump format
+    </li>
+    <li>
+        Conflict of a static method with a function of the same name in the ABI dump
+    </li>
+    <li>
+        Missed right bracket of "func-ptr" type in HTML report
+    </li>
+    <li>
+        Incorrect report for overridden methods
+    </li>
+    <li>
+        False negative: override a virtual that doesn't come from a primary base
+    </li>
+    <li>
+        False negative: change a function parameter to be "restrict"
+    </li>
+    <li>
+        False negative: change a field to be "volatile"
+    </li>
+    <li>
+        False negative: change "const"-ness of a return value 
+    </li>
+    <li>
+        False negative: change "volatile" attribute of a method
+    </li>
+    <li>
+        False positive: removed symbols with inline virtual prototype in the leaf class with default constructor
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.94 (September 09, 2011)</b><br/>
+<b>Completed Tasks</b>
+<ul>
+    <li>
+        Separated regression tests into the module
+    </li>
+</ul>
+<b>New Features</b>
+<ul>
+    <li>
+        Added Makefile.pl installer
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.93.8 (September 08, 2011)</b><br/>
+<b>Completed Tasks</b>
+<ul>
+    <li>
+        Separated rules DB
+    </li>
+    <li>
+        Testing on Symbian SDK
+    </li>
+    <li>
+        Testing on Windows SDK
+    </li>
+    <li>
+        Support for OS3000
+    </li>
+</ul>
+<b>New Features</b>
+<ul>
+    <li>
+        SONAME change in the OS comparison table
+    </li>
+    <li>
+        Added a compatibility percentage to the OS comparison table
+    </li>
+    <li>
+        Added -debug option
+    </li>
+    <li>
+        Added listing of symbols in OS comparison table
+    </li>
+    <li>
+        Use zip format of dumps in Windows
+    </li>
+    <li>
+        Added -dump-system descriptor.xml option
+    </li>
+    <li>
+        Analysis of static libraries 
+    </li>
+    <li>
+        Added -sysinfo option
+    </li>
+    <li>
+        Added -component option
+    </li>
+    <li>
+        Added -nostdinc option 
+    </li>
+    <li>
+        Added "weakly"- and "almost"-compatible verdicts
+    </li>
+    <li>
+         Added "skip_namespaces" section of the library XML-descriptor 
+    </li>
+    <li>
+        Search for modules/ directory in the system
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Missed typedefs in the ABI dump using GCC 4.4.1
+    </li>
+    <li>
+        False negative: change enum member value from zero to non-zero
+    </li>
+    <li>
+        False negative: interchange the positions of two fields in a structure
+    </li>
+    <li>
+        False positive: add a field instead of padding fields
+    </li>
+    <li>
+        Problems with "copied" classes
+    </li>
+    <li>
+        Changes in "private" fields
+    </li>
+    <li>
+        Illegal modulus zero at abi-compliance-checker.pl
+    </li>
+    <li>
+         Incorrect order of include paths
+    </li>
+    <li>
+        Change constness of a class method
+    </li>
+    <li>
+        False negative: change "struct Type" to "union Type"
+    </li>
+    <li>
+        Change parameter type from "..." to "int"
+    </li>
+    <li>
+        Remove/add "const"-qualifier of a method
+    </li>
+    <li>
+        False negative: renamed parameters
+    </li>
+</ul>
+<b>Other</b>
+<ul>
+    <li>
+        Improved debug mode
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.23.5 (July 01, 2011)</b><br/>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected exit codes: 0 - compatible, 1 - incompatible, 2 - error, ...
+    </li>
+    <li>
+        Corrected diagnostic messages for C++ functions with changed signature
+    </li>
+    <li>
+        Fixed regression with C++ non-member functions
+    </li>
+    <li>
+        Removed false positive with overridden private methods
+    </li>
+    <li>
+        Corrected functionality for checking binary compatibility of operating systems
+    </li>
+    <li>
+        Removed false positive for removed default version of a symbol
+    </li>
+    <li>
+        Adapted -dump-system option for MeeGo 1.2 Harmattan
+    </li>
+    <li>
+        Fixed hanging execution on "#include "../../file.h"
+    </li>
+    <li>
+        Fixed incorrect automatic include paths
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.23 (June 07, 2011)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        Added 42 compatibility checks (total: 83) 
+    </li>
+    <li>
+        Improved diagnostics of compatibility problems 
+    </li>
+    <li>
+        Opened an issue tracker 
+    </li>
+    <li>
+        Support for cross-compilers 
+    </li>
+    <li>
+        Ported to Mac OS X (10.5) and MS Windows (Xp, Vista, 7) 
+    </li>
+    <li>
+        Added a viewer of "real" v-table layouts for changed C++ classes 
+    </li>
+    <li>
+        Added functionality to check OS backward compatibility 
+    </li>
+    <li>
+        Supports for old-version dump formats (>=1.18) 
+    </li>
+    <li>
+        Separated versioning of dump formats 
+    </li>
+    <li>
+        Improved design of the compatibility report 
+    </li>
+    <li>
+        Improved performance 
+    </li>
+    <li>
+        Support for old GCC 3.4.4 
+    </li>
+</ul>
+<b>New Options</b>
+<ul>
+    <li>
+        -cross-gcc: support for cross-compilers 
+    </li>
+    <li>
+        -sysroot: specify the alternative system root directory 
+    </li>
+    <li>
+        -dump-system, -cmp-systems: checking OS backward compatibility 
+    </li>
+    <li>
+        -use-dumps: check for compatibility using the intermediate dumping 
+    </li>
+    <li>
+        -show-retval: show symbol's return value type in the report 
+    </li>
+    <li>
+        -old-dumps: support for old-version dumps 
+    </li>
+    <li>
+        -test-dump: test for dumping functionality 
+    </li>
+    <li>
+        -report-path: change the location of output compatibility report 
+    </li>
+    <li>
+        -dump-path: change the location of output ABI dump 
+    </li>
+    <li>
+        -log1-path, -log2-path: change the location of output logs 
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Reduced false positives 
+    </li>
+    <li>
+        Support for C-headers containing C++ keywords 
+    </li>
+    <li>
+        Corrected automatic include paths for headers 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.21.12 (April 29, 2011)</b><br/>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected automatic detection of include paths for header files
+    </li>
+    <li>
+        Removed false positives with overridden virtual functions
+    </li>
+    <li>
+        Corrected processing of typedef type names, fixed potential program hangup
+    </li>
+    <li>
+        Added some missed problems relating to the return type changes of a function
+    </li>
+    <li>
+        Corrected processing of a translation unit dump generated by modern GCC versions
+    </li>
+    <li>
+        Corrected identifying of inline functions (using the -fkeep-inline-functions GCC option)
+    </li>
+    <li>
+        Corrected parser for C++: analysis of const global data and functions inside a namespace
+    </li>
+    <li>
+        Corrected names and v-table checks for template types
+    </li>
+    <li>
+        Corrected checks for changes in enumerations
+    </li>
+    <li>
+        Corrected ABI dumping and sorting of dumps
+    </li>
+    <li>
+        Corrected analysis of added/removed virtual functions
+    </li>
+    <li>
+        Corrected help message and documentation
+    </li>
+    <li>
+        Documentation has been moved to "doc/" subdirectory
+    </li>
+    <li>
+        Using File::Temp for storing temporary files
+    </li>
+    <li>
+        Support for latest GCC 4.6.0 and old GCC v3.x series
+    </li>
+    <li>
+        Fixed infinite loop finding the path for "which" command in the system
+    </li>
+    <li>
+        Corrected distinction of descriptor kinds (headers, libraries, directories and XML-descriptors)
+    </li>
+    <li>
+        Corrected processing of "include_paths" section of the XML-descriptor
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.21 (August 19, 2010)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        Added -check-implementation option: compare disassembled binary code to detect changes in the interface implementation
+    </li>
+    <li>
+        Added -objects-only option: compare shared objects without header files
+    </li>
+    <li>
+        Added -v1 and -v2 options: specify version number outside the descriptor
+    </li>
+    <li>
+        Improved help message
+    </li>
+    <li>
+        Improved performance of the tool
+    </li>
+    <li>
+        Removed template instances and stdc++ interfaces from the report (C++)
+    </li>
+    <li>
+        Added README.html and CHANGES.html to the package
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected ABI compatibility report
+    </li>
+    <li>
+        Corrected interface names and versions in the report
+    </li>
+    <li>
+        Corrected number of problems in report summary
+    </li>
+    <li>
+        Corrected ABI dump
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.20 (August 30, 2010)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        Added "defines" section of the library descriptor: this section allows to add defines at the headers compiling stage
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected reports about added/withdrawn members in the structure types and added/withdrawn parameters
+    </li>
+    <li>
+        Corrected report about added/withdrawn virtual functions if -headers_only option specified
+    </li>
+    <li>
+        Corrected processing of header paths containing special characters
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.19 (July 22, 2010)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        Added -library_full_name option to display full library name in title of the report
+    </li>
+    <li>
+        Added -relpath option to replace the {RELPATH} in the descriptor for ABI dumping
+    </li>
+    <li>
+        Added "skip_libs" section of the library descriptor: this section contains a list of shared objects and/or directories with shared objects that should not be processed
+    </li>
+    <li>
+        Improved performance on big libraries
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Removed duplicated problems from the report
+    </li>
+    <li>
+        Corrected names of the template instances
+    </li>
+    <li>
+        Corrected checking of reference type changes
+    </li>
+    <li>
+        Corrected titles in the report
+    </li>
+    <li>
+        Corrected size of some array types
+    </li>
+    <li>
+        Corrected checking of added/withdrawn members in the structure types with reserved members
+    </li>
+    <li>
+        Corrected checking of added/withdrawn parameters
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.18 (June 25, 2010)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        Added -relpath1 and -relpath2 options to replace the {RELPATH} in the descriptors; old option -relpath was removed
+    </li>
+    <li>
+        Added "add_include_paths" section of the library descriptor: this section contains a list of include paths that should be added to the automatically detected include paths
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Added some previously missed compatibility problems in the report
+    </li>
+    <li>
+        Corrected techniques for auto-detection of header file dependencies (include paths)
+    </li>
+    <li>
+        Removed problems relating to the changes in the temporary header files
+    </li>
+    <li>
+        Corrected interface signatures in the report
+    </li>
+    <li>
+        Corrected checking of added/withdrawn parameters
+    </li>
+    <li>
+        Corrected changes in the virtual tables of the libraries with symbol versioning
+    </li>
+    <li>
+        Corrected checking of complex namespaces changes (C++)
+    </li>
+    <li>
+        Added namespaces information to the ABI dump
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.17.2 (June 16, 2010)</b><br/>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Fixed -separately option
+    </li>
+    <li>
+        Corrected permissions of LICENSE file
+    </li>
+    <li>
+        Corrected tool description
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.17.1 (June 09, 2010)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        Added -relpath option for adding prefixes to the paths in the library descriptor
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected checking of added/withdrawn parameters
+    </li>
+    <li>
+        Corrected processing of mixed C/C++ header sets
+    </li>
+    <li>
+        Corrected checking of parameter type changes
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.17 (June 08, 2010)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        Visualizing of the serious changes (added/withdrawn parameters) in the interface signature
+    </li>
+    <li>
+        Recursive analysis of constant changes
+    </li>
+    <li>
+        Separated stderr and stdout streams of the tool
+    </li>
+    <li>
+        Added "skip_constants" section of the library descriptor to skip checking of some constants
+    </li>
+    <li>
+        Added -params option to add function parameter names to the report
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected analysis of virtual table layout changes
+    </li>
+    <li>
+        Corrected analysis of parameter type changes
+    </li>
+    <li>
+        Corrected complex array type names
+    </li>
+    <li>
+        Corrected typedef names
+    </li>
+    <li>
+        Corrected analysis of structure layout changes
+    </li>
+    <li>
+        Fixed tool hanging on some C++ headers (with many namespaces)
+    </li>
+    <li>
+        Corrected analysis of Glibc headers
+    </li>
+    <li>
+        Corrected analysis of library language changes (if added some C++ headers)
+    </li>
+    <li>
+        Corrected descriptions of some compatibility problems
+    </li>
+    <li>
+        Corrected analysis of added/withdrawn parameters in C headers
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.16 (May 05, 2010)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        Added -strict option for treating all compatibility warnings as problems
+    </li>
+    <li>
+        Added -dumpversion option for printing tool version and don't do anything else
+    </li>
+    <li>
+        Ignoring hidden .svn, .git, .bzr, .hg, and CVS directories
+    </li>
+    <li>
+        Improved header files sorting for protecting from compilation errors on the intermediate phase of temporary header file compilation
+    </li>
+    <li>
+        Improved techniques for auto-detection of header file dependencies (include paths)
+    </li>
+    <li>
+        Ignoring problems related to changes of constants (defines) describing library version (*_VERSION_*, *_COPYRIGHT_* and other)
+    </li>
+    <li>
+        New internal test cases
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Checking of some previously missed C++ namespaces
+    </li>
+    <li>
+        Removed hidden "void const** __vtt_parm" parameters from signatures of some constructors
+    </li>
+    <li>
+        Corrected dumping of C++ classes ABI
+    </li>
+    <li>
+        Corrected checking of pure virtual destructors
+    </li>
+    <li>
+        Removed unnecessary built-in constants from the ABI dump
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.15 (March 26, 2010)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        The license was changed to dual GNU GPL and LGPL
+    </li>
+    <li>
+        Added "skip_headers" section of the library descriptor
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected processing of "include_paths" section of the library descriptor
+    </li>
+    <li>
+        Corrected processing of relative paths in the "headers" and "include_paths" sections of the descriptor
+    </li>
+    <li>
+        Directory with temporary files renamed from "temp" to hidden ".tmp_dir"
+    </li>
+    <li>
+        Corrected processing of shared object dependencies
+    </li>
+    <li>
+        Corrected processing of some previously missed functions and conversion operators in C++
+    </li>
+    <li>
+        Corrected internal test suite
+    </li>
+    <li>
+        Corrected some error messages
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.14 (March 03, 2010)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        Added techniques to auto-detect dependencies of a header file (include paths); providing of "include_paths" section of the descriptor is not necessary for now
+    </li>
+    <li>
+        Ported to FreeBSD and Haiku
+    </li>
+    <li>
+        Added check for gcc/g++ version (>=3.0.0)
+    </li>
+    <li>
+        Added sorting of interface problems by namespace in the report (C++)
+    </li>
+    <li>
+        Improved internal test suite
+    </li>
+    <li>
+        Added log for describing tool actions and occurred errors
+    </li>
+    <li>
+        Added exit error code (high/medium risk for ABI break)
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected ABI dumping
+    </li>
+    <li>
+        Corrected styles of the report
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.13 (February 16, 2010)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        Added -version option
+    </li>
+
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected processing of tab characters in the descriptor
+    </li>
+    <li>
+        Corrected help message
+    </li>
+    <li>
+        Corrected descriptor template structure
+    </li>
+    <li>
+        Corrected error and warning messages
+    </li>
+    <li>
+        Corrected processing of shared object dependencies
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.12 (December 04, 2009)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        New help message
+    </li>
+    <li>
+        Highlighting of [in-charge], [not-in-charge] constructors and destructors in the report was improved
+    </li>
+    <li>
+        New option -time for enabling time measurements
+    </li>
+    <li>
+        New internal test cases
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected classification of compatibility problems in the report
+    </li>
+    <li>
+        Reduced priority of problems related to changes in a method's object
+    </li>
+    <li>
+        Corrected complex template type names
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.11 (November 10, 2009)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        Added -app option to check portability of applications to the new library version
+    </li>
+    <li>
+        Memory usage decreased twice
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected checking of added middle structure members
+    </li>
+    <li>
+        Corrected names of template types (with intrinsic, bool and string parameters)
+    </li>
+    <li>
+        Corrected highlighting of function signatures in the report
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.10 (November 02, 2009)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        Checking added/dropped function parameters (C language only)
+    </li>
+    <li>
+        Improved design of the report
+    </li>
+    <li>
+        New internal test cases
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Incorrect checking of redefined virtual functions and differences in parameter types
+    </li>
+    <li>
+        More careful checking of withdrawn interfaces using shared library dependencies
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.9 (October 12, 2009)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Improved design of ABI compliance report
+    </li>
+    <li>
+        Improved algorithms of checking parameter/field type change
+    </li>
+    <li>
+        New internal test cases
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Fixed incorrect names of typedefs and function pointer types
+    </li>
+    <li>
+        Checking of some previously missed C++ functions
+    </li>
+    <li>
+        Removed some false positives from the report (for anon-types)
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.8 (September 29, 2009)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        Added ability to specify a file with a list of interfaces that should be checked
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Size of ABI info dumps have been reduced through removing of unnecessary information
+    </li>
+    <li>
+        Incorrect names of template instances and function pointer types
+    </li>
+    <li>
+        Incorrect positions of function parameters in the "Interface Problems" section of the report
+    </li>
+    <li>
+        Removed some false positives from the report
+    </li>
+    <li>
+        Incorrect handling of special symbols in the paths to header files and shared objects
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.7 (September 11, 2009)</b><br/>
+<b>New Features</b>
+<ul>
+    <li>
+        Checking of incorrect symbols versioning
+    </li>
+    <li>
+        Checking the values of defines (constants)
+    </li>
+    <li>
+        Ability to check header files without shared objects; It is easy to run, but may provide a low quality report with a lot of false positives and without detecting of added/withdrawn interfaces
+    </li>
+    <li>
+        Number of checked interfaces and data types in the report
+    </li>
+    <li>
+        Added tests for checking new features
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Incorrect processing of duplicated headers in the input set (headers with the same name but different paths)
+    </li>
+    <li>
+        Incorrect header files include order
+    </li>
+    <li>
+        Sorting in the ABI dumps
+    </li>
+    <li>
+        Incorrect processing of redefined virtual methods
+    </li>
+    <li>
+        Incorrect processing of anon types
+    </li>
+    <li>
+        Absence of some necessary information about C++ functions in the ABI dumps
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.6 (August 31, 2009)</b><br/>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Corrected processing of relative paths in the library descriptor
+    </li>
+    <li>
+        Display machine hardware name instead of processor type in the report
+    </li>
+    <li>
+        Fixed grammar/spelling errors
+    </li>
+    <li>
+        Renamed "internal_interfaces" section of the library descriptor to "skip_interfaces"
+    </li>
+    <li>
+        Cosmetic changes in the code
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.5 (August 25, 2009)</b><br/>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Absent information about opaque types and internal interfaces has been added to the ABI dump 
+    </li>
+    <li>
+        Fixed style of the report 
+    </li>
+    <li>
+        Fixed grammar/spelling 
+    </li>
+    <li>
+        Renamed "internal_functions" section of the library descriptor to "internal_interfaces" 
+    </li>
+    <li>
+        Renamed outptu ABI dump to "*.abi.tar.gz" (previously it was "*.info.tar.gz") 
+    </li>
+    <li>
+        Corrected interface names in the report (for -separately option) 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.4 (August 18, 2009)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Added ability to check ABI compliance of library versions located on different machines 
+    </li>
+    <li>
+        Header files checking mode by default has been changed: checking all header files together instead of separate checking 
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Incorrect description for affected interfaces 
+    </li>
+    <li>
+        Incorrect virtual table checking 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.3 (August 14, 2009)</b><br/>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Incorrect number of binary compatibility problems in the report summary 
+    </li>
+    <li>
+        Incorrect design of problem descriptions in the report 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.1 (August 06, 2009)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Design of the report has been greatly improved 
+    </li>
+</ul>
+<br/>
+
+<b>Version 1.0 (July 31, 2009)</b><br/>
+Initial version of the tool.
+
+<div class="footer">
+    get the source code on GitHub : <a href="https://github.com/lvc/abi-compliance-checker">lvc/abi-compliance-checker</a>
+</div>
+
+<br/>
+<br/>
+
+</div>
+</body>
+</html>
