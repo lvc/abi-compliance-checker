@@ -81,7 +81,7 @@ span.iname {
 }
 span.iname_b {
     font-weight:bold;
-    font-size:0.94em;
+    font-size:1.1em;
 }
 span.iname_a {
     color:#333333;
@@ -94,14 +94,14 @@ span.sym_p {
 }
 div.affect {
     padding-left:15px;
-    padding-bottom:15px;
-    font-size:0.875em;
+    padding-bottom:10px;
+    font-size:0.87em;
     font-style:italic;
-    line-height:0.81em;
+    line-height:0.75em;
 }
 div.affected {
     padding-left:30px;
-    padding-top:15px;
+    padding-top:10px;
 }
 table.ptable {
     border-collapse:collapse;
@@ -124,12 +124,14 @@ table.vtable {
     line-height:16px;
     margin-left:30px;
     margin-top:10px;
-    width:100px;
 }
 table.vtable td {
     border:1px solid gray;
-    white-space:nowrap;
+    word-wrap:break-word;
     padding: 3px;
+    font-size:0.875em;
+    max-width:450px;
+    vertical-align:top;
 }
 table.ptable th, table.vtable th {
     background-color:#eeeeee;

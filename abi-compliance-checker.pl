@@ -147,10 +147,7 @@ my %ERROR_CODE = (
     "Empty_Set"=>11
 );
 
-my %HomePage = (
-    "Wiki"=>"http://ispras.linuxbase.org/index.php/ABI_compliance_checker",
-    "Dev"=>"https://github.com/lvc/abi-compliance-checker"
-);
+my $HomePage = "http://lvc.github.io/abi-compliance-checker/";
 
 my $ShortUsage = "ABI Compliance Checker (ABICC) $TOOL_VERSION
 A tool for checking backward compatibility of a C/C++ library API
@@ -801,8 +798,7 @@ EXIT CODES:
     non-zero - Incompatible or the tool has run with errors.
 
 MORE INFORMATION:
-    ".$HomePage{"Wiki"}."
-    ".$HomePage{"Dev"}."\n");
+    ".$HomePage."\n");
 }
 
 my %Operator_Indication = (
@@ -1365,7 +1361,6 @@ my %AddNameSpaces = (
   "2"=>{} );
 my %SymbolsList;
 my %TypesList;
-my %SkipSymbolsList;
 my %SymbolsList_App;
 my %CheckedSymbols;
 my %Symbol_Library = (
@@ -10500,6 +10495,7 @@ sub cmpVTables_Real($$)
             return ($Cache{"cmpVTables_Real"}{$Strong}{$ClassName} = ($Strong or $Entry1!~/__cxa_pure_virtual/));
         }
         my $Entry2 = $VTable_New{$Offset};
+        
         $Entry1 = simpleVEntry($Entry1);
         $Entry2 = simpleVEntry($Entry2);
         if($Entry1 ne $Entry2)
@@ -10686,6 +10682,13 @@ sub mergeBases($)
                 $ClassId_New = $Class_New{"Tid"};
             }
         }
+        
+        if(not $Class_New{"Size"} or not $Class_Old{"Size"})
+        { # incomplete info in the ABI dump
+            next;
+        }
+        
+        
         my @Bases_Old = sort {$Class_Old{"Base"}{$a}{"pos"}<=>$Class_Old{"Base"}{$b}{"pos"}} keys(%{$Class_Old{"Base"}});
         my @Bases_New = sort {$Class_New{"Base"}{$a}{"pos"}<=>$Class_New{"Base"}{$b}{"pos"}} keys(%{$Class_New{"Base"}});
         
@@ -12495,11 +12498,21 @@ sub symbolFilter($$$$)
     }
     if($Type=~/Affected/)
     {
-        my $ClassId = $CompleteSignature{$LibVersion}{$Symbol}{"Class"};
         if($SkipSymbols{$LibVersion}{$Symbol})
         { # user defined symbols to ignore
             return 0;
         }
+        if($SymbolsListPath and not $SymbolsList{$Symbol})
+        { # user defined symbols
+            return 0;
+        }
+        if($AppPath and not $SymbolsList_App{$Symbol})
+        { # user defined symbols (in application)
+            return 0;
+        }
+        
+        my $ClassId = $CompleteSignature{$LibVersion}{$Symbol}{"Class"};
+        
         my $NameSpace = $CompleteSignature{$LibVersion}{$Symbol}{"NameSpace"};
         if(not $NameSpace and $ClassId)
         { # class methods have no "NameSpace" attribute
@@ -12526,27 +12539,37 @@ sub symbolFilter($$$$)
                 }
             }
         }
-        if($TypesListPath)
+        if($TypesListPath and $ClassId)
         { # user defined types
             my $CName = $TypeInfo{$LibVersion}{$ClassId}{"Name"};
             
             if(not $TypesList{$CName})
             {
-                return 0;
+                if(my $NS = $TypeInfo{$LibVersion}{$ClassId}{"NameSpace"})
+                {
+                    $CName=~s/\A\Q$NS\E\:\://g;
+                }
+                
+                if(not $TypesList{$CName})
+                {
+                    my $Found = 0;
+                    
+                    while($CName=~s/\:\:.+?\Z//)
+                    {
+                        if($TypesList{$CName})
+                        {
+                            $Found = 1;
+                            last;
+                        }
+                    }
+                    
+                    if(not $Found) {
+                        return 0;
+                    }
+                }
             }
         }
-        if($SymbolsListPath and not $SymbolsList{$Symbol})
-        { # user defined symbols
-            return 0;
-        }
-        if($SkipSymbolsListPath and $SkipSymbolsList{$Symbol})
-        { # user defined symbols
-            return 0;
-        }
-        if($AppPath and not $SymbolsList_App{$Symbol})
-        { # user defined symbols (in application)
-            return 0;
-        }
+        
         if(not selectSymbol($Symbol, $CompleteSignature{$LibVersion}{$Symbol}, $Level, $LibVersion))
         { # non-target symbols
             return 0;
@@ -15403,12 +15426,35 @@ sub get_Report_Title($)
     return $Title;
 }
 
+sub get_CheckedHeaders($)
+{
+    my $LibVersion = $_[0];
+    
+    my @Headers = ();
+    
+    foreach my $Path (keys(%{$Registered_Headers{$LibVersion}}))
+    {
+        my $File = get_filename($Path);
+        if(not is_target_header($File, $LibVersion)) {
+            next;
+        }
+        
+        if(skipHeader($File, $LibVersion)) {
+            next;
+        }
+        
+        push(@Headers, $Path);
+    }
+    
+    return @Headers;
+}
+
 sub get_SourceInfo()
 {
     my ($CheckedHeaders, $CheckedSources, $CheckedLibs) = ("", "");
     if(not $CheckObjectsOnly)
     {
-        if(my @Headers = keys(%{$Registered_Headers{1}}))
+        if(my @Headers = get_CheckedHeaders(1))
         {
             $CheckedHeaders = "<a name='Headers'></a><h2>Header Files (".($#Headers+1).")</h2><hr/>\n";
             $CheckedHeaders .= "<div class='h_list'>\n";
@@ -16930,8 +16976,8 @@ sub showVTables($)
             else
             { # HTML
                 $VTABLES .= "<table class='vtable'>";
-                $VTABLES .= "<tr><th width='2%'>Offset</th>";
-                $VTABLES .= "<th width='45%'>Virtual Table (Old) - ".(keys(%{$Type1{"VTable"}}))." entries</th>";
+                $VTABLES .= "<tr><th>Offset</th>";
+                $VTABLES .= "<th>Virtual Table (Old) - ".(keys(%{$Type1{"VTable"}}))." entries</th>";
                 $VTABLES .= "<th>Virtual Table (New) - ".(keys(%{$Type2{"VTable"}}))." entries</th></tr>";
                 foreach my $Index (sort {int($a)<=>int($b)} (keys(%Entries)))
                 {
@@ -16968,6 +17014,8 @@ sub simpleVEntry($)
     or $VEntry eq "") {
         return "";
     }
+    
+    $VEntry=~s/ \[.+?\]\Z//; # support for ABI Dumper
     $VEntry=~s/\A(.+)::(_ZThn.+)\Z/$2/; # thunks
     $VEntry=~s/_ZTI\w+/typeinfo/g; # typeinfo
     if($VEntry=~/\A_ZThn.+\Z/) {
@@ -17565,7 +17613,7 @@ sub getReportFooter($$)
         $Class .= " double_report";
     }
     my $Footer = "<div class=\'$Class\' align='right'><i>Generated on ".(localtime time);
-    $Footer .= " by <a href='".$HomePage{"Dev"}."'>ABI Compliance Checker</a> $TOOL_VERSION &#160;";
+    $Footer .= " by <a href='".$HomePage."'>ABI Compliance Checker</a> $TOOL_VERSION &#160;";
     $Footer .= "</i></div>";
     $Footer .= "<br/>";
     return $Footer;
@@ -20010,17 +20058,26 @@ sub read_ABI_Dump($$)
     { # support for old dumps
         $SkipTypes{$LibVersion} = $ABI->{"OpaqueTypes"};
     }
-    $SkipSymbols{$LibVersion} = $ABI->{"SkipSymbols"};
+    
     if(not $SkipSymbols{$LibVersion})
-    { # support for old dumps
-        $SkipSymbols{$LibVersion} = $ABI->{"SkipInterfaces"};
-    }
-    if(not $SkipSymbols{$LibVersion})
-    { # support for old dumps
-        $SkipSymbols{$LibVersion} = $ABI->{"InternalInterfaces"};
+    { # if not defined by -skip-symbols option
+        $SkipSymbols{$LibVersion} = $ABI->{"SkipSymbols"};
+        if(not $SkipSymbols{$LibVersion})
+        { # support for old dumps
+            $SkipSymbols{$LibVersion} = $ABI->{"SkipInterfaces"};
+        }
+        if(not $SkipSymbols{$LibVersion})
+        { # support for old dumps
+            $SkipSymbols{$LibVersion} = $ABI->{"InternalInterfaces"};
+        }
     }
     $SkipNameSpaces{$LibVersion} = $ABI->{"SkipNameSpaces"};
-    $TargetHeaders{$LibVersion} = $ABI->{"TargetHeaders"};
+    
+    if(not $TargetHeaders{$LibVersion})
+    { # if not defined by -headers-list option
+        $TargetHeaders{$LibVersion} = $ABI->{"TargetHeaders"};
+    }
+    
     foreach my $Path (keys(%{$ABI->{"SkipHeaders"}}))
     {
         $SkipHeadersList{$LibVersion}{$Path} = $ABI->{"SkipHeaders"}{$Path};
@@ -22555,7 +22612,8 @@ sub scenario()
         HELP_MESSAGE();
         exit(0);
     }
-    if($InfoMsg) {
+    if($InfoMsg)
+    {
         INFO_MESSAGE();
         exit(0);
     }
@@ -22737,7 +22795,7 @@ sub scenario()
             exitStatus("Access_Error", "can't access file \'$SkipSymbolsListPath\'");
         }
         foreach my $Interface (split(/\s*\n\s*/, readFile($SkipSymbolsListPath))) {
-            $SkipSymbolsList{$Interface} = 1;
+            $SkipSymbols{$Interface} = 1;
         }
     }
     if($SkipHeadersPath)
