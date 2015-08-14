@@ -66,7 +66,6 @@ use Config;
 
 my $TOOL_VERSION = "1.99.10";
 my $ABI_DUMP_VERSION = "3.2";
-my $OLDEST_SUPPORTED_VERSION = "1.18";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
 my $OSgroup = get_OSgroup();
@@ -85,7 +84,7 @@ my ($Help, $ShowVersion, %Descriptor, $TargetLibraryName,
 $TestTool, $DumpAPI, $SymbolsListPath, $CheckHeadersOnly_Opt, $UseDumps,
 $CheckObjectsOnly_Opt, $AppPath, $StrictCompat, $DumpVersion, $ParamNamesPath,
 %RelativeDirectory, $TargetTitle, $TestDump, $LoggingPath,
-%TargetVersion, $InfoMsg, $UseOldDumps, $CrossGcc, %OutputLogPath,
+%TargetVersion, $InfoMsg, $CrossGcc, %OutputLogPath,
 $OutputReportPath, $OutputDumpPath, $ShowRetVal, $SystemRoot_Opt, $DumpSystem,
 $CmpSystems, $TargetLibsPath, $Debug, $CrossPrefix, $UseStaticLibs, $NoStdInc,
 $TargetComponent_Opt, $TargetSysInfo, $TargetHeader, $ExtendedCheck, $Quiet,
@@ -208,7 +207,6 @@ GetOptions("h|help!" => \$Help,
   "d1|old|o=s" => \$Descriptor{1}{"Path"},
   "d2|new|n=s" => \$Descriptor{2}{"Path"},
   "dump|dump-abi|dump_abi=s" => \$DumpAPI,
-  "old-dumps!" => \$UseOldDumps,
 # extra options
   "app|application=s" => \$AppPath,
   "static-libs!" => \$UseStaticLibs,
@@ -408,10 +406,7 @@ GENERAL OPTIONS:
       transfer it anywhere and pass instead of the descriptor. Also
       it can be used for debugging the tool.
       
-      Supported ABI dump versions: 2.0<=V<=$ABI_DUMP_VERSION
-
-  -old-dumps
-      Enable support for old-version ABI dumps ($OLDEST_SUPPORTED_VERSION<=V<2.0).\n";
+      Supported versions of ABI dump: 2.0<=V<=$ABI_DUMP_VERSION\n";
 
 sub HELP_MESSAGE() {
     printMsg("INFO", $HelpMessage."
@@ -11517,7 +11512,7 @@ sub mergeTypes($$$)
     my %Typedef_1 = goToFirst($Type1{"Tid"}, 1, "Typedef");
     my %Typedef_2 = goToFirst($Type2{"Tid"}, 2, "Typedef");
     
-    if(not $UseOldDumps and %Typedef_1 and %Typedef_2
+    if(%Typedef_1 and %Typedef_2
     and $Typedef_1{"Type"} eq "Typedef" and $Typedef_2{"Type"} eq "Typedef"
     and $Typedef_1{"Name"} eq $Typedef_2{"Name"})
     {
@@ -14803,11 +14798,6 @@ sub tNameLock($$)
     
     if($Changed)
     { # different formats
-        if($UseOldDumps)
-        { # old dumps
-            return 0;
-        }
-        
         my %Base1 = get_Type($Tid1, 1);
         while(defined $Base1{"Type"} and $Base1{"Type"} eq "Typedef") {
             %Base1 = get_OneStep_BaseType($Base1{"Tid"}, $TypeInfo{1});
@@ -15907,7 +15897,7 @@ sub get_Summary($)
         $TestResults = "<h2>Test Results</h2><hr/>\n";
         $TestResults .= "<table class='summary'>";
         
-        if(my @Headers = keys(%{$Registered_Headers{1}}))
+        if(my @Headers = get_CheckedHeaders(1))
         {
             my $Headers_Link = "<a href='#Headers' style='color:Blue;'>".($#Headers + 1)."</a>";
             $TestResults .= "<tr><th>Total Header Files</th><td>".$Headers_Link."</td></tr>\n";
@@ -19895,22 +19885,10 @@ sub read_ABI_Dump($$)
             exitStatus("Dump_Version", "incompatible version \'$DVersion\' of specified ABI dump (newer than $TOOL_VERSION)");
         }
     }
+    
     if(majorVersion($DVersion)<2)
-    { # support for old ABI dumps
-        if($UseOldDumps)
-        {
-            if(cmpVersions($DVersion, $OLDEST_SUPPORTED_VERSION)<0) {
-                exitStatus("Dump_Version", "incompatible version \'$DVersion\' of specified ABI dump (older than $OLDEST_SUPPORTED_VERSION)");
-            }
-        }
-        else
-        {
-            my $Msg = "incompatible version \'$DVersion\' of specified ABI dump (allowed only 2.0<=V<=$ABI_DUMP_VERSION)";
-            if(cmpVersions($DVersion, $OLDEST_SUPPORTED_VERSION)>=0) {
-                $Msg .= "\nUse -old-dumps option to use old-version dumps ($OLDEST_SUPPORTED_VERSION<=V<2.0)";
-            }
-            exitStatus("Dump_Version", $Msg);
-        }
+    {
+        exitStatus("Dump_Version", "incompatible version \'$DVersion\' of specified ABI dump (allowed only 2.0<=V<=$ABI_DUMP_VERSION)");
     }
     
     if(defined $ABI->{"ABI_DUMPER_VERSION"})
@@ -20439,12 +20417,7 @@ sub read_Source_DumpInfo($$)
         $Descriptor{$LibVersion}{"Headers"} = "OK";
     }
     foreach my $Identity (sort {$ABI->{"Headers"}{$a}<=>$ABI->{"Headers"}{$b}} keys(%{$ABI->{"Headers"}}))
-    { # headers info is stored in the old dumps in the different way
-        if($UseOldDumps
-        and my $Name = $ABI->{"Headers"}{$Identity}{"Name"})
-        { # support for old dumps: headers info corrected in 1.22
-            $Identity = $Name;
-        }
+    {
         $Registered_Headers{$LibVersion}{$Identity}{"Identity"} = $Identity;
         $Registered_Headers{$LibVersion}{$Identity}{"Pos"} = $ABI->{"Headers"}{$Identity};
     }
@@ -20454,7 +20427,7 @@ sub read_Source_DumpInfo($$)
         $Descriptor{$LibVersion}{"Sources"} = "OK";
     }
     foreach my $Name (sort {$ABI->{"Sources"}{$a}<=>$ABI->{"Sources"}{$b}} keys(%{$ABI->{"Sources"}}))
-    { # headers info is stored in the old dumps in the different way
+    {
         $Registered_Sources{$LibVersion}{$Name}{"Identity"} = $Name;
         $Registered_Sources{$LibVersion}{$Name}{"Pos"} = $ABI->{"Headers"}{$Name};
     }
