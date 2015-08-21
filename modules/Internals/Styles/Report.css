@@ -1,5 +1,6 @@
 body {
     font-family:Arial, sans-serif;
+    background-color:White;
     color:Black;
 }
 hr {
@@ -106,7 +107,7 @@ div.affected {
 table.ptable {
     border-collapse:collapse;
     border:1px outset black;
-    line-height:16px;
+    line-height:1em;
     margin-left:15px;
     margin-top:3px;
     margin-bottom:3px;
