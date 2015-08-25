@@ -71,7 +71,7 @@ my $XML_ABI_DUMP_VERSION = "1.2";
 my $OSgroup = get_OSgroup();
 my $ORIG_DIR = cwd();
 my $TMP_DIR = tempdir(CLEANUP=>1);
-my $LOCALE = "LANG=en_US.UTF-8";
+my $LOCALE = "C.UTF-8";
 
 # Internal modules
 my $MODULES_DIR = get_Modules();
@@ -1483,11 +1483,11 @@ my %UseConv_Real = (
 # ABI Dump
 my %UsedDump;
 
-# OS Compliance
+# Filters
 my %TargetLibs;
 my %TargetHeaders;
 
-# OS Specifics
+# Format of objects
 my $OStarget = $OSgroup;
 my %TargetTools;
 
@@ -6541,7 +6541,7 @@ sub searchForHeaders($)
                     }
                 }
                 if(keys(%Identity)==keys(%{$HeaderName_Paths{$LibVersion}{$Header_Name}}))
-                { # all names are differend with current prefix
+                { # all names are different with current prefix
                     foreach my $Path (keys(%{$HeaderName_Paths{$LibVersion}{$Header_Name}})) {
                         $Registered_Headers{$LibVersion}{$Path}{"Identity"} = $Identity{$Path};
                     }
@@ -8742,13 +8742,9 @@ sub cmd_find($;$$$$)
     return () if(not $Path or not -e $Path);
     if($OSgroup eq "windows")
     {
-        my $DirCmd = get_CmdPath("dir");
-        if(not $DirCmd) {
-            exitStatus("Not_Found", "can't find \"dir\" command");
-        }
         $Path = get_abs_path($Path);
         $Path = path_format($Path, $OSgroup);
-        my $Cmd = $DirCmd." \"$Path\" /B /O";
+        my $Cmd = "dir \"$Path\" /B /O";
         if($MaxDepth!=1) {
             $Cmd .= " /S";
         }
@@ -13120,7 +13116,7 @@ sub mergeSymbols($)
             }
         }
         if($Level eq "Binary"
-        and $OSgroup eq "windows")
+        and $OStarget eq "windows")
         { # register the reason of symbol name change
             if(my $NewSym = $mangled_name{2}{$tr_name{$Symbol}})
             {
@@ -18583,7 +18579,7 @@ sub readSymbols_App($)
     my $Path = $_[0];
     return () if(not $Path);
     my @Imported = ();
-    if($OSgroup eq "macos")
+    if($OStarget eq "macos")
     {
         my $NM = get_CmdPath("nm");
         if(not $NM) {
@@ -18598,7 +18594,7 @@ sub readSymbols_App($)
         }
         close(APP);
     }
-    elsif($OSgroup eq "windows")
+    elsif($OStarget eq "windows")
     {
         my $DumpBinCmd = get_CmdPath("dumpbin");
         if(not $DumpBinCmd) {
@@ -19470,7 +19466,7 @@ sub registerObject($$)
     
     my $Name = get_filename($Path);
     $RegisteredObjects{$LibVersion}{$Name} = $Path;
-    if($OSgroup=~/linux|bsd/i)
+    if($OStarget=~/linux|bsd/i)
     {
         if(my $SONAME = getSONAME($Path)) {
             $RegisteredSONAMEs{$LibVersion}{$SONAME} = $Path;
@@ -19514,7 +19510,7 @@ sub getArch_Object($)
         "sparc:v8plus" => "sparcv9"
     );
     
-    if($OSgroup eq "windows")
+    if($OStarget eq "windows")
     {
         my $DumpbinCmd = get_CmdPath("dumpbin");
         if(not $DumpbinCmd) {
@@ -19532,7 +19528,7 @@ sub getArch_Object($)
             }
         }
     }
-    elsif($OSgroup=~/linux|bsd/)
+    elsif($OStarget=~/linux|bsd/)
     {
         my $ObjdumpCmd = get_CmdPath("objdump");
         if(not $ObjdumpCmd) {
@@ -19540,7 +19536,14 @@ sub getArch_Object($)
         }
         
         my $Cmd = $ObjdumpCmd." -f \"$Path\"";
-        my $Out = `$LOCALE $Cmd`;
+        
+        if($OSgroup eq "windows") {
+            $Cmd = "set LANG=$LOCALE & ".$Cmd;
+        }
+        else {
+            $Cmd = "LANG=$LOCALE ".$Cmd;
+        }
+        my $Out = `$Cmd`;
         
         if($Out=~/architecture:\s+([\w\-\:]+)/)
         {
@@ -20650,8 +20653,8 @@ sub detect_default_paths($)
         $HSearch = 0;
     }
     if(@{$SystemPaths{"lib"}})
-    { # <search_headers> section of the XML descriptor
-      # do NOT search for systems headers
+    { # <search_libs> section of the XML descriptor
+      # do NOT search for systems libraries
         $LSearch = 0;
     }
     foreach my $Type (keys(%{$OS_AddPath{$OSgroup}}))
@@ -20799,7 +20802,13 @@ sub detect_default_paths($)
             {
                 my $GccTarget = get_dumpmachine($GCC_PATH);
                 printMsg("INFO", "Using GCC $GCC_Ver ($GccTarget, target: ".getArch_GCC(1).")");
-                if($GccTarget=~/symbian/)
+                
+                if($GccTarget=~/linux/)
+                {
+                    $OStarget = "linux";
+                    $LIB_EXT = $OS_LibExt{$LIB_TYPE}{$OStarget};
+                }
+                elsif($GccTarget=~/symbian/)
                 {
                     $OStarget = "symbian";
                     $LIB_EXT = $OS_LibExt{$LIB_TYPE}{$OStarget};
