@@ -22398,7 +22398,13 @@ sub scenario()
             if(not -f $DumpSystem) {
                 exitStatus("Access_Error", "can't access file \'$DumpSystem\'");
             }
-            my $Ret = readSystemDescriptor(readFile($DumpSystem));
+            
+            my $SDesc = readFile($DumpSystem);
+            if(my $RelDir = $RelativeDirectory{1}) {
+                $SDesc =~ s/{RELPATH}/$RelDir/g;
+            }
+            
+            my $Ret = readSystemDescriptor($SDesc);
             foreach (@{$Ret->{"Tools"}})
             {
                 push_U($SystemPaths{"bin"}, $_);
