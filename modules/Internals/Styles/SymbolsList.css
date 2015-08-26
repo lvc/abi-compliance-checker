@@ -1,6 +1,5 @@
 body {
     font-family:Arial, sans-serif;
-    font-size:14px;
     background-color:White;
     color:Black;
 }
@@ -11,18 +10,18 @@ hr {
     border:0;
 }
 h1 {
-    font-size:26px;
+    margin-bottom:0px;
+    padding-bottom:0px;
+    font-size:1.625em;
 }
 span.iname {
     font-weight:bold;
-    font-size:16px;
     color:#003E69;
     margin-left:5px;
 }
 span.section {
     font-weight:bold;
     cursor:pointer;
-    font-size:16px;
     color:#003E69;
     white-space:nowrap;
     margin-left:5px;
@@ -32,16 +31,16 @@ span:hover.section {
 }
 span.h_name {
     color:#cc3300;
-    font-size:14px;
+    font-size:0.875em;
     font-weight:bold;
 }
 span.ns {
     color:#408080;
-    font-size:15px;
+    font-size:0.94em;
 }
 span.lib_name {
     color:Green;
-    font-size:14px;
+    font-size:0.875em;
     font-weight:bold;
 }
 span.sym_p {
@@ -54,7 +53,7 @@ span.sym_kind {
 }
 span.mangled {
     padding-left:15px;
-    font-size:13px;
+    font-size:0.875em;
     cursor:text;
     color:#444444;
 }
