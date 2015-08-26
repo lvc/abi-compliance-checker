@@ -25,14 +25,13 @@ use strict;
 
 my ($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode, $ReportFormat,
 $DumpFormat, $LIB_EXT, $GCC_PATH, $SortDump,
-$CheckHeadersOnly, $CheckObjectsOnly);
+$CheckHeadersOnly);
 my $OSgroup = get_OSgroup();
 
 sub testTool($$$$$$$$$$$)
 {
     ($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode, $ReportFormat,
-    $DumpFormat, $LIB_EXT, $GCC_PATH, $SortDump,
-    $CheckHeadersOnly, $CheckObjectsOnly) = @_;
+    $DumpFormat, $LIB_EXT, $GCC_PATH, $SortDump, $CheckHeadersOnly) = @_;
     
     testC();
     testCpp();
@@ -4848,9 +4847,6 @@ sub runTests($$$$$$$$)
     }
     if($CheckHeadersOnly) {
         @Cmd = (@Cmd, "-headers-only");
-    }
-    if($CheckObjectsOnly) {
-        @Cmd = (@Cmd, "-objects-only");
     }
     if($Debug)
     { # debug mode
