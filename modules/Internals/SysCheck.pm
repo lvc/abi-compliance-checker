@@ -987,7 +987,7 @@ sub cmpSystems($$$)
     my $Styles = readModule("Styles", "CmpSystems.css");
     
     $SYS_REPORT = composeHTML_Head($Title, $Keywords, $Description, $Styles, "")."\n<body>\n<div>".$SYS_REPORT."</div>\n";
-    $SYS_REPORT .= "<br/><br/><br/><hr/>\n".getReportFooter($SystemName2, 1)."<div style='height:999px;'></div>\n</body></html>";
+    $SYS_REPORT .= "<br/><br/><br/><hr/>\n".getReportFooter("Single")."<div style='height:999px;'></div>\n</body></html>";
     
     if($SourceOnly) {
         $SYS_REPORT = "<!-\- kind:source;".join(";", @{$META_DATA{"Source"}})." -\->\n".$SYS_REPORT;
