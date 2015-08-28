@@ -9718,7 +9718,7 @@ sub cleanDump($)
     }
 }
 
-sub selectType($$)
+sub pickType($$)
 {
     my ($Tid, $LibVersion) = @_;
     
@@ -9733,25 +9733,49 @@ sub selectType($$)
         }
     }
     
+    my $THeader = $TypeInfo{$LibVersion}{$Tid}{"Header"};
+    
+    if(isBuiltIn($THeader)) {
+        return 0;
+    }
+    
+    if($TypeInfo{$LibVersion}{$Tid}{"Type"}!~/Class|Struct|Union|Enum|Typedef/) {
+        return 0;
+    }
+    
+    if(isAnon($TypeInfo{$LibVersion}{$Tid}{"Name"})) {
+        return 0;
+    }
+    
+    if(selfTypedef($Tid, $LibVersion)) {
+        return 0;
+    }
+    
+    if(not isTargetType($Tid, $LibVersion)) {
+        return 0;
+    }
+    
+    return 0;
+}
+
+sub isTargetType($$)
+{
+    my ($Tid, $LibVersion) = @_;
+    
+    if($TypeInfo{$LibVersion}{$Tid}{"Type"}!~/Class|Struct|Union|Enum|Typedef/)
+    { # derived
+        return 1;
+    }
+    
     if(my $THeader = $TypeInfo{$LibVersion}{$Tid}{"Header"})
     {
-        if(not isBuiltIn($THeader))
-        {
-            if($TypeInfo{$LibVersion}{$Tid}{"Type"}=~/Class|Struct|Union|Enum|Typedef/)
-            {
-                if(not isAnon($TypeInfo{$LibVersion}{$Tid}{"Name"}))
-                {
-                    if(is_target_header($THeader, $LibVersion))
-                    { # from target headers
-                        if(not selfTypedef($Tid, $LibVersion)) {
-                            return 1;
-                        }
-                    }
-                }
-            }
+        if(not is_target_header($THeader, $LibVersion))
+        { # from target headers
+            return 0;
         }
     }
-    return 0;
+    
+    return 1;
 }
 
 sub remove_Unused($$)
@@ -9773,7 +9797,7 @@ sub remove_Unused($$)
         
         if($Kind eq "Extended")
         {
-            if(selectType($Tid, $LibVersion))
+            if(pickType($Tid, $LibVersion))
             {
                 my %Tree = ();
                 register_TypeUsage($Tid, \%Tree, $LibVersion);
@@ -9969,7 +9993,7 @@ sub addExtension($)
     my $LibVersion = $_[0];
     foreach my $Tid (sort {int($a)<=>int($b)} keys(%{$TypeInfo{$LibVersion}}))
     {
-        if(selectType($Tid, $LibVersion))
+        if(pickType($Tid, $LibVersion))
         {
             my $TName = $TypeInfo{$LibVersion}{$Tid}{"Name"};
             $TName=~s/\A(struct|union|class|enum) //;
@@ -11400,6 +11424,13 @@ sub mergeTypes($$$)
     return {} if($SkipTypes{1}{$Type1_Pure{"Name"}});
     return {} if($SkipTypes{1}{$Type1{"Name"}});
     
+    if(defined $TargetHeadersPath)
+    {
+        if(not isTargetType($Type1_Pure{"Tid"}, 1)) {
+            return {};
+        }
+    }
+    
     if($Type1_Pure{"Type"}=~/Class|Struct/ and $Type2_Pure{"Type"}=~/Class|Struct/)
     { # support for old ABI dumps
       # _vptr field added in 3.0
@@ -12376,6 +12407,13 @@ sub symbolFilter($$$$)
     if(defined $SkipInternal)
     {
         return 0 if($Symbol=~/($SkipInternal)/);
+    }
+    
+    if($Symbol=~/\A_Z/)
+    {
+        if($Symbol=~/[CD][3-4]E/) {
+            return 0;
+        }
     }
     
     if($CheckHeadersOnly and not checkDump($LibVersion, "2.7"))
@@ -16370,10 +16408,17 @@ sub applyMacroses($$$$)
         or $Value eq "") {
             next;
         }
-        if($Value=~/\s\(/ and $Value!~/['"]/)
+        
+        if(index($Content, $Macro)==-1) {
+            next;
+        }
+        
+        if($Kind!~/\A(Changed|Added|Removed)_Constant\Z/
+        and $Kind!~/_Type_/
+        and $Value=~/\s\(/ and $Value!~/['"]/)
         { # functions
             $Value=~s/\s*\[[\w\-]+\]//g; # remove quals
-            $Value=~s/\s\w+(\)|,)/$1/g; # remove parameter names
+            $Value=~s/\s[a-z]\w*(\)|,)/$1/ig; # remove parameter names
             $Value = black_name($Value);
         }
         elsif($Value=~/\s/) {
@@ -16524,13 +16569,13 @@ sub get_Report_SymbolProblems($$)
                 foreach my $NameSpace (sort keys(%NameSpaceSymbols))
                 {
                     $INTERFACE_PROBLEMS .= getTitle($HeaderName, $DyLib, $NameSpace);
-                    my @SortedInterfaces = sort {lc($tr_name{$a}?$tr_name{$a}:$a) cmp lc($tr_name{$b}?$tr_name{$b}:$b)} keys(%{$NameSpaceSymbols{$NameSpace}});
+                    my @SortedInterfaces = sort {lc($tr_name{$a}?$tr_name{$a}:$a) cmp lc($tr_name{$b}?$tr_name{$b}:$b)} sort keys(%{$NameSpaceSymbols{$NameSpace}});
                     foreach my $Symbol (@SortedInterfaces)
                     {
                         my $Signature = get_Signature($Symbol, 1);
                         my $SYMBOL_REPORT = "";
                         my $ProblemNum = 1;
-                        foreach my $Kind (keys(%{$SymbolChanges{$Symbol}}))
+                        foreach my $Kind (sort keys(%{$SymbolChanges{$Symbol}}))
                         {
                             foreach my $Location (sort keys(%{$SymbolChanges{$Symbol}{$Kind}}))
                             {
