@@ -22279,10 +22279,15 @@ sub scenario()
     if($BinaryOnly and $SourceOnly)
     { # both --binary and --source
       # is the default mode
+        if(not $CmpSystems)
+        {
+            $BinaryOnly = 0;
+            $SourceOnly = 0;
+        }
+        
         $DoubleReport = 1;
         $JoinReport = 0;
-        $BinaryOnly = 0;
-        $SourceOnly = 0;
+        
         if($OutputReportPath)
         { # --report-path
             $DoubleReport = 0;
