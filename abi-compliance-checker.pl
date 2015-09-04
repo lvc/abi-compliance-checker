@@ -17442,8 +17442,8 @@ sub getReport($)
             $CssStyles .= "\n".readModule("Styles", "Tabs.css");
             $JScripts .= "\n".readModule("Scripts", "Tabs.js");
             my $Title = $TargetTitle.": ".$Descriptor{1}{"Version"}." to ".$Descriptor{2}{"Version"}." compatibility report";
-            my $Keywords = $TargetTitle.", compatibility, API, report";
-            my $Description = "Compatibility report for the $TargetTitle $TargetComponent between ".$Descriptor{1}{"Version"}." and ".$Descriptor{2}{"Version"}." versions";
+            my $Keywords = $TargetTitle.", compatibility, API, ABI, report";
+            my $Description = "API/ABI compatibility report for the $TargetTitle $TargetComponent between ".$Descriptor{1}{"Version"}." and ".$Descriptor{2}{"Version"}." versions";
             my ($BSummary, $BMetaData) = get_Summary("Binary");
             my ($SSummary, $SMetaData) = get_Summary("Source");
             my $Report = "<!-\- $BMetaData -\->\n<!-\- $SMetaData -\->\n".composeHTML_Head($Title, $Keywords, $Description, $CssStyles, $JScripts)."<body><a name='Source'></a><a name='Binary'></a><a name='Top'></a>";
@@ -17454,7 +17454,7 @@ sub getReport($)
             </div>";
             $Report .= "<div id='BinaryTab' class='tab'>\n$BSummary\n".get_Report_Added("Binary").get_Report_Removed("Binary").get_Report_Problems("High", "Binary").get_Report_Problems("Medium", "Binary").get_Report_Problems("Low", "Binary").get_Report_Problems("Safe", "Binary").get_SourceInfo()."<br/><br/><br/></div>";
             $Report .= "<div id='SourceTab' class='tab'>\n$SSummary\n".get_Report_Added("Source").get_Report_Removed("Source").get_Report_Problems("High", "Source").get_Report_Problems("Medium", "Source").get_Report_Problems("Low", "Source").get_Report_Problems("Safe", "Source").get_SourceInfo()."<br/><br/><br/></div>";
-            $Report .= getReportFooter("Double");
+            $Report .= getReportFooter();
             $Report .= "\n</body></html>\n";
             return $Report;
         }
@@ -17476,8 +17476,8 @@ sub getReport($)
             $Report .= get_Report_Added($Level).get_Report_Removed($Level);
             $Report .= get_Report_Problems("High", $Level).get_Report_Problems("Medium", $Level).get_Report_Problems("Low", $Level).get_Report_Problems("Safe", $Level);
             $Report .= get_SourceInfo();
-            $Report .= "</div>\n<br/><br/><br/><hr/>\n";
-            $Report .= getReportFooter("Single");
+            $Report .= "</div>\n<br/><br/><br/>\n";
+            $Report .= getReportFooter();
             $Report .= "\n</body></html>\n";
             return $Report;
         }
@@ -17519,19 +17519,16 @@ sub createReport()
     }
 }
 
-sub getReportFooter($)
+sub getReportFooter()
 {
-    my $Type = $_[0];
-    my $Class = "footer";
+    my $Footer = "";
     
-    if($Type eq "Double") {
-        $Class .= " double_report";
-    }
-    
-    my $Footer = "<div class=\'$Class\' align='right'><i>Generated on ".(localtime time);
+    $Footer .= "<hr/>";
+    $Footer .= "<div class='footer' align='right'><i>Generated on ".localtime(time);
     $Footer .= " by <a href='".$HomePage."'>ABI Compliance Checker</a> $TOOL_VERSION &#160;";
     $Footer .= "</i></div>";
-    $Footer .= "<br/>";
+    $Footer .= "<br/>\n";
+    
     return $Footer;
 }
 
@@ -21119,7 +21116,7 @@ sub createSymbolsList($$$$$)
     my $Description = "List of symbols in $LName ($LVersion) on ".showArch($ArchName);
     $SYMBOLS_LIST = composeHTML_Head($Title, $Keywords, $Description, $CssStyles, $JScripts)."
     <body><div>\n$SYMBOLS_LIST</div>
-    <br/><br/><hr/>\n".getReportFooter("Single")."
+    <br/><br/>\n".getReportFooter()."
     </body></html>";
     writeFile($SaveTo, $SYMBOLS_LIST);
 }

@@ -2,7 +2,7 @@
     float:left;
 }
 a.tab {
-    border:1px solid #AAA;
+    border:1px solid Black;
     float:left;
     margin:0px 5px -1px 0px;
     padding:3px 5px 3px 5px;
@@ -27,12 +27,8 @@ a.active {
     background-color:White;
 }
 div.tab {
-    border:1px solid #AAA;
-    padding:0 7px 0 12px;
-    width:97%;
+    border-top:1px solid Black;
+    padding:0px;
+    width:100%;
     clear:both;
-}
-div.double_report {
-    width:97%;
-    padding:7px 0 0 12px;
 }
