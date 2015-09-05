@@ -4077,6 +4077,43 @@ sub testC()
         $DECL_SPEC void* returnTypeChangeToVoidPtr(int param);";
     $SOURCE2 .= "
         void* returnTypeChangeToVoidPtr(int param) { return (void*)0; }";
+    
+    # Return_Type (structure change)
+    $HEADER1 .= "
+        struct SomeStruct2 {
+            int a;
+            int b;
+        };
+        $DECL_SPEC struct SomeStruct2 returnType2(int param);";
+    $SOURCE1 .= "
+        struct SomeStruct2 returnType2(int param) { struct SomeStruct2 r = {1, 2};return r; }";
+    
+    $HEADER2 .= "
+        struct SomeStruct2 {
+            int a;
+        };
+        $DECL_SPEC struct SomeStruct2 returnType2(int param);";
+    $SOURCE2 .= "
+        struct SomeStruct2 returnType2(int param) { struct SomeStruct2 r = {1};return r; }";
+        
+    # Return_Type (structure change)
+    $HEADER1 .= "
+        struct SomeStruct3 {
+            int a;
+            int b;
+        };
+        $DECL_SPEC struct SomeStruct3 returnType3(int param);";
+    $SOURCE1 .= "
+        struct SomeStruct3 returnType3(int param) { struct SomeStruct3 r = {1, 2};return r; }";
+    
+    $HEADER2 .= "
+        struct SomeStruct3 {
+            int a;
+            long double b;
+        };
+        $DECL_SPEC struct SomeStruct3 returnType3(int param);";
+    $SOURCE2 .= "
+        struct SomeStruct3 returnType3(int param) { struct SomeStruct3 r = {1, 2.0L};return r; }";
 
     # Return_Type_From_Void_And_Stack_Layout ("void" to "struct")
     $HEADER1 .= "
@@ -4739,12 +4776,12 @@ sub runTests($$$$$$$$)
                     changedDefaultVersion;
                 };
             ");
-            $BuildCmd = $GCC_PATH." -Wl,--version-script version -shared libsample.$Ext -o libsample.$LIB_EXT -g";
+            $BuildCmd = $GCC_PATH." -Wl,--version-script version -shared libsample.$Ext -o libsample.$LIB_EXT -g -Og";
             $BuildCmd_Test = $GCC_PATH." -Wl,--version-script version test.$Ext -Wl,libsample.$LIB_EXT -o test";
         }
         else
         {
-            $BuildCmd = $GCC_PATH." -shared -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT -g";
+            $BuildCmd = $GCC_PATH." -shared -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT -g -Og";
             $BuildCmd_Test = $GCC_PATH." -x c++ test.$Ext -lstdc++ -Wl,libsample.$LIB_EXT -o test";
         }
         if(getArch_GCC(1)=~/\A(arm|x86_64)\Z/i)
@@ -4771,12 +4808,12 @@ sub runTests($$$$$$$$)
       # symbian target
         if($Lang eq "C")
         {
-            $BuildCmd = $GCC_PATH." -shared libsample.$Ext -o libsample.$LIB_EXT -g";
+            $BuildCmd = $GCC_PATH." -shared libsample.$Ext -o libsample.$LIB_EXT -g -Og";
             $BuildCmd_Test = $GCC_PATH." test.$Ext -Wl,libsample.$LIB_EXT -o test";
         }
         else
         { # C++
-            $BuildCmd = $GCC_PATH." -shared -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT -g";
+            $BuildCmd = $GCC_PATH." -shared -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT -g -Og";
             $BuildCmd_Test = $GCC_PATH." -x c++ test.$Ext -Wl,libsample.$LIB_EXT -o test";
         }
     }
