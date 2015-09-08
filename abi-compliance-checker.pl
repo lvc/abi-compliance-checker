@@ -5,8 +5,8 @@
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-# Copyright (C) 2012-2013 ROSA Laboratory
-# Copyright (C) 2013-2015 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2011-2012 ROSA Laboratory
+# Copyright (C) 2012-2015 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -403,11 +403,14 @@ EXTRA OPTIONS:
       Check static libraries instead of the shared ones. The <libs> section
       of the XML-descriptor should point to static libraries location.
 
-  -cross-gcc|-gcc-path PATH
+  -gcc-path PATH
       Path to the cross GCC compiler to use instead of the usual (host) GCC.
 
-  -cross-prefix|-gcc-prefix PREFIX
+  -gcc-prefix PREFIX
       GCC toolchain prefix.
+  
+  -gcc-options OPTS
+      Additional compiler options.
 
   -sysroot DIR
       Specify the alternative root directory. The tool will search for include

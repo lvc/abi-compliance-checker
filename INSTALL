@@ -1,8 +1,8 @@
 
 Copyright (C) 2009-2011 Institute for System Programming, RAS
 Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-Copyright (C) 2012-2013 ROSA Laboratory
-Copyright (C) 2013-2015 Andrey Ponomarenko's ABI Laboratory
+Copyright (C) 2011-2012 ROSA Laboratory
+Copyright (C) 2012-2015 Andrey Ponomarenko's ABI Laboratory
 All rights reserved.
 
 
@@ -10,7 +10,7 @@ RELEASE INFORMATION
 
 Project:           ABI Compliance Checker (ACC)
 Version:           1.99.10
-Date:              2015-09-06
+Date:              2015-09-08
 
 
 This file explains how to install and setup environment

@@ -1,8 +1,20 @@
 NAME:
-  ABI Compliance Checker (ACC) - a tool for checking backward binary and source-level compatibility of a shared C/C++ library API.
+  ABI Compliance Checker (ACC) - a tool for checking backward binary and source-level compatibility of a C/C++ software library.
+  
+  The tool checks header files and shared objects of old and new versions and analyzes changes in API/ABI that may break binary and/or source compatibility: changes in calling stack, v-table changes, removed symbols, renamed fields, etc.
+  
+  The tool is intended for developers of software libraries and Linux maintainers who are interested in ensuring backward compatibility, i.e. allow old applications to run or to be recompiled with newer library versions.
+  
+  The tool is developed by Andrey Ponomarenko. You can order additional reports for visualization of the ABI structure and high detailed binary compatibility analysis here: http://abi-laboratory.pro/
 
 INSTALL:
-  sudo perl Makefile.pl -install --prefix=/usr
+  sudo make install prefix=/usr
+
+REQUIRES:
+  Perl 5
+  G++
+  GNU Binutils
+  Ctags
 
 USAGE:
   abi-compliance-checker -lib NAME -old OLD.xml -new NEW.xml
@@ -29,8 +41,8 @@ COMPATIBILITY:
   
 USAGE WITH ABI DUMPER:
 
-   1. Library should be compiled with -g
-      option to contain DWARF debug info
+   1. Library should be compiled with "-g -Og" GCC options
+      to contain DWARF debug info
       
    2. Create ABI dumps for both library versions
       using the ABI Dumper (https://github.com/lvc/abi-dumper) tool:

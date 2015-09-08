@@ -3,8 +3,8 @@
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-# Copyright (C) 2012-2013 ROSA Laboratory
-# Copyright (C) 2013-2015 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2011-2012 ROSA Laboratory
+# Copyright (C) 2012-2015 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -1735,7 +1735,7 @@ sub dumpSystem($)
         my $Count = keys(%{$SysLib_Symbols{$LPath}});
         my %Prefixes = %{$LibPrefix{$LPath}};
         my @Prefixes = sort {$Prefixes{$b}<=>$Prefixes{$a}} keys(%Prefixes);
-        # print "$LPath ".Dumper(\%Prefixes);
+        
         if($#Prefixes>=1)
         {
             my $MaxPrefix = $Prefixes[0];
@@ -1770,7 +1770,6 @@ sub dumpSystem($)
                     next if($MaxPrefix=~/\Q$Prefix\E/i);
                     next if($Prefix=~/\Q$SName\E/i);
                     
-                    # print "Removing $Prefix $Num\n";
                     foreach my $Symbol (keys(%{$PrefixSymbols{$LPath}{$Prefix}})) {
                         delete($SysLib_Symbols{$LPath}{$Symbol});
                     }

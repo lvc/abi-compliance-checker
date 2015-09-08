@@ -44,6 +44,102 @@
 <p/>
 <br/>
 
+<b>Version 1.99.10 (September 08, 2015)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Improved style of the report
+    </li>
+    <li>
+        New documentation
+    </li>
+    <li>
+        Added more test cases
+    </li>
+</ul>
+<b>New Options</b>
+<ul>
+    <li>
+        -types-list: specify a list of types that should be checked
+    </li>
+    <li>
+        -gcc-options: specify additional compiler options
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Limited number of affected symbols shown for each BC problem in the report
+    </li>
+    <li>
+        Fixed check of the DataType_Size_And_Stack rule
+    </li>
+    <li>
+        Fixed checks of base classes
+    </li>
+    <li>
+        Carefully substitute parameters in rules
+    </li>
+    <li>
+        Allow to check for source-compatibility in the -cmp-systems mode by specifying both -bin and -src options
+    </li>
+    <li>
+        Fixed sorting of problems listed in the report
+    </li>
+    <li>
+        Limit number of checked types if -headers-list option is specified
+    </li>
+    <li>
+        Fixed -headers-list and -skip-symbols options
+    </li>
+    <li>
+        Fixed cross-platform issues
+    </li>
+    <li>
+        Set LANG=C.UTF-8 for objdump
+    </li>
+    <li>
+        Fixed list of headers in the report
+    </li>
+    <li>
+        Fixed number of checked headers in the report summary. Removed support for old dumps &lt; 1.18
+    </li>
+    <li>
+        Renamed -lib-full option to -title
+    </li>
+    <li>
+        Carefully detect architecture of input objects and word size
+    </li>
+    <li>
+        Corrected detection of the GCC target architecture
+    </li>
+    <li>
+        More accurate checking of ABI dump names
+    </li>
+    <li>
+        Fixed regressions with SysCheck.pm module
+    </li>
+    <li>
+        Removed obsolete code and options
+    </li>
+    <li>
+        Fixed the objdump command line when the path contains spaces
+    </li>
+    <li>
+        Simplified Makefile
+    </li>
+    <li>
+        Do not install system descriptors to PREFIX/share
+    </li>
+    <li>
+        Take -relpath option into account in the SysCheck.pm module
+    </li>
+    <li>
+        Fixed CSS styles of the CmpSystems module
+    </li>
+</ul>
+<br/>
+
 <b>Version 1.99.9 (January 23, 2014)</b><br/>
 <b>New Options</b>
 <ul>
