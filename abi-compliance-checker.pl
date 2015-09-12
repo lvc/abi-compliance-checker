@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 1.99.10
+# ABI Compliance Checker (ABICC) 1.99.11
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -64,7 +64,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.10";
+my $TOOL_VERSION = "1.99.11";
 my $ABI_DUMP_VERSION = "3.2";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -10317,7 +10317,7 @@ sub isAccessible($$$$)
     if($End==-1) {
         $End = keys(%{$TypePtr->{"Memb"}})-1;
     }
-    foreach my $MemPos (keys(%{$TypePtr->{"Memb"}}))
+    foreach my $MemPos (sort {int($a)<=>int($b)} keys(%{$TypePtr->{"Memb"}}))
     {
         if($Skip and $Skip->{$MemPos})
         { # skip removed/added fields
@@ -22546,8 +22546,10 @@ sub scenario()
         if(not -f $SkipSymbolsListPath) {
             exitStatus("Access_Error", "can't access file \'$SkipSymbolsListPath\'");
         }
-        foreach my $Interface (split(/\s*\n\s*/, readFile($SkipSymbolsListPath))) {
-            $SkipSymbols{$Interface} = 1;
+        foreach my $Interface (split(/\s*\n\s*/, readFile($SkipSymbolsListPath)))
+        {
+            $SkipSymbols{1}{$Interface} = 1;
+            $SkipSymbols{2}{$Interface} = 1;
         }
     }
     if($SkipHeadersPath)
