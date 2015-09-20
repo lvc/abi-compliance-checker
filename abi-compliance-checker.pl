@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 1.99.11
+# ABI Compliance Checker (ABICC) 1.99.12
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -64,7 +64,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.11";
+my $TOOL_VERSION = "1.99.12";
 my $ABI_DUMP_VERSION = "3.2";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -195,8 +195,8 @@ GetOptions("h|help!" => \$Help,
   "gcc-prefix|cross-prefix=s" => \$CrossPrefix,
   "gcc-options=s" => \$GccOptions,
   "sysroot=s" => \$SystemRoot_Opt,
-  "v1|version1|vnum=s" => \$TargetVersion{1},
-  "v2|version2=s" => \$TargetVersion{2},
+  "v1|vnum1|version1|vnum=s" => \$TargetVersion{1},
+  "v2|vnum2|version2=s" => \$TargetVersion{2},
   "s|strict!" => \$StrictCompat,
   "symbols-list=s" => \$SymbolsListPath,
   "types-list=s" => \$TypesListPath,
@@ -1226,12 +1226,9 @@ my $GLIBC_TESTING = 0;
 my $CPP_HEADERS = 0;
 
 my $CheckHeadersOnly = $CheckHeadersOnly_Opt;
-
-my $TargetComponent;
-
 my $CheckUndefined = 0;
 
-# Set Target Component Name
+my $TargetComponent = undef;
 if($TargetComponent_Opt) {
     $TargetComponent = lc($TargetComponent_Opt);
 }
@@ -15319,26 +15316,36 @@ sub get_Report_Title($)
         $Title .= "API compatibility";
     }
     
+    my $V1 = $Descriptor{1}{"Version"};
+    my $V2 = $Descriptor{2}{"Version"};
+    
     if($UsedDump{1}{"DWARF"} and $UsedDump{2}{"DWARF"})
     {
         my $M1 = $UsedDump{1}{"M"};
         my $M2 = $UsedDump{2}{"M"};
         
-        if($M1 eq $M2)
+        my $M1S = $M1;
+        my $M2S = $M2;
+        
+        $M1S=~s/(\.so|\.ko)\..+/$1/ig;
+        $M2S=~s/(\.so|\.ko)\..+/$1/ig;
+        
+        if($M1S eq $M2S
+        and $V1 ne "X" and $V2 ne "Y")
         {
-            $Title .= " report for the <span style='color:Blue;'>$M1</span> object";
-            $Title .= " between <span style='color:Red;'>".$Descriptor{1}{"Version"}."</span> and <span style='color:Red;'>".$Descriptor{2}{"Version"}."</span> versions";
+            $Title .= " report for the <span style='color:Blue;'>$M1S</span> $TargetComponent";
+            $Title .= " between <span style='color:Red;'>".$V1."</span> and <span style='color:Red;'>".$V2."</span> versions";
         }
         else
         {
-            $Title .= " report between <span style='color:Blue;'>$M1</span> (<span style='color:Red;'>".$Descriptor{1}{"Version"}."</span>)";
-            $Title .= " and <span style='color:Blue;'>$M2</span> (<span style='color:Red;'>".$Descriptor{2}{"Version"}."</span>) objects";
+            $Title .= " report between <span style='color:Blue;'>$M1</span> (<span style='color:Red;'>".$V1."</span>)";
+            $Title .= " and <span style='color:Blue;'>$M2</span> (<span style='color:Red;'>".$V2."</span>) objects";
         }
     }
     else
     {
         $Title .= " report for the <span style='color:Blue;'>$TargetTitle</span> $TargetComponent";
-        $Title .= " between <span style='color:Red;'>".$Descriptor{1}{"Version"}."</span> and <span style='color:Red;'>".$Descriptor{2}{"Version"}."</span> versions";
+        $Title .= " between <span style='color:Red;'>".$V1."</span> and <span style='color:Red;'>".$V2."</span> versions";
     }
     
     $Title .= $ArchInfo;
@@ -15771,7 +15778,13 @@ sub get_Summary($)
         # test info
         $TestInfo = "<h2>Test Info</h2><hr/>\n";
         $TestInfo .= "<table class='summary'>\n";
-        $TestInfo .= "<tr><th>".ucfirst($TargetComponent)." Name</th><td>$TargetTitle</td></tr>\n";
+        
+        if($TargetComponent eq "library") { 
+            $TestInfo .= "<tr><th>Library Name</th><td>$TargetTitle</td></tr>\n";
+        }
+        else {
+            $TestInfo .= "<tr><th>Module Name</th><td>$TargetTitle</td></tr>\n";
+        }
         
         my (@VInf1, @VInf2, $AddTestInfo) = ();
         if($Arch1 ne "unknown"
@@ -16093,12 +16106,12 @@ sub get_Report_ChangedConstants($$)
                 {
                     my $Change = applyMacroses($Level, $Kind, $CompatRules{$Level}{$Kind}{"Change"}, $CompatProblems_Constants{$Level}{$Constant}{$Kind});
                     my $Effect = $CompatRules{$Level}{$Kind}{"Effect"};
-                    $Report .= "<tr><th>1</th><td align='left' valign='top'>".$Change."</td><td align='left' valign='top'>$Effect</td></tr>\n";
+                    $Report .= "<tr>\n<th>1</th>\n<td align='left' valign='top'>".$Change."</td>\n<td align='left' valign='top'>$Effect</td>\n</tr>\n";
                     $Number += 1;
                 }
                 if($Report)
                 {
-                    $Report = $ContentDivStart."<table class='ptable'><tr><th width='2%'></th><th width='47%'>Change</th><th>Effect</th></tr>".$Report."</table><br/>$ContentDivEnd\n";
+                    $Report = $ContentDivStart."<table class='ptable'>\n<tr>\n<th width='2%'></th>\n<th width='47%'>Change</th>\n<th>Effect</th>\n</tr>\n".$Report."</table>\n<br/>\n$ContentDivEnd\n";
                     $Report = $ContentSpanStart."<span class='extendable'>[+]</span> ".$Constant.$ContentSpanEnd."<br/>\n".$Report;
                     $Report = insertIDs($Report);
                 }
@@ -16206,7 +16219,7 @@ sub get_Report_Added($)
                         if($Interface=~/\A(_Z|\?)/)
                         {
                             if($Signature) {
-                                $ADDED_INTERFACES .= insertIDs($ContentSpanStart.highLight_Signature_Italic_Color($Signature).$ContentSpanEnd."<br/>\n".$ContentDivStart."<span class='mangled'>[symbol: <b>$Interface</b>]</span><br/><br/>".$ContentDivEnd."\n");
+                                $ADDED_INTERFACES .= insertIDs($ContentSpanStart.highLight_Signature_Italic_Color($Signature).$ContentSpanEnd."<br/>\n".$ContentDivStart."<span class='mangled'>[symbol: <b>$Interface</b>]</span>\n<br/>\n<br/>\n".$ContentDivEnd."\n");
                             }
                             else {
                                 $ADDED_INTERFACES .= "<span class=\"iname\">".$Interface."</span><br/>\n";
@@ -16302,7 +16315,7 @@ sub get_Report_Removed($)
                         if($Symbol=~/\A(_Z|\?)/)
                         {
                             if($Signature) {
-                                $REMOVED_INTERFACES .= insertIDs($ContentSpanStart.highLight_Signature_Italic_Color($Signature).$ContentSpanEnd."<br/>\n".$ContentDivStart."<span class='mangled'>[symbol: <b>$Symbol</b>]</span><br/><br/>".$ContentDivEnd."\n");
+                                $REMOVED_INTERFACES .= insertIDs($ContentSpanStart.highLight_Signature_Italic_Color($Signature).$ContentSpanEnd."<br/>\n".$ContentDivStart."<span class='mangled'>[symbol: <b>$Symbol</b>]</span>\n<br/>\n<br/>\n".$ContentDivEnd."\n");
                             }
                             else {
                                 $REMOVED_INTERFACES .= "<span class=\"iname\">".$Symbol."</span><br/>\n";
@@ -16590,7 +16603,7 @@ sub get_Report_SymbolProblems($$)
                                 if(my $Change = applyMacroses($Level, $Kind, $CompatRules{$Level}{$Kind}{"Change"}, \%Problem))
                                 {
                                     my $Effect = applyMacroses($Level, $Kind, $CompatRules{$Level}{$Kind}{"Effect"}, \%Problem);
-                                    $SYMBOL_REPORT .= "<tr><th>$ProblemNum</th><td align='left' valign='top'>".$Change."</td><td align='left' valign='top'>".$Effect."</td></tr>\n";
+                                    $SYMBOL_REPORT .= "<tr>\n<th>$ProblemNum</th>\n<td align='left' valign='top'>".$Change."</td>\n<td align='left' valign='top'>".$Effect."</td>\n</tr>\n";
                                     $ProblemNum += 1;
                                     $ProblemsNum += 1;
                                 }
@@ -16610,19 +16623,19 @@ sub get_Report_SymbolProblems($$)
                             $INTERFACE_PROBLEMS .= $ContentDivStart."\n";
                             if($NewSignature{$Symbol})
                             { # argument list changed to
-                                $INTERFACE_PROBLEMS .= "\n<span class='new_sign_lbl'>changed to:</span><br/><span class='new_sign'>".highLight_Signature_Italic_Color($NewSignature{$Symbol})."</span><br/>\n";
+                                $INTERFACE_PROBLEMS .= "\n<span class='new_sign_lbl'>changed to:</span>\n<br/>\n<span class='new_sign'>".highLight_Signature_Italic_Color($NewSignature{$Symbol})."</span><br/>\n";
                             }
                             if($Symbol=~/\A(_Z|\?)/) {
                                 $INTERFACE_PROBLEMS .= "<span class='mangled'>&#160;&#160;&#160;&#160;[symbol: <b>$Symbol</b>]</span><br/>\n";
                             }
-                            $INTERFACE_PROBLEMS .= "<table class='ptable'><tr><th width='2%'></th><th width='47%'>Change</th><th>Effect</th></tr>$SYMBOL_REPORT</table><br/>\n";
+                            $INTERFACE_PROBLEMS .= "<table class='ptable'>\n<tr>\n<th width='2%'></th>\n<th width='47%'>Change</th>\n<th>Effect</th>\n</tr>\n$SYMBOL_REPORT</table>\n<br/>\n";
                             $INTERFACE_PROBLEMS .= $ContentDivEnd;
                             if($NameSpace) {
                                 $INTERFACE_PROBLEMS=~s/\b\Q$NameSpace\E::\b//g;
                             }
                         }
                     }
-                    $INTERFACE_PROBLEMS .= "<br/>";
+                    $INTERFACE_PROBLEMS .= "<br/>\n";
                 }
             }
         }
@@ -16773,7 +16786,7 @@ sub get_Report_TypeProblems($$)
                             if(my $Change = applyMacroses($Level, $Kind, $CompatRules{$Level}{$Kind}{"Change"}, \%Problem))
                             {
                                 my $Effect = applyMacroses($Level, $Kind, $CompatRules{$Level}{$Kind}{"Effect"}, \%Problem);
-                                $TYPE_REPORT .= "<tr><th>$ProblemNum</th><td align='left' valign='top'>".$Change."</td><td align='left' valign='top'>$Effect</td></tr>\n";
+                                $TYPE_REPORT .= "<tr>\n<th>$ProblemNum</th>\n<td align='left' valign='top'>".$Change."</td>\n<td align='left' valign='top'>$Effect</td>\n</tr>\n";
                                 $ProblemNum += 1;
                                 $ProblemsNum += 1;
                             }
@@ -16798,7 +16811,7 @@ sub get_Report_TypeProblems($$)
                         }
                     }
                 }
-                $TYPE_PROBLEMS .= "<br/>";
+                $TYPE_PROBLEMS .= "<br/>\n";
             }
         }
         
@@ -17111,7 +17124,7 @@ sub getAffectedSymbols($$$$)
             my $PName = getParamName($SymSel{$Symbol}{"Loc"});
             my $Pos = adjustParamPos(getParamPos($PName, $Symbol, 1), $Symbol, 1);
             
-            $Affected .= "<span class='iname_a'>".highLight_Signature_PPos_Italic($S, $Pos, 1, 0, 0)."</span><br/>";
+            $Affected .= "<span class='iname_a'>".highLight_Signature_PPos_Italic($S, $Pos, 1, 0, 0)."</span><br/>\n";
             $Affected .= "<div class='affect'>".htmlSpecChars($Desc)."</div>\n";
             
             if($Num>$LIMIT) {
@@ -17122,10 +17135,10 @@ sub getAffectedSymbols($$$$)
         }
         
         if(keys(%SymSel)>$LIMIT) {
-            $Affected .= " ...<br/>"; # and others ...
+            $Affected .= " ...\n<br/>\n"; # and others ...
         }
         
-        $Affected = "<div class='affected'>".$Affected."</div>";
+        $Affected = "<div class='affected'>".$Affected."</div>\n";
         if($Affected)
         {
             $Affected = $ContentDivStart.$Affected.$ContentDivEnd;
@@ -17451,7 +17464,8 @@ sub getReport($)
             my ($SSummary, $SMetaData) = get_Summary("Source");
             my $Report = "<!-\- $BMetaData -\->\n<!-\- $SMetaData -\->\n".composeHTML_Head($Title, $Keywords, $Description, $CssStyles, $JScripts)."<body><a name='Source'></a><a name='Binary'></a><a name='Top'></a>";
             $Report .= get_Report_Title("Join")."
-            <br/><div class='tabset'>
+            <br/>
+            <div class='tabset'>
             <a id='BinaryID' href='#BinaryTab' class='tab active'>Binary<br/>Compatibility</a>
             <a id='SourceID' href='#SourceTab' style='margin-left:3px' class='tab disabled'>Source<br/>Compatibility</a>
             </div>";
@@ -19813,7 +19827,15 @@ sub read_ABI_Dump($$)
         
         $UsedDump{$LibVersion}{"DWARF"} = 1;
         
-        $TargetComponent = "module";
+        if(not $TargetComponent_Opt)
+        {
+            if($ABI->{"LibraryName"}=~/\.ko[\.\d]*\Z/) {
+                $TargetComponent = "module";
+            }
+            else {
+                $TargetComponent = "object";
+            }
+        }
     }
     
     if(not checkDump($LibVersion, "2.11"))
@@ -21855,11 +21877,13 @@ sub compareInit()
     if(not $Descriptor{1}{"Version"})
     { # set to default: X
         $Descriptor{1}{"Version"} = "X";
+        print STDERR "WARNING: version number #1 is not set (use --v1=NUM option)\n";
     }
     
     if(not $Descriptor{2}{"Version"})
     { # set to default: Y
         $Descriptor{2}{"Version"} = "Y";
+        print STDERR "WARNING: version number #2 is not set (use --v2=NUM option)\n";
     }
     
     initLogging(1);
