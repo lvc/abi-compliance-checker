@@ -1,5 +1,6 @@
 prefix ?= /usr
 
+.PHONY: install
 install:
 	perl Makefile.pl -install -prefix "$(prefix)"
 

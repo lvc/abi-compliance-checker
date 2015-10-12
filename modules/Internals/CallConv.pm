@@ -1307,9 +1307,20 @@ sub callingConvention_P_Real($$)
         $Conv{"Method"} = "reg";
         $Conv{"Registers"} = join(", ", @R);
     }
-    else {
+    else
+    {
         $Conv{"Method"} = "stack";
+        
+        if(defined $SInfo->{"Param"}
+        and defined $SInfo->{"Param"}{0})
+        {
+            if(not defined $SInfo->{"Param"}{0}{"offset"})
+            {
+                $Conv{"Method"} = "unknown";
+            }
+        }
     }
+    
     return %Conv;
 }
 

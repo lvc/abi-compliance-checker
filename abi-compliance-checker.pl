@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 1.99.12
+# ABI Compliance Checker (ABICC) 1.99.13
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -64,7 +64,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.12";
+my $TOOL_VERSION = "1.99.13";
 my $ABI_DUMP_VERSION = "3.2";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -93,8 +93,9 @@ $SkipHeadersPath, $CppCompat, $LogMode, $StdOut, $ListAffected, $ReportFormat,
 $UserLang, $TargetHeadersPath, $BinaryOnly, $SourceOnly, $BinaryReportPath,
 $SourceReportPath, $UseXML, $SortDump, $DumpFormat,
 $ExtraInfo, $ExtraDump, $Force, $Tolerance, $Tolerant, $SkipSymbolsListPath,
-$CheckInfo, $Quick, $AffectLimit, $AllAffected, $CppIncompat, $SkipInternal,
-$TargetArch, $GccOptions, $TypesListPath);
+$CheckInfo, $Quick, $AffectLimit, $AllAffected, $CppIncompat,
+$SkipInternalSymbols, $SkipInternalTypes, $TargetArch, $GccOptions,
+$TypesListPath);
 
 my $CmdName = get_filename($0);
 my %OS_LibExt = (
@@ -252,7 +253,8 @@ GetOptions("h|help!" => \$Help,
   "check!" => \$CheckInfo,
   "quick!" => \$Quick,
   "all-affected!" => \$AllAffected,
-  "skip-internal=s" => \$SkipInternal
+  "skip-internal-symbols|skip-internal=s" => \$SkipInternalSymbols,
+  "skip-internal-types=s" => \$SkipInternalTypes,
 ) or ERR_MESSAGE();
 
 sub ERR_MESSAGE()
@@ -746,8 +748,11 @@ OTHER OPTIONS:
   -quick
       Quick analysis. Disable check of some template instances.
       
-  -skip-internal PATTERN
-      Do not check internal interfaces matched by the pattern.
+  -skip-internal-symbols PATTERN
+      Do not check symbols matched by the pattern.
+  
+  -skip-internal-types PATTERN
+      Do not check types matched by the pattern.
 
 REPORT:
     Compatibility report will be generated to:
@@ -9775,6 +9780,14 @@ sub isTargetType($$)
         }
     }
     
+    if($SkipInternalTypes)
+    {
+        if($TypeInfo{$LibVersion}{$Tid}{"Name"}=~/($SkipInternalTypes)/)
+        {
+            return 0;
+        }
+    }
+    
     return 1;
 }
 
@@ -10439,6 +10452,12 @@ sub cmpVTables_Real($$)
         
         $Entry1 = simpleVEntry($Entry1);
         $Entry2 = simpleVEntry($Entry2);
+        
+        if($Entry1=~/ 0x/ and $Entry2=~/ 0x/)
+        { # NOTE: problem with vtable-dumper
+            next;
+        }
+        
         if($Entry1 ne $Entry2)
         { # register as changed
             if($Entry1=~/::([^:]+)\Z/)
@@ -11398,9 +11417,13 @@ sub mergeTypes($$$)
         {
             if(isOpaque(\%Type2_Pure) and not isOpaque(\%Type1_Pure))
             {
-                %{$SubProblems{"Type_Became_Opaque"}{$Type1_Pure{"Name"}}}=(
-                    "Target"=>$Type1_Pure{"Name"},
-                    "Type_Name"=>$Type1_Pure{"Name"}  );
+                if(not defined $UsedDump{1}{"DWARF"}
+                and not defined $UsedDump{2}{"DWARF"})
+                {
+                    %{$SubProblems{"Type_Became_Opaque"}{$Type1_Pure{"Name"}}}=(
+                        "Target"=>$Type1_Pure{"Name"},
+                        "Type_Name"=>$Type1_Pure{"Name"}  );
+                }
                 
                 return ($Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id} = \%SubProblems);
             }
@@ -11424,11 +11447,8 @@ sub mergeTypes($$$)
     return {} if($SkipTypes{1}{$Type1_Pure{"Name"}});
     return {} if($SkipTypes{1}{$Type1{"Name"}});
     
-    if(defined $TargetHeadersPath)
-    {
-        if(not isTargetType($Type1_Pure{"Tid"}, 1)) {
-            return {};
-        }
+    if(not isTargetType($Type1_Pure{"Tid"}, 1)) {
+        return {};
     }
     
     if($Type1_Pure{"Type"}=~/Class|Struct/ and $Type2_Pure{"Type"}=~/Class|Struct/)
@@ -12404,9 +12424,9 @@ sub symbolFilter($$$$)
         return 0;
     }
     
-    if(defined $SkipInternal)
+    if(defined $SkipInternalSymbols)
     {
-        return 0 if($Symbol=~/($SkipInternal)/);
+        return 0 if($Symbol=~/($SkipInternalSymbols)/);
     }
     
     if($Symbol=~/\A_Z/)
@@ -12453,6 +12473,13 @@ sub symbolFilter($$$$)
         }
         
         my $ClassId = $CompleteSignature{$LibVersion}{$Symbol}{"Class"};
+        
+        if($ClassId)
+        {
+            if(not isTargetType($ClassId, $LibVersion)) {
+                return 0;
+            }
+        }
         
         my $NameSpace = $CompleteSignature{$LibVersion}{$Symbol}{"NameSpace"};
         if(not $NameSpace and $ClassId)
@@ -13977,6 +14004,12 @@ sub getRegs($$$)
         
         return join(", ", sort keys(%Regs));
     }
+    elsif(defined $CompleteSignature{$LibVersion}{$Symbol}{"Param"}
+    and defined $CompleteSignature{$LibVersion}{$Symbol}{"Param"}{0}
+    and not defined $CompleteSignature{$LibVersion}{$Symbol}{"Param"}{0}{"offset"})
+    {
+        return "unknown";
+    }
     
     return undef;
 }
@@ -14040,31 +14073,37 @@ sub mergeParameters($$$$$$)
             {
                 my $Old_Regs = getRegs(1, $Symbol, $ParamPos1);
                 my $New_Regs = getRegs(2, $PSymbol, $ParamPos2);
-                if($Old_Regs and $New_Regs)
+                
+                if($Old_Regs ne "unknown"
+                and $New_Regs ne "unknown")
                 {
-                    if($Old_Regs ne $New_Regs)
+                    if($Old_Regs and $New_Regs)
                     {
-                        %{$CompatProblems{$Level}{$Symbol}{"Parameter_Changed_Register"}{$Parameter_Location}}=(
+                        if($Old_Regs ne $New_Regs)
+                        {
+                            %{$CompatProblems{$Level}{$Symbol}{"Parameter_Changed_Register"}{$Parameter_Location}}=(
+                                "Target"=>$PName1,
+                                "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1),
+                                "Old_Value"=>$Old_Regs,
+                                "New_Value"=>$New_Regs  );
+                        }
+                    }
+                    elsif($Old_Regs and not $New_Regs)
+                    {
+                        %{$CompatProblems{$Level}{$Symbol}{"Parameter_From_Register"}{$Parameter_Location}}=(
                             "Target"=>$PName1,
                             "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1),
-                            "Old_Value"=>$Old_Regs,
+                            "Old_Value"=>$Old_Regs  );
+                    }
+                    elsif(not $Old_Regs and $New_Regs)
+                    {
+                        %{$CompatProblems{$Level}{$Symbol}{"Parameter_To_Register"}{$Parameter_Location}}=(
+                            "Target"=>$PName1,
+                            "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1),
                             "New_Value"=>$New_Regs  );
                     }
                 }
-                elsif($Old_Regs and not $New_Regs)
-                {
-                    %{$CompatProblems{$Level}{$Symbol}{"Parameter_From_Register"}{$Parameter_Location}}=(
-                        "Target"=>$PName1,
-                        "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1),
-                        "Old_Value"=>$Old_Regs  );
-                }
-                elsif(not $Old_Regs and $New_Regs)
-                {
-                    %{$CompatProblems{$Level}{$Symbol}{"Parameter_To_Register"}{$Parameter_Location}}=(
-                        "Target"=>$PName1,
-                        "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1),
-                        "New_Value"=>$New_Regs  );
-                }
+                
                 if((my $Old_Offset = $CompleteSignature{1}{$Symbol}{"Param"}{$ParamPos1}{"offset"}) ne ""
                 and (my $New_Offset = $CompleteSignature{2}{$PSymbol}{"Param"}{$ParamPos2}{"offset"}) ne "")
                 {
@@ -14292,7 +14331,8 @@ sub mergeParameters($$$$$$)
                     }
                 }
             }
-            else
+            elsif($Conv1{"Method"} ne "unknown"
+            and $Conv2{"Method"} ne "unknown")
             {
                 if($Conv1{"Method"} eq "stack") {
                     $NewProblemType = "Parameter_Type_From_Stack_To_Register";
@@ -15283,7 +15323,7 @@ sub getArch($)
         return $TargetArch;
     }
     elsif($CPU_ARCH{$LibVersion})
-    { # dump version
+    { # dump
         return $CPU_ARCH{$LibVersion};
     }
     elsif($UsedDump{$LibVersion}{"V"})
@@ -15366,6 +15406,7 @@ sub get_CheckedHeaders($)
     foreach my $Path (keys(%{$Registered_Headers{$LibVersion}}))
     {
         my $File = get_filename($Path);
+        
         if(not is_target_header($File, $LibVersion)) {
             next;
         }
@@ -15951,18 +15992,21 @@ sub get_Summary($)
         {
             my $TS_Link = "<a href='#".get_Anchor("Type", $Level, "Safe")."' style='color:Blue;'>$T_Other</a>";
             $Problem_Summary .= "<tr><th>Other Changes<br/>in Data Types</th><td>-</td><td".getStyle("T", "S", $T_Other).">$TS_Link</td></tr>\n";
+            $META_DATA .= "type_changes_other:$T_Other;";
         }
         
         if($I_Other)
         {
             my $IS_Link = "<a href='#".get_Anchor("Symbol", $Level, "Safe")."' style='color:Blue;'>$I_Other</a>";
             $Problem_Summary .= "<tr><th>Other Changes<br/>in Symbols</th><td>-</td><td".getStyle("I", "S", $I_Other).">$IS_Link</td></tr>\n";
+            $META_DATA .= "interface_changes_other:$I_Other;";
         }
         
         if($C_Other)
         {
             my $CS_Link = "<a href='#".get_Anchor("Constant", $Level, "Safe")."' style='color:Blue;'>$C_Other</a>";
             $Problem_Summary .= "<tr><th>Other Changes<br/>in Constants</th><td>-</td><td".getStyle("C", "S", $C_Other).">$CS_Link</td></tr>\n";
+            $META_DATA .= "constant_changes_other:$C_Other;";
         }
         
         $META_DATA .= "tool_version:$TOOL_VERSION";
@@ -22291,6 +22335,15 @@ sub scenario()
             $COMMON_LOG_PATH = $LoggingPath;
         }
     }
+    
+    if($SkipInternalSymbols) {
+        $SkipInternalSymbols=~s/\*/.*/g;
+    }
+    
+    if($SkipInternalTypes) {
+        $SkipInternalTypes=~s/\*/.*/g;
+    }
+    
     if($Quick) {
         $ADD_TMPL_INSTANCES = 0;
     }
@@ -22437,14 +22490,14 @@ sub scenario()
         }
         foreach my $Header (split(/\s*\n\s*/, readFile($TargetHeadersPath)))
         {
-            $TargetHeaders{1}{$Header} = 1;
-            $TargetHeaders{2}{$Header} = 1;
+            $TargetHeaders{1}{get_filename($Header)} = 1;
+            $TargetHeaders{2}{get_filename($Header)} = 1;
         }
     }
     if($TargetHeader)
     { # --header
-        $TargetHeaders{1}{$TargetHeader} = 1;
-        $TargetHeaders{2}{$TargetHeader} = 1;
+        $TargetHeaders{1}{get_filename($TargetHeader)} = 1;
+        $TargetHeaders{2}{get_filename($TargetHeader)} = 1;
     }
     if($TestTool
     or $TestDump)
