@@ -9779,6 +9779,9 @@ sub isTargetType($$)
             return 0;
         }
     }
+    else {
+        return 0;
+    }
     
     if($SkipInternalTypes)
     {
@@ -20043,16 +20046,22 @@ sub read_ABI_Dump($$)
         my ($CPath, $Type) = classifyPath($Path);
         $SkipHeaders{$LibVersion}{$Type}{$CPath} = $ABI->{"SkipHeaders"}{$Path};
     }
+    
     read_Source_DumpInfo($ABI, $LibVersion);
     read_Libs_DumpInfo($ABI, $LibVersion);
+    
     if(not checkDump($LibVersion, "2.10.1")
     or not $TargetHeaders{$LibVersion})
     { # support for old ABI dumps: added target headers
         foreach (keys(%{$Registered_Headers{$LibVersion}})) {
             $TargetHeaders{$LibVersion}{get_filename($_)} = 1;
         }
-        foreach (keys(%{$Registered_Sources{$LibVersion}})) {
-            $TargetHeaders{$LibVersion}{get_filename($_)} = 1;
+        
+        if(not $ABI->{"PublicABI"})
+        {
+            foreach (keys(%{$Registered_Sources{$LibVersion}})) {
+                $TargetHeaders{$LibVersion}{get_filename($_)} = 1;
+            }
         }
     }
     $Constants{$LibVersion} = $ABI->{"Constants"};
@@ -21930,8 +21939,13 @@ sub compareInit()
         print STDERR "WARNING: version number #2 is not set (use --v2=NUM option)\n";
     }
     
-    initLogging(1);
-    initLogging(2);
+    if(not $UsedDump{1}{"V"}) {
+        initLogging(1);
+    }
+    
+    if(not $UsedDump{2}{"V"}) {
+        initLogging(2);
+    }
     
     # check input data
     if(not $Descriptor{1}{"Headers"}) {
