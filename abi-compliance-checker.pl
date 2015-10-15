@@ -7446,7 +7446,9 @@ sub get_Signature($$)
     {
         if(my $ClassId = $CompleteSignature{$LibVersion}{$Symbol}{"Class"})
         {
-            $Signature .= $TypeInfo{$LibVersion}{$ClassId}{"Name"}."::";
+            my $ClassName = $TypeInfo{$LibVersion}{$ClassId}{"Name"};
+            $ClassName=~s/\bstruct //g;
+            $Signature .= $ClassName."::";
             if($CompleteSignature{$LibVersion}{$Symbol}{"Destructor"}) {
                 $Signature .= "~";
             }
