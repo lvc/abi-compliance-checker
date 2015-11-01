@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 1.99.13
+# ABI Compliance Checker (ABICC) 1.99.14
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -38,7 +38,7 @@
 #
 # COMPATIBILITY
 # =============
-#  ABI Dumper >= 0.99.9
+#  ABI Dumper >= 0.99.12
 #
 #
 # This program is free software: you can redistribute it and/or modify
@@ -64,7 +64,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.13";
+my $TOOL_VERSION = "1.99.14";
 my $ABI_DUMP_VERSION = "3.2";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -95,7 +95,7 @@ $SourceReportPath, $UseXML, $SortDump, $DumpFormat,
 $ExtraInfo, $ExtraDump, $Force, $Tolerance, $Tolerant, $SkipSymbolsListPath,
 $CheckInfo, $Quick, $AffectLimit, $AllAffected, $CppIncompat,
 $SkipInternalSymbols, $SkipInternalTypes, $TargetArch, $GccOptions,
-$TypesListPath);
+$TypesListPath, $SkipTypesListPath);
 
 my $CmdName = get_filename($0);
 my %OS_LibExt = (
@@ -202,6 +202,7 @@ GetOptions("h|help!" => \$Help,
   "symbols-list=s" => \$SymbolsListPath,
   "types-list=s" => \$TypesListPath,
   "skip-symbols=s" => \$SkipSymbolsListPath,
+  "skip-types=s" => \$SkipTypesListPath,
   "headers-list=s" => \$TargetHeadersPath,
   "skip-headers=s" => \$SkipHeadersPath,
   "header=s" => \$TargetHeader,
@@ -461,7 +462,10 @@ EXTRA OPTIONS:
       be checked. Other types will not be checked.
       
   -skip-symbols PATH
-      The list of symbols that should NOT be checked.
+      The list of symbols that should not be checked.
+  
+  -skip-types PATH
+      The list of types that should not be checked.
 
   -headers-list PATH
       The file with a list of headers, that should be checked/dumped.
@@ -7605,6 +7609,8 @@ sub formatName($$)
     
     $N=~s/[ ]*(\W)[ ]*/$1/g; # std::basic_string<char> const
     
+    $N=~s/\b(const|volatile) ([\w\:]+)([\*&,>]|\Z)/$2 $1$3/g; # "const void" to "void const"
+    
     $N=~s/\bvolatile const\b/const volatile/g;
     
     $N=~s/\b(long long|short|long) unsigned\b/unsigned $1/g;
@@ -7620,6 +7626,8 @@ sub formatName($$)
             $N=~s/\b(operator[ ]*)> >/$1>>/;
         }
     }
+    
+    $N=~s/,/, /g;
     
     return ($Cache{"formatName"}{$_[1]}{$_[0]} = $N);
 }
@@ -19849,6 +19857,10 @@ sub read_ABI_Dump($$)
     $UsedDump{$LibVersion}{"V"} = $DVersion;
     $UsedDump{$LibVersion}{"M"} = $ABI->{"LibraryName"};
     
+    if($ABI->{"PublicABI"}) {
+        $UsedDump{$LibVersion}{"Public"} = 1;
+    }
+    
     if($ABI->{"ABI_DUMP_VERSION"})
     {
         if(cmpVersions($DVersion, $ABI_DUMP_VERSION)>0)
@@ -20017,10 +20029,22 @@ sub read_ABI_Dump($$)
         $Descriptor{$LibVersion}{"Version"} = $ABI->{"LibraryVersion"};
     }
     
-    $SkipTypes{$LibVersion} = $ABI->{"SkipTypes"};
     if(not $SkipTypes{$LibVersion})
-    { # support for old dumps
-        $SkipTypes{$LibVersion} = $ABI->{"OpaqueTypes"};
+    { # if not defined by -skip-types option
+        if(defined $ABI->{"SkipTypes"})
+        {
+            foreach my $TName (keys(%{$ABI->{"SkipTypes"}}))
+            {
+                $SkipTypes{$LibVersion}{$TName} = 1;
+            }
+        }
+        if(defined $ABI->{"OpaqueTypes"})
+        { # support for old dumps
+            foreach my $TName (keys(%{$ABI->{"OpaqueTypes"}}))
+            {
+                $SkipTypes{$LibVersion}{$TName} = 1;
+            }
+        }
     }
     
     if(not $SkipSymbols{$LibVersion})
@@ -22643,6 +22667,17 @@ sub scenario()
         {
             $SkipSymbols{1}{$Interface} = 1;
             $SkipSymbols{2}{$Interface} = 1;
+        }
+    }
+    if($SkipTypesListPath)
+    {
+        if(not -f $SkipTypesListPath) {
+            exitStatus("Access_Error", "can't access file \'$SkipTypesListPath\'");
+        }
+        foreach my $Type (split(/\s*\n\s*/, readFile($SkipTypesListPath)))
+        {
+            $SkipTypes{1}{$Type} = 1;
+            $SkipTypes{2}{$Type} = 1;
         }
     }
     if($SkipHeadersPath)
