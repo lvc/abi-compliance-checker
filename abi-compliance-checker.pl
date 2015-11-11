@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 1.99.14
+# ABI Compliance Checker (ABICC) 1.99.14.1
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -64,7 +64,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.14";
+my $TOOL_VERSION = "1.99.14.1";
 my $ABI_DUMP_VERSION = "3.2";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -2396,7 +2396,8 @@ sub getTypeInfo_All()
                     {
                         my $NBid = instType($TemplateMap{$Version}{$Tid}, $Bid, $Version);
                         
-                        if($NBid ne $Bid)
+                        if($NBid ne $Bid
+                        and $NBid ne $Tid)
                         {
                             %{$TypeInfo{$Version}{$Tid}{"Base"}{$NBid}} = %{$TypeInfo{$Version}{$Tid}{"Base"}{$Bid}};
                             delete($TypeInfo{$Version}{$Tid}{"Base"}{$Bid});
@@ -2511,7 +2512,8 @@ sub instType($$$)
             {
                 my $NBid = instType(\%EMap, $Bid, $LibVersion);
                 
-                if($NBid ne $Bid)
+                if($NBid ne $Bid
+                and $NBid ne $New)
                 {
                     %{$TypeInfo{$LibVersion}{$New}{"Base"}{$NBid}} = %{$TypeInfo{$LibVersion}{$New}{"Base"}{$Bid}};
                     delete($TypeInfo{$LibVersion}{$New}{"Base"}{$Bid});
@@ -4104,7 +4106,7 @@ sub setBaseClasses($$)
             my ($Access, $BInfoId) = ($1, $2);
             my $ClassId = getBinfClassId($BInfoId);
             
-            if($ClassId==$TypeId)
+            if($ClassId eq $TypeId)
             { # class A<N>:public A<N-1>
                 next;
             }
@@ -20257,8 +20259,15 @@ sub read_ABI_Dump($$)
         my %TInfo = %{$TypeInfo{$LibVersion}{$TypeId}};
         if(defined $TInfo{"Base"})
         {
-            foreach (keys(%{$TInfo{"Base"}})) {
-                $Class_SubClasses{$LibVersion}{$_}{$TypeId}=1;
+            foreach my $SubId (keys(%{$TInfo{"Base"}}))
+            {
+                if($SubId eq $TypeId)
+                { # Fix erroneus ABI dump
+                    delete($TypeInfo{$LibVersion}{$TypeId}{"Base"}{$SubId});
+                    next;
+                }
+                
+                $Class_SubClasses{$LibVersion}{$SubId}{$TypeId} = 1;
             }
         }
         if($TInfo{"Type"} eq "MethodPtr")
