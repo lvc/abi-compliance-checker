@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 1.99.14.1
+# ABI Compliance Checker (ABICC) 1.99.14.2
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -64,7 +64,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.14.1";
+my $TOOL_VERSION = "1.99.14.2";
 my $ABI_DUMP_VERSION = "3.2";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -7629,7 +7629,7 @@ sub formatName($$)
         }
     }
     
-    $N=~s/,/, /g;
+    $N=~s/,([^ ])/, $1/g;
     
     return ($Cache{"formatName"}{$_[1]}{$_[0]} = $N);
 }
@@ -20230,7 +20230,7 @@ sub read_ABI_Dump($$)
     }
     
     foreach my $TypeId (sort {int($a)<=>int($b)} keys(%{$TypeInfo{$LibVersion}}))
-    { # order is important
+    { # NOTE: order is important
         if(defined $TypeInfo{$LibVersion}{$TypeId}{"BaseClass"})
         { # support for old ABI dumps < 2.0 (ACC 1.22)
             foreach my $BId (keys(%{$TypeInfo{$LibVersion}{$TypeId}{"BaseClass"}}))
@@ -20256,6 +20256,10 @@ sub read_ABI_Dump($$)
         if(not defined $TypeInfo{$LibVersion}{$TypeId}{"Tid"}) {
             $TypeInfo{$LibVersion}{$TypeId}{"Tid"} = $TypeId;
         }
+        
+        # support for old formatting of type names
+        $TypeInfo{$LibVersion}{$TypeId}{"Name"} = formatName($TypeInfo{$LibVersion}{$TypeId}{"Name"}, "T");
+        
         my %TInfo = %{$TypeInfo{$LibVersion}{$TypeId}};
         if(defined $TInfo{"Base"})
         {
@@ -20289,6 +20293,7 @@ sub read_ABI_Dump($$)
         { # fix ABI dump
             delete($TypeInfo{$LibVersion}{$TypeId}{"BaseType"});
         }
+        
         if($TInfo{"Type"} eq "Typedef" and not $TInfo{"Artificial"})
         {
             if(my $BTid = $TInfo{"BaseType"})
@@ -20310,7 +20315,7 @@ sub read_ABI_Dump($$)
         }
         if(not $TName_Tid{$LibVersion}{$TInfo{"Name"}})
         { # classes: class (id1), typedef (artificial, id2 > id1)
-            $TName_Tid{$LibVersion}{formatName($TInfo{"Name"}, "T")} = $TypeId;
+            $TName_Tid{$LibVersion}{$TInfo{"Name"}} = $TypeId;
         }
     }
     
