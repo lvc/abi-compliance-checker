@@ -9,8 +9,8 @@ All rights reserved.
 RELEASE INFORMATION
 
 Project:           ABI Compliance Checker (ACC)
-Version:           1.99.14.2
-Date:              2015-11-12
+Version:           1.99.15
+Date:              2015-12-11
 
 
 This file explains how to install and setup environment
@@ -22,8 +22,8 @@ Content:
    1. Requirements for Linux and FreeBSD
    2. Requirements for Mac OS X
    3. Requirements for MS Windows
-   4. Configuring and Installing
-   5. Running the Tool
+   4. Configure and Install
+   5. Usage
    6. Usage with ABI Dumper
 
 
@@ -62,8 +62,8 @@ Content:
 
 
 
-4. CONFIGURING AND INSTALLING
-=============================
+4. CONFIGURE AND INSTALL
+========================
 
    This command will install the abi-compliance-checker program into the
    PREFIX/bin system directory and private modules into the PREFIX/share:
@@ -76,48 +76,51 @@ Content:
 
 
 
-5. RUNNING THE TOOL
-===================
+5. USAGE
+========
 
-   1. Create XML-descriptors for two versions
-      of a library (OLD.xml and NEW.xml):
+   Create XML-descriptors for two versions
+   of a library (OLD.xml and NEW.xml):
 
-            <version>
-                1.0
-            </version>
+        <version>
+            1.0
+        </version>
 
-            <headers>
-                /path1/to/header(s)/
-                /path2/to/header(s)/
-                   ...
-            </headers>
+        <headers>
+            /path1/to/header(s)/
+            /path2/to/header(s)/
+                ...
+        </headers>
 
-            <libs>
-                /path1/to/library(ies)/
-                /path2/to/library(ies)/
-                   ...
-            </libs>
+        <libs>
+            /path1/to/library(ies)/
+            /path2/to/library(ies)/
+                ...
+        </libs>
 
-   2. abi-compliance-checker -lib NAME -old OLD.xml -new NEW.xml
-   3. For advanced usage, see doc/Readme.html or --help option
+   Check compatibility:
+   
+     abi-compliance-checker -lib NAME -old OLD.xml -new NEW.xml
+   
+   For advanced usage, see doc/Readme.html or --help option.
 
 
 
 6. USAGE WITH ABI DUMPER
 ========================
 
-   1. Library should be compiled with -g
-      option to contain DWARF debug info
-      
-   2. Create ABI dumps for both library versions
-      using the ABI Dumper tool (https://github.com/lvc/abi-dumper):
-      
-        abi-dumper OLD.so -o ABI-0.dump -lver 0
-        abi-dumper NEW.so -o ABI-1.dump -lver 1
-        
-   3. Compare ABI dumps:
-   
-        abi-compliance-checker -l NAME -old ABI-0.dump -new ABI-1.dump
+   Library should be compiled with -g
+   option to contain DWARF debug info.
+
+   Create ABI dumps for both library versions
+   using the ABI Dumper tool (https://github.com/lvc/abi-dumper):
+
+     abi-dumper OLD.so -o ABI-0.dump -lver 0
+     abi-dumper NEW.so -o ABI-1.dump -lver 1
+
+   Compare ABI dumps:
+
+     abi-compliance-checker -l NAME -old ABI-0.dump -new ABI-1.dump
 
 
 Enjoy!

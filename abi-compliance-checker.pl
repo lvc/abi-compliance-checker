@@ -11406,7 +11406,7 @@ sub mergeTypes($$$)
     my ($Type1_Id, $Type2_Id, $Level) = @_;
     return {} if(not $Type1_Id or not $Type2_Id);
     
-    if($Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id})
+    if(defined $Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id})
     { # already merged
         return $Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id};
     }
@@ -11422,6 +11422,15 @@ sub mergeTypes($$$)
     my %Type2_Pure = get_PureType($Type2_Id, $TypeInfo{2});
     
     $CheckedTypes{$Level}{$Type1_Pure{"Name"}} = 1;
+    
+    if(defined $UsedDump{1}{"DWARF"})
+    {
+        if($Type1_Pure{"Name"} eq "__unknown__"
+        or $Type2_Pure{"Name"} eq "__unknown__")
+        { # Error ABI dump
+            return ($Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id} = {});
+        }
+    }
     
     my %SubProblems = ();
     
@@ -11535,6 +11544,16 @@ sub mergeTypes($$$)
             }
             my %Base1_Pure = get_PureType($Base_1{"Tid"}, $TypeInfo{1});
             my %Base2_Pure = get_PureType($Base_2{"Tid"}, $TypeInfo{2});
+            
+            if(defined $UsedDump{1}{"DWARF"})
+            {
+                if($Base1_Pure{"Name"}=~/\b__unknown__\b/
+                or $Base2_Pure{"Name"}=~/\b__unknown__\b/)
+                { # Error ABI dump
+                    return ($Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id} = {});
+                }
+            }
+            
             if(tNameLock($Base_1{"Tid"}, $Base_2{"Tid"}))
             {
                 if(diffTypes($Base1_Pure{"Tid"}, $Base2_Pure{"Tid"}, $Level))
@@ -14600,8 +14619,20 @@ sub detectTypeChange($$$$)
     my %Type2 = get_Type($Type2_Id, 2);
     my %Type1_Pure = get_PureType($Type1_Id, $TypeInfo{1});
     my %Type2_Pure = get_PureType($Type2_Id, $TypeInfo{2});
+    
     my %Type1_Base = ($Type1_Pure{"Type"} eq "Array")?get_OneStep_BaseType($Type1_Pure{"Tid"}, $TypeInfo{1}):get_BaseType($Type1_Id, 1);
     my %Type2_Base = ($Type2_Pure{"Type"} eq "Array")?get_OneStep_BaseType($Type2_Pure{"Tid"}, $TypeInfo{2}):get_BaseType($Type2_Id, 2);
+    
+    if(defined $UsedDump{1}{"DWARF"})
+    {
+        if($Type1_Pure{"Name"} eq "__unknown__"
+        or $Type2_Pure{"Name"} eq "__unknown__"
+        or $Type1_Base{"Name"} eq "__unknown__"
+        or $Type2_Base{"Name"} eq "__unknown__")
+        { # Error ABI dump
+            return ();
+        }
+    }
     
     my $Type1_PLevel = get_PLevel($Type1_Id, 1);
     my $Type2_PLevel = get_PLevel($Type2_Id, 2);
