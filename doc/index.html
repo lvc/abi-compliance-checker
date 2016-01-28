@@ -71,18 +71,18 @@
 <li><a href="#Supported_Platforms">Supported Platforms</a></li>
 <li><a href="#Dependencies">Dependencies</a></li>
 <li><a href="#Installation">Installation</a></li>
-<li><a href="#Usage">Usage</a></li>
+<li><a href="#Usage">Usage (Original)</a></li>
+<li><a href="#ABI_Dumper">Usage with ABI Dumper</a></li>
+<li><a href="#Tutorial">Tutorial</a></li>
 <li><a href="#Examples">Examples</a></li>
 <li><a href="#BinaryProblems">Detectable Binary-Compatibility Problems</a></li>
 <li><a href="#SourceProblems">Detectable Source-Compatibility Problems</a></li>
 <li><a href="#Dump">Create ABI Dumps</a></li>
-<li><a href="#ABI_Dumper">Usage with ABI Dumper</a></li>
 <li><a href="#Report">Report Format</a></li>
 <li><a href="#Verdict">Verdict on Compatibility</a></li>
 <li><a href="#Error">Error Codes</a></li>
 <li><a href="#FAQ">FAQ</a></li>
 <li><a href="#Similar">Similar Tools</a></li>
-<li><a href="#Tutorial">Tutorial</a></li>
 <li><a href="#Bugs">Bugs</a></li>
 <li><a href="#Maintainers">Maintainers</a></li>
 <li><a href="#ChangeLog">Changes</a></li>
@@ -94,7 +94,7 @@
 <h2>Downloads</h2>
 <p>All releases can be downloaded from <a href="https://github.com/lvc/abi-compliance-checker/">this page</a>.</p>
 
-<p>Latest release: <a href="https://github.com/lvc/abi-compliance-checker/archive/1.99.15.tar.gz">abi-compliance-checker-1.99.15.tar.gz</a></p>
+<p>Latest release: <a href="https://github.com/lvc/abi-compliance-checker/archive/1.99.16.tar.gz">abi-compliance-checker-1.99.16.tar.gz</a></p>
 
 <p>Read-only access to the latest development version:</p>
 
@@ -140,9 +140,10 @@ On MS Windows the tool also requires MinGW, MS Visual C++ (dumpbin, undname, cl)
 <p>This command will install the <code>abi-compliance-checker</code> program into the <code>PREFIX/bin</code> system directory and private modules into the <code>PREFIX/share</code>.</p>
 
 <a name="Usage"></a>
-<h2>Usage</h2>
-
-For using the tool, you should provide the <a href='Xml-Descriptor.html'>XML descriptors</a> for two library versions: <code>v1.xml</code> and <code>v2.xml</code> files. Library descriptor is a simple XML-file that specifies version number, paths to header files and shared libraries and other optional information. An example of the descriptor is the following (<code>0.3.4.xml</code>):
+<h2>Usage (Original)</h2>
+The original usage is based on the analysis of header files and shared objects (without debug-info). 
+<p/>
+You should provide <a href='Xml-Descriptor.html'>XML descriptors</a> for two library versions (<code>v1.xml</code> and <code>v2.xml</code> files) in order to run the analysis. Library descriptor is a simple XML-file that specifies version number, paths to header files and shared libraries and other optional information. An example of the descriptor is the following (<code>0.3.4.xml</code>):
 <p/>
 <div class='listing'>
 <pre>
@@ -170,6 +171,33 @@ The compatibility report will be generated to:
 <code class='code'>compat_reports/NAME/V1_to_V2/compat_report.html</code>
 <p/>
 
+<a name="ABI_Dumper"></a>
+<h2>Usage with ABI Dumper</h2>
+This new way is based on the analysis of the debug-info from binary objects. It's more reliable, faster and simple way. 
+<p/>
+The analyzed library should be compiled with "-g -Og" GCC options to contain DWARF debug info.
+<p/>
+Create ABI dumps for both library versions first using the <a href='https://github.com/lvc/abi-dumper'>ABI Dumper</a> tool:
+<p/>
+<code class='code'>abi-dumper OLD.so -o ABI-0.dump -lver 0</code>
+<p/>
+<code class='code'>abi-dumper NEW.so -o ABI-1.dump -lver 1</code>
+<p/>
+And then compare ABI dumps to create report:
+<p/>
+<code class='code'>abi-compliance-checker -l NAME -old ABI-0.dump -new ABI-1.dump</code>
+<p/>
+The compatibility report will be generated to:
+<p/>
+<code class='code'>compat_reports/NAME/V0_to_V1/compat_report.html</code>
+<p/>
+You can filter out private symbols from the ABI dumps by specifying of additional <code>-public-headers</code> option of the ABI Dumper tool. 
+
+<a name="Tutorial"></a>
+<h2>Tutorial</h2>
+An excellent tutorial <a href='http://blog.famillecollet.com/post/2010/06/20/ABI-%3A-stability-check'>"ABI: stability check"</a> is available at Les RPM de Remi Blog. See also <a href='http://sourceware.org/glibc/wiki/Testing/ABI_checker'>ABI compliance checker Notes</a> at glibc wiki. 
+<p/>
+
 <a name="Examples"></a>
 <h2>Examples</h2>
 <table class='summary'>
@@ -177,19 +205,21 @@ The compatibility report will be generated to:
 <tr>
 <td>NetCDF</td>
 <td>4.0.1 to 4.1.1</td>
-<td><a href='http://upstream-tracker.org/compat_reports/netcdf/4.0.1_to_4.1.1/compat_report.html'>report</a></td>
+<td><a href='http://upstream.rosalinux.ru/compat_reports/netcdf/4.0.1_to_4.1.1/compat_report.html'>report</a></td>
 </tr>
 <tr>
 <td>MySQL++</td>
 <td>3.0.9 to 3.1.0</td>
-<td><a href='http://upstream-tracker.org/compat_reports/mysql++/3.0.9_to_3.1.0/abi_compat_report.html'>report</a></td>
+<td><a href='http://upstream.rosalinux.ru/compat_reports/mysql++/3.0.9_to_3.1.0/abi_compat_report.html'>report</a></td>
 </tr>
 <tr>
 <td>libssh</td>
 <td>0.3.4 to 0.4.0</td>
-<td><a href='http://upstream-tracker.org/compat_reports/libssh/0.3.4_to_0.4.0/abi_compat_report.html'>report</a></td>
+<td><a href='http://upstream.rosalinux.ru/compat_reports/libssh/0.3.4_to_0.4.0/abi_compat_report.html'>report</a></td>
 </tr>
 </table>
+<p/>
+See more report examples at <a href='http://abi-laboratory.pro/tracker/'>http://abi-laboratory.pro/tracker/</a>. 
 
 <a name="BinaryProblems"></a>
 <h2>Detectable Binary Compatibility Problems</h2>
@@ -458,19 +488,6 @@ To compare ABI dumps pass them as the descriptors:
 <p/>
 <code class='code'>abi-compliance-checker -lib NAME -old V1.abi.tar.gz -new V2.abi.tar.gz</code>
 
-<a name="ABI_Dumper"></a>
-<h2>Usage with ABI Dumper</h2>
-The analyzed library should be compiled with "-g -Og" GCC options to contain DWARF debug info.
-<p/>
-Create ABI dumps for both library versions using the <a href='https://github.com/lvc/abi-dumper'>ABI Dumper</a> tool:
-<p/>
-<code class='code'>abi-dumper OLD.so -o ABI-0.dump -lver 0</code>
-<p/>
-<code class='code'>abi-dumper NEW.so -o ABI-1.dump -lver 1</code>
-<p/>
-Compare ABI dumps:
-<code class='code'>abi-compliance-checker -l NAME -old ABI-0.dump -new ABI-1.dump</code>
-
 <a name="Report"></a>
 <h2>Report Format</h2>
 The tool supports two formats of a compatibility report: HTML (default) and XML. To generate XML report you should specify <code>-xml</code> additional option.
@@ -569,11 +586,6 @@ If the tool detects problems with high or medium level of severity or at least o
          <b>chkshlib, cmpdylib, cmpshlib</b> - Tools to compare binary symbols.
     </li>
 </ul>
-
-<a name="Tutorial"></a>
-<h2>Tutorial</h2>
-An excellent tutorial <a href='http://blog.famillecollet.com/post/2010/06/20/ABI-%3A-stability-check'>"ABI: stability check"</a> is available at Les RPM de Remi Blog. See also <a href='http://sourceware.org/glibc/wiki/Testing/ABI_checker'>ABI compliance checker Notes</a> at glibc wiki. 
-<p/>
 
 <a name="Bugs"></a>
 <h2>Bugs</h2>

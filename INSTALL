@@ -2,15 +2,15 @@
 Copyright (C) 2009-2011 Institute for System Programming, RAS
 Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
 Copyright (C) 2011-2012 ROSA Laboratory
-Copyright (C) 2012-2015 Andrey Ponomarenko's ABI Laboratory
+Copyright (C) 2012-2016 Andrey Ponomarenko's ABI Laboratory
 All rights reserved.
 
 
 RELEASE INFORMATION
 
 Project:           ABI Compliance Checker (ACC)
-Version:           1.99.15
-Date:              2015-12-11
+Version:           1.99.16
+Date:              2016-01-28
 
 
 This file explains how to install and setup environment
@@ -23,7 +23,7 @@ Content:
    2. Requirements for Mac OS X
    3. Requirements for MS Windows
    4. Configure and Install
-   5. Usage
+   5. Usage (Original)
    6. Usage with ABI Dumper
 
 
@@ -34,6 +34,7 @@ Content:
    2. GNU Binutils (c++filt, readelf, objdump)
    3. Perl 5 (5.8 or newer)
    4. Ctags (5.8 or newer)
+   5. ABI Dumper (0.99.14 or newer)
 
 
 
@@ -76,8 +77,8 @@ Content:
 
 
 
-5. USAGE
-========
+5. USAGE (ORIGINAL)
+===================
 
    Create XML-descriptors for two versions
    of a library (OLD.xml and NEW.xml):
@@ -102,15 +103,15 @@ Content:
    
      abi-compliance-checker -lib NAME -old OLD.xml -new NEW.xml
    
-   For advanced usage, see doc/Readme.html or --help option.
+   For advanced usage, see doc/index.html or -help option.
 
 
 
 6. USAGE WITH ABI DUMPER
 ========================
 
-   Library should be compiled with -g
-   option to contain DWARF debug info.
+   Library should be compiled with -g -Og
+   options to contain DWARF debug info.
 
    Create ABI dumps for both library versions
    using the ABI Dumper tool (https://github.com/lvc/abi-dumper):
@@ -118,7 +119,7 @@ Content:
      abi-dumper OLD.so -o ABI-0.dump -lver 0
      abi-dumper NEW.so -o ABI-1.dump -lver 1
 
-   Compare ABI dumps:
+   Compare ABI dumps to create report:
 
      abi-compliance-checker -l NAME -old ABI-0.dump -new ABI-1.dump
 

@@ -1,5 +1,5 @@
 NAME:
-  ABI Compliance Checker (ACC) - a tool for checking backward binary and source-level compatibility of a C/C++ software library.
+  ABI Compliance Checker (ABICC) - a tool for checking backward binary and source-level compatibility of a C/C++ software library.
   
   The tool checks header files and shared objects of old and new versions and analyzes changes in API/ABI that may break binary and/or source compatibility: changes in calling stack, v-table changes, removed symbols, renamed fields, etc.
   
@@ -15,8 +15,9 @@ REQUIRES:
   G++
   GNU Binutils
   Ctags
+  ABI Dumper (0.99.14 or newer)
 
-USAGE:
+USAGE (ORIGINAL):
   abi-compliance-checker -lib NAME -old OLD.xml -new NEW.xml
 
   OLD.xml and NEW.xml are XML-descriptors:
@@ -33,12 +34,6 @@ USAGE:
         /path/to/libraries/
     </libs>
 
-ADV. USAGE:
-  For advanced usage, see doc/Readme.html or output of --help option.
-  
-COMPATIBILITY:
-  ABI Dumper >= 0.98 (https://github.com/lvc/abi-dumper)
-  
 USAGE WITH ABI DUMPER:
 
    1. Library should be compiled with "-g -Og" GCC options
@@ -50,6 +45,9 @@ USAGE WITH ABI DUMPER:
         abi-dumper OLD.so -o ABI-0.dump -lver 0
         abi-dumper NEW.so -o ABI-1.dump -lver 1
         
-   3. Compare ABI dumps:
+   3. Compare ABI dumps to create report:
    
         abi-compliance-checker -l NAME -old ABI-0.dump -new ABI-1.dump
+
+ADV. USAGE:
+  For advanced usage, see doc/index.html or output of -help option.

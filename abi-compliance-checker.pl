@@ -1,12 +1,12 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 1.99.15
+# ABI Compliance Checker (ABICC) 1.99.16
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
 # Copyright (C) 2011-2012 ROSA Laboratory
-# Copyright (C) 2012-2015 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2012-2016 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -21,6 +21,7 @@
 #    - GNU Binutils (readelf, c++filt, objdump)
 #    - Perl 5 (5.8 or newer)
 #    - Ctags (5.8 or newer)
+#    - ABI Dumper (0.99.14 or newer)
 #
 #  Mac OS X
 #    - Xcode (g++, c++filt, otool, nm)
@@ -35,11 +36,6 @@
 #    - Ctags (5.8 or newer)
 #    - Add tool locations to the PATH environment variable
 #    - Run vsvars32.bat (C:\Microsoft Visual Studio 9.0\Common7\Tools\)
-#
-# COMPATIBILITY
-# =============
-#  ABI Dumper >= 0.99.12
-#
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License or the GNU Lesser
@@ -64,7 +60,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.15";
+my $TOOL_VERSION = "1.99.16";
 my $ABI_DUMP_VERSION = "3.2";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -95,7 +91,7 @@ $SourceReportPath, $UseXML, $SortDump, $DumpFormat,
 $ExtraInfo, $ExtraDump, $Force, $Tolerance, $Tolerant, $SkipSymbolsListPath,
 $CheckInfo, $Quick, $AffectLimit, $AllAffected, $CppIncompat,
 $SkipInternalSymbols, $SkipInternalTypes, $TargetArch, $GccOptions,
-$TypesListPath, $SkipTypesListPath);
+$TypesListPath, $SkipTypesListPath, $CheckPrivateABI);
 
 my $CmdName = get_filename($0);
 my %OS_LibExt = (
@@ -256,6 +252,7 @@ GetOptions("h|help!" => \$Help,
   "all-affected!" => \$AllAffected,
   "skip-internal-symbols|skip-internal=s" => \$SkipInternalSymbols,
   "skip-internal-types=s" => \$SkipInternalTypes,
+  "check-private-abi!" => \$CheckPrivateABI
 ) or ERR_MESSAGE();
 
 sub ERR_MESSAGE()
@@ -757,6 +754,13 @@ OTHER OPTIONS:
   
   -skip-internal-types PATTERN
       Do not check types matched by the pattern.
+  
+  -check-private-abi
+      Check data types from the private part of the ABI when
+      comparing ABI dumps created by the ABI Dumper tool with
+      use of the -public-headers option.
+      
+      Requires ABI Dumper >= 0.99.14
 
 REPORT:
     Compatibility report will be generated to:
@@ -10507,6 +10511,11 @@ sub mergeVTables($)
     my $Level = $_[0];
     foreach my $ClassName (keys(%{$VirtualTable{1}}))
     {
+        my $ClassId = $TName_Tid{1}{$ClassName};
+        if(isPrivateABI($ClassId, 1)) {
+            next;
+        }
+        
         if($VTableChanged_M{$ClassName})
         { # already registered
             next;
@@ -10531,6 +10540,11 @@ sub mergeBases($)
     { # detect added and removed virtual functions
         my $ClassId = $TName_Tid{1}{$ClassName};
         next if(not $ClassId);
+        
+        if(isPrivateABI($ClassId, 1)) {
+            next;
+        }
+        
         if(defined $VirtualTable{2}{$ClassName})
         {
             foreach my $Symbol (keys(%{$VirtualTable{2}{$ClassName}}))
@@ -10628,6 +10642,11 @@ sub mergeBases($)
     {
         my $ClassId_Old = $TName_Tid{1}{$ClassName};
         next if(not $ClassId_Old);
+        
+        if(isPrivateABI($ClassId_Old, 1)) {
+            next;
+        }
+        
         if(not isCreatable($ClassId_Old, 1))
         { # skip classes without public constructors (including auto-generated)
           # example: class has only a private exported or private inline constructor
@@ -11401,6 +11420,21 @@ sub removeVPtr($)
     }
 }
 
+sub isPrivateABI($$)
+{
+    my ($TypeId, $LibVersion) = @_;
+    
+    if($CheckPrivateABI) {
+        return 0;
+    }
+    
+    if(defined $TypeInfo{$LibVersion}{$TypeId}{"PrivateABI"}) {
+        return 1;
+    }
+    
+    return 0;
+}
+
 sub mergeTypes($$$)
 {
     my ($Type1_Id, $Type2_Id, $Level) = @_;
@@ -11417,11 +11451,8 @@ sub mergeTypes($$$)
         return {};
     }
     
-    $CheckedTypes{$Level}{$Type1{"Name"}} = 1;
     my %Type1_Pure = get_PureType($Type1_Id, $TypeInfo{1});
     my %Type2_Pure = get_PureType($Type2_Id, $TypeInfo{2});
-    
-    $CheckedTypes{$Level}{$Type1_Pure{"Name"}} = 1;
     
     if(defined $UsedDump{1}{"DWARF"})
     {
@@ -11431,6 +11462,13 @@ sub mergeTypes($$$)
             return ($Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id} = {});
         }
     }
+    
+    if(isPrivateABI($Type1_Id, 1)) {
+        return {};
+    }
+    
+    $CheckedTypes{$Level}{$Type1{"Name"}} = 1;
+    $CheckedTypes{$Level}{$Type1_Pure{"Name"}} = 1;
     
     my %SubProblems = ();
     
