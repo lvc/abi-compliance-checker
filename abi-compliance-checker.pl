@@ -19520,7 +19520,7 @@ sub registerObject($$)
     
     my $Name = get_filename($Path);
     $RegisteredObjects{$LibVersion}{$Name} = $Path;
-    if($OStarget=~/linux|bsd/i)
+    if($OStarget=~/linux|bsd|gnu/i)
     {
         if(my $SONAME = getSONAME($Path)) {
             $RegisteredSONAMEs{$LibVersion}{$SONAME} = $Path;
@@ -19582,7 +19582,7 @@ sub getArch_Object($)
             }
         }
     }
-    elsif($OStarget=~/linux|bsd/)
+    elsif($OStarget=~/linux|bsd|gnu/)
     {
         my $ObjdumpCmd = get_CmdPath("objdump");
         if(not $ObjdumpCmd) {
