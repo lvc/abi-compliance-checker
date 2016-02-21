@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 1.99.16
+# ABI Compliance Checker (ABICC) 1.99.17
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -21,7 +21,7 @@
 #    - GNU Binutils (readelf, c++filt, objdump)
 #    - Perl 5 (5.8 or newer)
 #    - Ctags (5.8 or newer)
-#    - ABI Dumper (0.99.14 or newer)
+#    - ABI Dumper (0.99.15 or newer)
 #
 #  Mac OS X
 #    - Xcode (g++, c++filt, otool, nm)
@@ -60,7 +60,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.16";
+my $TOOL_VERSION = "1.99.17";
 my $ABI_DUMP_VERSION = "3.2";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -4931,7 +4931,7 @@ sub linkSymbol($)
     or $EMERGENCY_MODE_48)
     { # GCC 3.x doesn't mangle class methods names in the TU dump (only functions and global data)
       # GCC 4.x doesn't mangle C++ functions in the TU dump (only class methods) except extern "C" functions
-      # GCC 4.8 doesn't mangle anything
+      # GCC 4.8.[012] doesn't mangle anything
         if(not $CheckHeadersOnly)
         {
             if(my $Mangled = $mangled_name_gcc{modelUnmangled($InfoId, "GCC")}) {
@@ -7452,12 +7452,18 @@ sub get_Signature($$)
     my ($Signature, @Param_Types_FromUnmangledName) = ();
     
     my $ShortName = $CompleteSignature{$LibVersion}{$Symbol}{"ShortName"};
+    
     if($Symbol=~/\A(_Z|\?)/)
     {
         if(my $ClassId = $CompleteSignature{$LibVersion}{$Symbol}{"Class"})
         {
             my $ClassName = $TypeInfo{$LibVersion}{$ClassId}{"Name"};
             $ClassName=~s/\bstruct //g;
+            
+            if(index($Symbol, "_ZTV")==0) {
+                return "vtable for $ClassName [data]";
+            }
+            
             $Signature .= $ClassName."::";
             if($CompleteSignature{$LibVersion}{$Symbol}{"Destructor"}) {
                 $Signature .= "~";
@@ -7480,9 +7486,15 @@ sub get_Signature($$)
     my @ParamArray = ();
     foreach my $Pos (sort {int($a) <=> int($b)} keys(%{$CompleteSignature{$LibVersion}{$Symbol}{"Param"}}))
     {
-        next if($Pos eq "");
+        if($Pos eq "") {
+            next;
+        }
+        
         my $ParamTypeId = $CompleteSignature{$LibVersion}{$Symbol}{"Param"}{$Pos}{"type"};
-        next if(not $ParamTypeId);
+        if(not $ParamTypeId) {
+            next;
+        }
+        
         my $ParamTypeName = $TypeInfo{$LibVersion}{$ParamTypeId}{"Name"};
         if(not $ParamTypeName) {
             $ParamTypeName = $Param_Types_FromUnmangledName[$Pos];
@@ -9277,6 +9289,19 @@ sub prepareSymbols($)
         if(not $MnglName) {
             next;
         }
+        
+        # NOTE: duplicated entries in the ABI Dump
+        if(defined $CompleteSignature{$LibVersion}{$MnglName})
+        {
+            if(defined $SymbolInfo{$LibVersion}{$InfoId}{"Param"})
+            {
+                if($SymbolInfo{$LibVersion}{$InfoId}{"Param"}{0}{"name"} eq "p1")
+                {
+                    next;
+                }
+            }
+        }
+        
         if(not $CompleteSignature{$LibVersion}{$MnglName}{"MnglName"})
         { # NOTE: global data may enter here twice
             %{$CompleteSignature{$LibVersion}{$MnglName}} = %{$SymbolInfo{$LibVersion}{$InfoId}};
@@ -9297,6 +9322,7 @@ sub prepareSymbols($)
         if(my $Alias = $CompleteSignature{$LibVersion}{$MnglName}{"Alias"})
         {
             %{$CompleteSignature{$LibVersion}{$Alias}} = %{$SymbolInfo{$LibVersion}{$InfoId}};
+            
             if($SymVer{$LibVersion}{$Alias}) {
                 %{$CompleteSignature{$LibVersion}{$SymVer{$LibVersion}{$Alias}}} = %{$SymbolInfo{$LibVersion}{$InfoId}};
             }
@@ -9789,14 +9815,26 @@ sub isTargetType($$)
     }
     
     if(my $THeader = $TypeInfo{$LibVersion}{$Tid}{"Header"})
-    {
+    { # NOTE: header is defined to source if undefined (DWARF dumps)
         if(not is_target_header($THeader, $LibVersion))
         { # from target headers
             return 0;
         }
     }
-    else {
-        return 0;
+    else
+    { # NOTE: if type is defined in source
+        if($UsedDump{$LibVersion}{"Public"})
+        {
+            if(isPrivateABI($Tid, $LibVersion)) {
+                return 0;
+            }
+            else {
+                return 1;
+            }
+        }
+        else {
+            return 0;
+        }
     }
     
     if($SkipInternalTypes)
@@ -10472,7 +10510,7 @@ sub cmpVTables_Real($$)
         $Entry1 = simpleVEntry($Entry1);
         $Entry2 = simpleVEntry($Entry2);
         
-        if($Entry1=~/ 0x/ and $Entry2=~/ 0x/)
+        if($Entry1=~/ 0x/ or $Entry2=~/ 0x/)
         { # NOTE: problem with vtable-dumper
             next;
         }
@@ -12277,6 +12315,47 @@ sub mergeTypes($$$)
         }
     }
     
+    if($Type1_Pure{"Type"} eq "FuncPtr")
+    {
+        foreach my $PPos (sort {int($a) <=> int($b)} keys(%{$Type1_Pure{"Param"}}))
+        {
+            if(not defined $Type2_Pure{"Param"}{$PPos}) {
+                next;
+            }
+            
+            my $PT1 = $Type1_Pure{"Param"}{$PPos}{"type"};
+            my $PT2 = $Type2_Pure{"Param"}{$PPos}{"type"};
+            
+            my $PName = "p".$PPos;
+            
+            my $FP_SubProblems = mergeTypes($PT1, $PT2, $Level);
+            my %DupProblems = ();
+            
+            foreach my $FP_SubProblemType (keys(%{$FP_SubProblems}))
+            {
+                foreach my $FP_SubLocation (keys(%{$FP_SubProblems->{$FP_SubProblemType}}))
+                {
+                    if(not defined $AllAffected)
+                    {
+                        if(defined $DupProblems{$FP_SubProblems->{$FP_SubProblemType}{$FP_SubLocation}}) {
+                            next;
+                        }
+                    }
+                    
+                    my $NewLocation = ($FP_SubLocation)?$PName."->".$FP_SubLocation:$PName;
+                    $SubProblems{$FP_SubProblemType}{$NewLocation} = $FP_SubProblems->{$FP_SubProblemType}{$FP_SubLocation};
+                    
+                    if(not defined $AllAffected)
+                    {
+                        $DupProblems{$FP_SubProblems->{$FP_SubProblemType}{$FP_SubLocation}} = 1;
+                    }
+                }
+            }
+            
+            %DupProblems = ();
+        }
+    }
+    
     pop(@RecurTypes);
     return ($Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id} = \%SubProblems);
 }
@@ -12711,6 +12790,11 @@ sub mergeLibs($)
                   # use case: vtable for QDragManager (Qt 4.5.3 to 4.6.0) became HIDDEN symbol
                     next;
                 }
+            }
+            
+            if($SkipSymbols{1}{$Symbol})
+            { # user defined symbols to ignore
+                next;
             }
         }
         else {
@@ -15545,7 +15629,7 @@ sub get_SourceInfo()
         $CheckedLibs .= "<div class='lib_list'>\n";
         foreach my $Library (sort {lc($a) cmp lc($b)}  keys(%{$Library_Symbol{1}}))
         {
-            $Library.=" (.$LIB_EXT)" if($Library!~/\.\w+\Z/);
+            # $Library .= " (.$LIB_EXT)" if($Library!~/\.\w+\Z/);
             $CheckedLibs .= $Library."<br/>\n";
         }
         $CheckedLibs .= "</div>\n";
@@ -15860,7 +15944,7 @@ sub get_Summary($)
         $TestResults .= "  <libs>\n";
         foreach my $Library (sort {lc($a) cmp lc($b)}  keys(%{$Library_Symbol{1}}))
         {
-            $Library.=" (.$LIB_EXT)" if($Library!~/\.\w+\Z/);
+            # $Library .= " (.$LIB_EXT)" if($Library!~/\.\w+\Z/);
             $TestResults .= "    <name>$Library</name>\n";
         }
         $TestResults .= "  </libs>\n";
@@ -16264,9 +16348,11 @@ sub getTitle($$$)
 {
     my ($Header, $Library, $NameSpace) = @_;
     my $Title = "";
-    if($Library and $Library!~/\.\w+\Z/) {
-        $Library .= " (.$LIB_EXT)";
-    }
+    
+    # if($Library and $Library!~/\.\w+\Z/) {
+    #     $Library .= " (.$LIB_EXT)";
+    # }
+    
     if($Header and $Library)
     {
         $Title .= "<span class='h_name'>$Header</span>";
@@ -17039,7 +17125,13 @@ sub showVTables($)
                 foreach my $Index (sort {int($a)<=>int($b)} (keys(%Entries)))
                 {
                     my ($Color1, $Color2) = ("", "");
-                    if($Entries{$Index}{"E1"} ne $Entries{$Index}{"E2"})
+                    
+                    my $E1 = $Entries{$Index}{"E1"};
+                    my $E2 = $Entries{$Index}{"E2"};
+                    
+                    if($E1 ne $E2
+                    and $E1!~/ 0x/
+                    and $E2!~/ 0x/)
                     {
                         if($Entries{$Index}{"E1"})
                         {
@@ -17668,10 +17760,10 @@ sub getReportFooter()
 {
     my $Footer = "";
     
-    $Footer .= "<hr/>";
-    $Footer .= "<div class='footer' align='right'><i>Generated on ".localtime(time);
-    $Footer .= " by <a href='".$HomePage."'>ABI Compliance Checker</a> $TOOL_VERSION &#160;";
-    $Footer .= "</i></div>";
+    $Footer .= "<hr/>\n";
+    $Footer .= "<div class='footer' align='right'>";
+    $Footer .= "<i>Generated by <a href='".$HomePage."'>ABI Compliance Checker</a> $TOOL_VERSION &#160;</i>\n";
+    $Footer .= "</div>\n";
     $Footer .= "<br/>\n";
     
     return $Footer;
@@ -20886,7 +20978,19 @@ sub detect_default_paths($)
             exitStatus("Not_Found", "can't find GCC>=3.0 in PATH");
         }
         
-        if(my $GCC_Ver = get_dumpversion($GCC_PATH))
+        my $GCC_Ver = get_dumpversion($GCC_PATH);
+        if($GCC_Ver eq "4.8")
+        { # on Ubuntu -dumpversion returns 4.8 for gcc 4.8.4
+            my $Info = `$GCC_PATH --version`;
+            
+            if($Info=~/gcc\s+(|\([^()]+\)\s+)(\d+\.\d+\.\d+)/)
+            { # gcc (Ubuntu 4.8.4-2ubuntu1~14.04) 4.8.4
+              # gcc (GCC) 4.9.2 20150212 (Red Hat 4.9.2-6)
+                $GCC_Ver = $2;
+            }
+        }
+        
+        if($GCC_Ver)
         {
             my $GccTarget = get_dumpmachine($GCC_PATH);
             
@@ -20906,9 +21010,9 @@ sub detect_default_paths($)
             # check GCC version
             if($GCC_Ver=~/\A4\.8(|\.[012])\Z/)
             { # bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=57850
-                # introduced in 4.8
-                # fixed in 4.8.3
-                printMsg("WARNING", "Not working properly with GCC $GCC_Ver. Please update or downgrade GCC or use a local installation by --gcc-path=PATH option.");
+              # introduced in 4.8 and fixed in 4.8.3
+                printMsg("WARNING", "Not working properly with GCC $GCC_Ver. Please update GCC to 4.8.3 or downgrade it to 4.7. You can use a local GCC installation by --gcc-path=PATH option.");
+                
                 $EMERGENCY_MODE_48 = 1;
             }
         }
