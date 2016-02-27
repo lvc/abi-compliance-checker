@@ -17226,16 +17226,21 @@ sub getParamName($)
 sub getAffectedSymbols($$$$)
 {
     my ($Level, $Target_TypeName, $Kinds_Locations, $Syms) = @_;
-    my $LIMIT = 10;
     
-    if(defined $AffectLimit)
-    {
+    my $LIMIT = 10;
+    if(defined $AffectLimit) {
         $LIMIT = $AffectLimit;
     }
     
-    my %SymSel = ();
-    my %SymLocKind = ();
+    my @Kinds = sort keys(%{$Kinds_Locations});
+    my %KLocs = ();
+    foreach my $Kind (@Kinds)
+    {
+        my @Locs = sort {$a=~/retval/ cmp $b=~/retval/} sort {length($a)<=>length($b)} keys(%{$Kinds_Locations->{$Kind}});
+        $KLocs{$Kind} = \@Locs;
+    }
     
+    my %SymLocKind = ();
     foreach my $Symbol (@{$Syms})
     {
         if(index($Symbol, "_Z")==0
@@ -17244,29 +17249,34 @@ sub getAffectedSymbols($$$$)
             next;
         }
         
-        foreach my $Kind (sort keys(%{$Kinds_Locations}))
+        foreach my $Kind (@Kinds)
         {
             if(not defined $CompatProblems{$Level}{$Symbol}
             or not defined $CompatProblems{$Level}{$Symbol}{$Kind}) {
                 next;
             }
             
-            foreach my $Loc (sort keys(%{$Kinds_Locations->{$Kind}}))
+            foreach my $Loc (@{$KLocs{$Kind}})
             {
                 if(not defined $CompatProblems{$Level}{$Symbol}{$Kind}{$Loc}) {
                     next;
                 }
                 
-                my ($SN, $SS, $SV) = separate_symbol($Symbol);
-                if($Level eq "Source")
-                { # remove symbol version
-                    $Symbol = $SN;
-                }
-                
-                if($SV and defined $CompatProblems{$Level}{$SN}
-                and defined $CompatProblems{$Level}{$SN}{$Kind}{$Loc})
-                { # duplicated problems for versioned symbols
-                    next;
+                if(index($Symbol, "\@")!=-1
+                or index($Symbol, "\$")!=-1)
+                {
+                    my ($SN, $SS, $SV) = separate_symbol($Symbol);
+                    
+                    if($Level eq "Source")
+                    { # remove symbol version
+                        $Symbol = $SN;
+                    }
+                    
+                    if($SV and defined $CompatProblems{$Level}{$SN}
+                    and defined $CompatProblems{$Level}{$SN}{$Kind}{$Loc})
+                    { # duplicated problems for versioned symbols
+                        next;
+                    }
                 }
                 
                 my $Type_Name = $CompatProblems{$Level}{$Symbol}{$Kind}{$Loc}{"Type_Name"};
@@ -17275,26 +17285,40 @@ sub getAffectedSymbols($$$$)
                 }
                 
                 $SymLocKind{$Symbol}{$Loc}{$Kind} = 1;
+                last;
             }
         }
+        
+        # if(keys(%SymLocKind)>=$LIMIT)
+        # {
+        #     last;
+        # }
     }
     
-    foreach my $Symbol (sort keys(%SymLocKind))
+    %KLocs = (); # clear
+    
+    my %SymSel = ();
+    my $Num = 0;
+    foreach my $Symbol (sort {lc($a) cmp lc($b)} keys(%SymLocKind))
     {
         LOOP: foreach my $Loc (sort {$a=~/retval/ cmp $b=~/retval/} sort {length($a)<=>length($b)} sort keys(%{$SymLocKind{$Symbol}}))
         {
-            foreach my $Kind (keys(%{$SymLocKind{$Symbol}{$Loc}}))
+            foreach my $Kind (sort keys(%{$SymLocKind{$Symbol}{$Loc}}))
             {
                 $SymSel{$Symbol}{"Loc"} = $Loc;
                 $SymSel{$Symbol}{"Kind"} = $Kind;
-                
                 last LOOP;
             }
+        }
+        
+        $Num += 1;
+        
+        if($Num>=$LIMIT) {
+            last;
         }
     }
     
     my $Affected = "";
-    my $Num = 0;
     
     if($ReportFormat eq "xml")
     { # XML
@@ -17326,12 +17350,6 @@ sub getAffectedSymbols($$$$)
             $Affected .= "        <symbol name=\"$Symbol\"$Target>\n";
             $Affected .= "          <comment>".xmlSpecChars($Desc)."</comment>\n";
             $Affected .= "        </symbol>\n";
-            
-            if($Num>$LIMIT) {
-                last LOOP;
-            }
-            
-            $Num += 1;
         }
         $Affected .= "      </affected>\n";
     }
@@ -17346,23 +17364,17 @@ sub getAffectedSymbols($$$$)
             
             $Affected .= "<span class='iname_a'>".highLight_Signature_PPos_Italic($S, $Pos, 1, 0, 0)."</span><br/>\n";
             $Affected .= "<div class='affect'>".htmlSpecChars($Desc)."</div>\n";
-            
-            if($Num>$LIMIT) {
-                last;
-            }
-            
-            $Num += 1;
         }
         
-        if(keys(%SymSel)>$LIMIT) {
-            $Affected .= " ...\n<br/>\n"; # and others ...
+        if(keys(%SymLocKind)>$LIMIT) {
+            $Affected .= " <b>...</b>\n<br/>\n"; # and others ...
         }
         
         $Affected = "<div class='affected'>".$Affected."</div>\n";
         if($Affected)
         {
             $Affected = $ContentDivStart.$Affected.$ContentDivEnd;
-            $Affected = $ContentSpanStart_Affected."[+] affected symbols (".keys(%SymSel).")".$ContentSpanEnd.$Affected;
+            $Affected = $ContentSpanStart_Affected."[+] affected symbols (".keys(%SymLocKind).")".$ContentSpanEnd.$Affected;
         }
     }
     
