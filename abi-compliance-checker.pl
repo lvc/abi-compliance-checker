@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 1.99.17
+# ABI Compliance Checker (ABICC) 1.99.18
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -60,7 +60,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.17";
+my $TOOL_VERSION = "1.99.18";
 my $ABI_DUMP_VERSION = "3.2";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -1503,8 +1503,8 @@ my %TotalAffected;
 # Reports
 my $ContentID = 1;
 my $ContentSpanStart = "<span class=\"section\" onclick=\"javascript:showContent(this, 'CONTENT_ID')\">\n";
-my $ContentSpanStart_Affected = "<span class=\"section_affected\" onclick=\"javascript:showContent(this, 'CONTENT_ID')\">\n";
-my $ContentSpanStart_Info = "<span class=\"section_info\" onclick=\"javascript:showContent(this, 'CONTENT_ID')\">\n";
+my $ContentSpanStart_Affected = "<span class=\"sect_aff\" onclick=\"javascript:showContent(this, 'CONTENT_ID')\">\n";
+my $ContentSpanStart_Info = "<span class=\"sect_info\" onclick=\"javascript:showContent(this, 'CONTENT_ID')\">\n";
 my $ContentSpanEnd = "</span>\n";
 my $ContentDivStart = "<div id=\"CONTENT_ID\" style=\"display:none;\">\n";
 my $ContentDivEnd = "</div>\n";
@@ -11676,7 +11676,9 @@ sub mergeTypes($$$)
         }
         return ($Cache{"mergeTypes"}{$Level}{$Type1_Id}{$Type2_Id} = \%SubProblems);
     }
+    
     pushType($Type1_Pure{"Tid"}, $Type2_Pure{"Tid"}, \@RecurTypes);
+    
     if(($Type1_Pure{"Name"} eq $Type2_Pure{"Name"}
     or (isAnon($Type1_Pure{"Name"}) and isAnon($Type2_Pure{"Name"})))
     and $Type1_Pure{"Type"}=~/\A(Struct|Class|Union)\Z/)
@@ -14046,6 +14048,7 @@ sub removedQual_I($$$$$)
     my ($Old_Value, $New_Value, $V1, $V2, $Qual) = @_;
     $Old_Value = uncover_typedefs($Old_Value, $V1);
     $New_Value = uncover_typedefs($New_Value, $V2);
+    
     if($Old_Value eq $New_Value)
     { # equal types
         return 0;
@@ -14082,9 +14085,19 @@ sub getQualModel($$)
     }
     
     # cleaning
-    while($Value=~/(\w+)/ and $1 ne $Qual) {
-        $Value=~s/\b$1\b//g;
+    while($Value=~/(\w+)/)
+    {
+        my $W = $1;
+        
+        if($W eq $Qual) {
+            $Value=~s/\b$W\b/\@/g;
+        }
+        else {
+            $Value=~s/\b$W\b//g;
+        }
     }
+    
+    $Value=~s/\@/$Qual/g;
     $Value=~s/[^\*\&\w]+//g;
     
     # modeling
@@ -15195,15 +15208,17 @@ sub highLight_Signature_PPos_Italic($$$$$)
         if($ItalicParams and not $TName_Tid{1}{$Part}
         and not $TName_Tid{2}{$Part})
         {
-            my $Style = "param";
+            my $Style = "<i>$ParamName</i>";
+            
             if($Param_Pos ne ""
             and $Pos==$Param_Pos) {
-                $Style = "focus_p";
+                $Style = "<span class=\'fp\'>$ParamName</span>";
             }
             elsif($ColorParams) {
-                $Style = "color_p";
+                $Style = "<span class=\'color_p\'>$ParamName</span>";
             }
-            $Part_Styled =~ s!(\W)$ParamName([\,\)]|\Z)!$1<span class=\'$Style\'>$ParamName</span>$2!ig;
+            
+            $Part_Styled=~s!(\W)$ParamName([\,\)]|\Z)!$1$Style$2!ig;
         }
         $Part_Styled=~s/,(\w)/, $1/g;
         push(@Parts, $Part_Styled);
@@ -16318,13 +16333,13 @@ sub get_Report_ChangedConstants($$)
                 {
                     my $Change = applyMacroses($Level, $Kind, $CompatRules{$Level}{$Kind}{"Change"}, $CompatProblems_Constants{$Level}{$Constant}{$Kind});
                     my $Effect = $CompatRules{$Level}{$Kind}{"Effect"};
-                    $Report .= "<tr>\n<th>1</th>\n<td align='left' valign='top'>".$Change."</td>\n<td align='left' valign='top'>$Effect</td>\n</tr>\n";
+                    $Report .= "<tr>\n<th>1</th>\n<td>".$Change."</td>\n<td>$Effect</td>\n</tr>\n";
                     $Number += 1;
                 }
                 if($Report)
                 {
                     $Report = $ContentDivStart."<table class='ptable'>\n<tr>\n<th width='2%'></th>\n<th width='47%'>Change</th>\n<th>Effect</th>\n</tr>\n".$Report."</table>\n<br/>\n$ContentDivEnd\n";
-                    $Report = $ContentSpanStart."<span class='extendable'>[+]</span> ".$Constant.$ContentSpanEnd."<br/>\n".$Report;
+                    $Report = $ContentSpanStart."<span class='ext'>[+]</span> ".$Constant.$ContentSpanEnd."<br/>\n".$Report;
                     $Report = insertIDs($Report);
                 }
                 $CHANGED_CONSTANTS .= $Report;
@@ -16759,7 +16774,7 @@ sub get_Report_SymbolProblems($$)
                 foreach my $Symbol (@SortedInterfaces)
                 {
                     $INTERFACE_PROBLEMS .= "      <symbol name=\"$Symbol\">\n";
-                    foreach my $Kind (keys(%{$SymbolChanges{$Symbol}}))
+                    foreach my $Kind (sort keys(%{$SymbolChanges{$Symbol}}))
                     {
                         foreach my $Location (sort keys(%{$SymbolChanges{$Symbol}{$Kind}}))
                         {
@@ -16817,7 +16832,7 @@ sub get_Report_SymbolProblems($$)
                                 if(my $Change = applyMacroses($Level, $Kind, $CompatRules{$Level}{$Kind}{"Change"}, \%Problem))
                                 {
                                     my $Effect = applyMacroses($Level, $Kind, $CompatRules{$Level}{$Kind}{"Effect"}, \%Problem);
-                                    $SYMBOL_REPORT .= "<tr>\n<th>$ProblemNum</th>\n<td align='left' valign='top'>".$Change."</td>\n<td align='left' valign='top'>".$Effect."</td>\n</tr>\n";
+                                    $SYMBOL_REPORT .= "<tr>\n<th>$ProblemNum</th>\n<td>".$Change."</td>\n<td>".$Effect."</td>\n</tr>\n";
                                     $ProblemNum += 1;
                                     $ProblemsNum += 1;
                                 }
@@ -16826,27 +16841,34 @@ sub get_Report_SymbolProblems($$)
                         $ProblemNum -= 1;
                         if($SYMBOL_REPORT)
                         {
-                            $INTERFACE_PROBLEMS .= $ContentSpanStart."<span class='extendable'>[+]</span> ";
+                            my $ShowSymbol = $Symbol;
                             if($Signature) {
-                                $INTERFACE_PROBLEMS .= highLight_Signature_Italic_Color($Signature);
+                                $ShowSymbol = highLight_Signature_Italic_Color($Signature);
                             }
-                            else {
-                                $INTERFACE_PROBLEMS .= $Symbol;
+                            
+                            if($NameSpace)
+                            {
+                                $SYMBOL_REPORT = cut_Namespace($SYMBOL_REPORT, $NameSpace);
+                                $ShowSymbol = cut_Namespace($ShowSymbol, $NameSpace);
                             }
-                            $INTERFACE_PROBLEMS .= " ($ProblemNum)".$ContentSpanEnd."<br/>\n";
+                            
+                            $INTERFACE_PROBLEMS .= $ContentSpanStart."<span class='ext'>[+]</span> ".$ShowSymbol." ($ProblemNum)".$ContentSpanEnd."<br/>\n";
                             $INTERFACE_PROBLEMS .= $ContentDivStart."\n";
-                            if($NewSignature{$Symbol})
+                            
+                            if(my $NSign = $NewSignature{$Symbol})
                             { # argument list changed to
-                                $INTERFACE_PROBLEMS .= "\n<span class='new_sign_lbl'>changed to:</span>\n<br/>\n<span class='new_sign'>".highLight_Signature_Italic_Color($NewSignature{$Symbol})."</span><br/>\n";
+                                if($NameSpace) {
+                                    $NSign = cut_Namespace($NSign, $NameSpace);
+                                }
+                                $INTERFACE_PROBLEMS .= "\n<span class='new_sign_lbl'>changed to:</span>\n<br/>\n<span class='new_sign'>".highLight_Signature_Italic_Color($NSign)."</span><br/>\n";
                             }
+                            
                             if($Symbol=~/\A(_Z|\?)/) {
                                 $INTERFACE_PROBLEMS .= "<span class='mangled'>&#160;&#160;&#160;&#160;[symbol: <b>$Symbol</b>]</span><br/>\n";
                             }
+                            
                             $INTERFACE_PROBLEMS .= "<table class='ptable'>\n<tr>\n<th width='2%'></th>\n<th width='47%'>Change</th>\n<th>Effect</th>\n</tr>\n$SYMBOL_REPORT</table>\n<br/>\n";
                             $INTERFACE_PROBLEMS .= $ContentDivEnd;
-                            if($NameSpace) {
-                                $INTERFACE_PROBLEMS=~s/\b\Q$NameSpace\E::\b//g;
-                            }
                         }
                     }
                     $INTERFACE_PROBLEMS .= "<br/>\n";
@@ -16866,6 +16888,13 @@ sub get_Report_SymbolProblems($$)
         }
     }
     return $INTERFACE_PROBLEMS;
+}
+
+sub cut_Namespace($$)
+{
+    my ($N, $Ns) = @_;
+    $N=~s/\b\Q$Ns\E:://g;
+    return $N;
 }
 
 sub get_Report_TypeProblems($$)
@@ -17000,7 +17029,7 @@ sub get_Report_TypeProblems($$)
                             if(my $Change = applyMacroses($Level, $Kind, $CompatRules{$Level}{$Kind}{"Change"}, \%Problem))
                             {
                                 my $Effect = applyMacroses($Level, $Kind, $CompatRules{$Level}{$Kind}{"Effect"}, \%Problem);
-                                $TYPE_REPORT .= "<tr>\n<th>$ProblemNum</th>\n<td align='left' valign='top'>".$Change."</td>\n<td align='left' valign='top'>$Effect</td>\n</tr>\n";
+                                $TYPE_REPORT .= "<tr>\n<th>$ProblemNum</th>\n<td>".$Change."</td>\n<td>$Effect</td>\n</tr>\n";
                                 $ProblemNum += 1;
                                 $ProblemsNum += 1;
                             }
@@ -17015,14 +17044,21 @@ sub get_Report_TypeProblems($$)
                             $ShowVTables = showVTables($TypeName);
                         }
                         
-                        $TYPE_PROBLEMS .= $ContentSpanStart."<span class='extendable'>[+]</span> ".show_Type($TypeName, 1, 1)." ($ProblemNum)".$ContentSpanEnd;
+                        my $ShowType = show_Type($TypeName, 1, 1);
+                        
+                        if($NameSpace)
+                        {
+                            $TYPE_REPORT = cut_Namespace($TYPE_REPORT, $NameSpace);
+                            $ShowType = cut_Namespace($ShowType, $NameSpace);
+                            $Affected = cut_Namespace($Affected, $NameSpace);
+                            $ShowVTables = cut_Namespace($ShowVTables, $NameSpace);
+                        }
+                        
+                        $TYPE_PROBLEMS .= $ContentSpanStart."<span class='ext'>[+]</span> ".$ShowType." ($ProblemNum)".$ContentSpanEnd;
                         $TYPE_PROBLEMS .= "<br/>\n".$ContentDivStart."<table class='ptable'><tr>\n";
                         $TYPE_PROBLEMS .= "<th width='2%'></th><th width='47%'>Change</th>\n";
                         $TYPE_PROBLEMS .= "<th>Effect</th></tr>".$TYPE_REPORT."</table>\n";
                         $TYPE_PROBLEMS .= $ShowVTables.$Affected."<br/><br/>".$ContentDivEnd."\n";
-                        if($NameSpace) {
-                            $TYPE_PROBLEMS=~s/\b\Q$NameSpace\E::(\w|\~)/$1/g;
-                        }
                     }
                 }
                 $TYPE_PROBLEMS .= "<br/>\n";
@@ -17236,7 +17272,7 @@ sub getAffectedSymbols($$$$)
     my %KLocs = ();
     foreach my $Kind (@Kinds)
     {
-        my @Locs = sort {$a=~/retval/ cmp $b=~/retval/} sort {length($a)<=>length($b)} keys(%{$Kinds_Locations->{$Kind}});
+        my @Locs = sort {$a=~/retval/ cmp $b=~/retval/} sort {length($a)<=>length($b)} sort keys(%{$Kinds_Locations->{$Kind}});
         $KLocs{$Kind} = \@Locs;
     }
     
@@ -21961,12 +21997,12 @@ sub create_ABI_Dump()
         }
         
         if($OutputDumpPath) {
-            printMsg("INFO", "library ABI has been dumped to:\n  $OutputDumpPath");
+            printMsg("INFO", "dump path: $OutputDumpPath");
         }
         else {
-            printMsg("INFO", "library ABI has been dumped to:\n  $DumpPath");
+            printMsg("INFO", "dump path: $DumpPath");
         }
-        printMsg("INFO", "you can transfer this dump everywhere and use instead of the ".$Descriptor{1}{"Version"}." version descriptor");
+        # printMsg("INFO", "you can transfer this dump everywhere and use instead of the ".$Descriptor{1}{"Version"}." version descriptor");
     }
 }
 

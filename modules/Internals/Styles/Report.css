@@ -40,21 +40,21 @@ span.new_sign_lbl {
 span:hover.section {
     color:#336699;
 }
-span.section_affected {
+span.sect_aff {
     cursor:pointer;
     margin-left:7px;
     padding-left:15px;
     font-size:0.875em;
     color:#cc3300;
 }
-span.section_info {
+span.sect_info {
     cursor:pointer;
     margin-left:7px;
     padding-left:15px;
     font-size:0.875em;
     color:Black;
 }
-span.extendable {
+span.ext {
     font-weight:100;
 }
 span.h_name {
@@ -118,6 +118,8 @@ table.ptable td {
     border:1px solid gray;
     padding: 3px;
     font-size:0.875em;
+    text-align:left;
+    vertical-align:top;
 }
 table.vtable {
     border-collapse:collapse;
@@ -184,12 +186,11 @@ span.color_p {
     font-style:italic;
     color:Brown;
 }
-span.param {
+span.p {
     font-style:italic;
 }
-span.focus_p {
+span.fp {
     font-style:italic;
-    /* color:Red; */
     background-color:#FFCCCC;
 }
 span.ttype {
