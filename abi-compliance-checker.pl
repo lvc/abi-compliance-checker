@@ -543,8 +543,6 @@ EXTRA OPTIONS:
   -sysinfo DIR
       This option should be used with -dump-system option to dump
       ABI of operating systems and configure the dumping process.
-      You can find a sample in the package:
-          modules/Targets/{unix, symbian, windows}
 
   -cmp-systems -d1 sys_dumps/NAME1/ARCH -d2 sys_dumps/NAME2/ARCH
       Compare two system ABI dumps. Create compatibility reports for each

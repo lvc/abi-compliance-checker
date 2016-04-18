@@ -1,6 +1,0 @@
-<skip_headers>
-    camellia.h
-    obj_mac.h
-    cms.h
-    seed.h
-</skip_headers>

@@ -1,9 +1,0 @@
-<skip_headers>
-    *._p
-    /private/
-    qatomic_sh4a.h
-    qt_windows.h
-    qatomic_*.h
-    qsharedpointer_impl.h
-    qconfig*
-</skip_headers>

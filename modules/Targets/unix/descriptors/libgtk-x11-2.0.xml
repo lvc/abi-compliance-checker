@@ -1,9 +1,0 @@
-<skip_including>
-    gtktextdisplay.h
-    gtkitemfactory.h
-    gtkprivate.h
-</skip_including>
-
-<skip_headers>
-    /gtk-3.0/
-</skip_headers>

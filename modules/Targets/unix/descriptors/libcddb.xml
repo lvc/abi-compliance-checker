@@ -1,8 +1,0 @@
-<skip_headers>
-    /eet-1/
-</skip_headers>
-
-<skip_including>
-    cddb_log.h
-    cdaudio.h
-</skip_including>

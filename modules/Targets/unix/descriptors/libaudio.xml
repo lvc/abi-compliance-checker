@@ -1,9 +1,0 @@
-<skip_including>
-    mutex.h
-    Alibint.h
-</skip_including>
-
-<include_preamble>
-    Xlib.h
-    X11/Intrinsic.h
-</include_preamble>

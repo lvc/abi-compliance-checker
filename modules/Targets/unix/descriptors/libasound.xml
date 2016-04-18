@@ -1,7 +1,0 @@
-<skip_headers>
-    emu10k1.h
-</skip_headers>
-
-<skip_including>
-    mixer_abst.h
-</skip_including>

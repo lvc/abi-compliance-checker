@@ -1,3 +1,0 @@
-<gcc_options>
-    -DPOLKIT_BACKEND_I_KNOW_API_IS_SUBJECT_TO_CHANGE
-</gcc_options>

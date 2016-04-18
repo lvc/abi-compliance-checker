@@ -1,7 +1,0 @@
-<include_preamble>
-    stdio.h
-</include_preamble>
-
-<skip_headers>
-    /editline/
-</skip_headers>

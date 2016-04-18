@@ -1,5 +1,0 @@
-<skip_including>
-    commentparser.h
-    distributionparser.h
-    homepagetypeparser.h
-</skip_including>

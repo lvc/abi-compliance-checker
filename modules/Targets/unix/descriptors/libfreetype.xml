@@ -1,9 +1,0 @@
-<skip_including>
-    ftmac.h
-    ftmodule.h
-    fterrdef.h
-</skip_including>
-
-<include_preamble>
-    ft2build.h
-</include_preamble>

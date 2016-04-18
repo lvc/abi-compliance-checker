@@ -1,4 +1,0 @@
-<include_preamble>
-    stdlib.h
-    libdrm/drm.h
-</include_preamble>

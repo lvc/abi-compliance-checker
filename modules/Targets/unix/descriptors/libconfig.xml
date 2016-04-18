@@ -1,7 +1,0 @@
-<headers>
-    libconfig.h
-</headers>
-
-<skip_headers>
-    /cyrus/
-</skip_headers>

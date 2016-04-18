@@ -1,8 +1,0 @@
-<skip_including>
-    jmorecfg.h
-    jpegint.h
-</skip_including>
-
-<include_preamble>
-    stdio.h
-</include_preamble>

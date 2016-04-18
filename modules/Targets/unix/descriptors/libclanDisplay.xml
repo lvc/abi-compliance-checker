@@ -1,7 +1,0 @@
-<skip_including>
-    provider_dynamic.h
-</skip_including>
-
-<include_preamble>
-    string.h
-</include_preamble>

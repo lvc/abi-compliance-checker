@@ -1,8 +1,0 @@
-<skip_including>
-    date_formatting_limited.hpp
-    formatters_limited.hpp
-</skip_including>
-
-<include_preamble>
-    boost/date_time.hpp
-</include_preamble>

@@ -1,5 +1,0 @@
-<skip_headers>
-    db.h
-    dbm.h
-    /db1/
-</skip_headers>

@@ -1,4 +1,0 @@
-<defines>
-    #undef linux
-    #define PATH_IPSEC_H <linux/ipsec.h>
-</defines>

@@ -1,7 +1,0 @@
-<include_preamble>
-    QtGui
-</include_preamble>
-
-<skip_including>
-    k3popupmenu.h
-</skip_including>

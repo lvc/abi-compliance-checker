@@ -1,5 +1,0 @@
-<skip_including>
-    ExceptionTestCaseDecorator.h
-    MfcTestRunner.h
-    /mfc/
-</skip_including>

@@ -1,5 +1,0 @@
-<include_preamble>
-    stdint.h
-    sys/types.h
-    libdlm.h
-</include_preamble>

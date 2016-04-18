@@ -1,9 +1,0 @@
-<skip_headers>
-    make_tuple.hpp
-    object_call.hpp
-    type_list_impl_no_pts.hpp
-</skip_headers>
-
-<include_preamble>
-    boost/python.hpp
-</include_preamble>

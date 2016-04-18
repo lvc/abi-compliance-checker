@@ -1,7 +1,0 @@
-<headers>
-    /msn/
-</headers>
-
-<skip_including>
-    sstream_fix.h
-</skip_including>

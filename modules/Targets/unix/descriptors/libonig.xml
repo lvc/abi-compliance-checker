@@ -1,4 +1,0 @@
-<skip_headers>
-    onigposix.h
-    regex.h
-</skip_headers>

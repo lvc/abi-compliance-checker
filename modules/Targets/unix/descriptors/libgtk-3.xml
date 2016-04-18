@@ -1,9 +1,0 @@
-<skip_headers>
-    /gtk-2.0/
-</skip_headers>
-
-<skip_including>
-    gtktextdisplay.h
-    gtktextlayout.h
-    gtktextview.h
-</skip_including>

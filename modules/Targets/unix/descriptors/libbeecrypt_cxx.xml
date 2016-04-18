@@ -1,9 +1,0 @@
-<skip_including>
-    /beeyond/
-    /interfaces/
-    /java/
-    ByteBuffer.h
-    ReadOnlyBufferException.h
-    String.h
-    UnsupportedOperationException.h
-</skip_including>

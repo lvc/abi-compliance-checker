@@ -1,7 +1,0 @@
-<skip_including>
-    dbus-glib-bindings.h
-</skip_including>
-
-<gcc_options>
-    -DDBUS_API_SUBJECT_TO_CHANGE
-</gcc_options>

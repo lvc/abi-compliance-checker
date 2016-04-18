@@ -1,5 +1,0 @@
-<include_preamble>
-    Xlib.h
-    X11/Intrinsic.h
-    MrmAppl.h
-</include_preamble>

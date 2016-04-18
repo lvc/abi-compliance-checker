@@ -1,7 +1,0 @@
-<headers>
-    /ext2fs/
-</headers>
-
-<skip_including>
-    bitops.h
-</skip_including>

@@ -1,7 +1,0 @@
-<skip_headers>
-    /gtk-3.0/
-</skip_headers>
-
-<skip_including>
-    gnome-pilot-conduit-config.h
-</skip_including>

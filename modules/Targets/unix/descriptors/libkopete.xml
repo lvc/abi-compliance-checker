@@ -1,7 +1,0 @@
-<skip_including>
-    addressbookselectorwidget.h
-</skip_including>
-
-<include_preamble>
-    QtGui
-</include_preamble>

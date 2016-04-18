@@ -1,6 +1,0 @@
-<skip_headers>
-    /parser/ws/
-    /parser/yum/
-    knownid.h
-    Debug.h
-</skip_headers>

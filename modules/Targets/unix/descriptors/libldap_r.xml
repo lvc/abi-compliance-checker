@@ -1,7 +1,0 @@
-<include_preamble>
-    sys/time.h
-    ldap.h
-    portable.h
-    ldap_queue.h
-    ldap_pvt_thread.h
-</include_preamble>

@@ -1,7 +1,0 @@
-<skip_headers>
-    /arpa/
-</skip_headers>
-
-<headers>
-    ffado.h
-</headers>

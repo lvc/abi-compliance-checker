@@ -1,6 +1,0 @@
-<skip_including>
-    nislib.h
-    nfs_prot.h
-    yp_prot.h
-    yp_prot.h
-</skip_including>

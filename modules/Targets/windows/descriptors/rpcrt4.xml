@@ -1,7 +1,0 @@
-<include_preamble>
-    objidl.h
-</include_preamble>
-
-<gcc_options>
-    -DCINTERFACE
-</gcc_options>

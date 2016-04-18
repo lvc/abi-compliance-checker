@@ -1,5 +1,0 @@
-<skip_headers>
-    qt_windows.h
-    qatomic_*.h
-    qsharedpointer_impl.h
-</skip_headers>

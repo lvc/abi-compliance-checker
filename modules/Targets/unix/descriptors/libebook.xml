@@ -1,9 +1,0 @@
-<skip_including>
-    e-data-book-bindings.h
-    e-data-book-factory-bindings.h
-    e-data-book-view-bindings.h
-</skip_including>
-
-<include_preamble>
-    glib/gtypes.h
-</include_preamble>

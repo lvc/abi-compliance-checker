@@ -1,8 +1,0 @@
-<skip_headers>
-    /atl/
-    /mfc/
-</skip_headers>
-
-<include_preamble>
-    gdiplus.h
-</include_preamble>

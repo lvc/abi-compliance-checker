@@ -1,7 +1,0 @@
-<headers>
-    /xmlrpc-c/
-</headers>
-
-<skip_including>
-    abyss_unixsock.h
-</skip_including>

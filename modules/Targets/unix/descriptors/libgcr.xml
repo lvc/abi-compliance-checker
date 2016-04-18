@@ -1,7 +1,0 @@
-<defines>
-    #define GCR_API_SUBJECT_TO_CHANGE
-</defines>
-
-<skip_including>
-    gcr-renderer.h
-</skip_including>

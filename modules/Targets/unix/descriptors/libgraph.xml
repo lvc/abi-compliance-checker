@@ -1,7 +1,0 @@
-<include_preamble>
-    graphviz/types.h
-</include_preamble>
-
-<skip_headers>
-    cgraph.h
-</skip_headers>

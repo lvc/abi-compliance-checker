@@ -1,7 +1,0 @@
-<skip_including>
-    /bits/
-</skip_including>
-
-<skip_headers>
-    /dietlibc/
-</skip_headers>

@@ -1,6 +1,0 @@
-<include_preamble>
-    Xlib.h
-    Xmd.h
-    Xproto.h
-    lbxproto.h
-</include_preamble>

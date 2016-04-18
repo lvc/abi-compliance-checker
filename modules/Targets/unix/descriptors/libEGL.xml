@@ -1,9 +1,0 @@
-<skip_headers>
-    eglplatform.h
-    eglplatform.h
-</skip_headers>
-
-<gcc_options>
-    -DSUPPORT_X11
-    -DSUPPORT_X11
-</gcc_options>

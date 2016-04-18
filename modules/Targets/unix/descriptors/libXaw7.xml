@@ -1,9 +1,0 @@
-<skip_including>
-    [a-z]P
-    VendorEP.h
-    SmeBSBP.h
-</skip_including>
-
-<include_preamble>
-    X11/Intrinsic.h
-</include_preamble>

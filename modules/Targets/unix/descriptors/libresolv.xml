@@ -1,6 +1,0 @@
-<skip_headers>
-    /isc/
-    /bind/
-    /dietlibc/
-    /c++/
-</skip_headers>

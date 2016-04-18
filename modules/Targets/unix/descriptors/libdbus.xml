@@ -1,9 +1,0 @@
-<skip_including>
-    dbus-glib-error-enum.h
-    dbus-glib-bindings.h
-    dbus-glib-error-enum.h
-</skip_including>
-
-<gcc_options>
-    -DDBUS_API_SUBJECT_TO_CHANGE
-</gcc_options>
