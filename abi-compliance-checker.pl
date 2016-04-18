@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 1.99.18
+# ABI Compliance Checker (ABICC) 1.99.19
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -60,7 +60,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.18";
+my $TOOL_VERSION = "1.99.19";
 my $ABI_DUMP_VERSION = "3.2";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -2117,7 +2117,7 @@ sub readTUDump($)
         { # get a number and attributes of a node
             next if(not $NodeType{$2});
             $LibInfo{$Version}{"info_type"}{$1}=$2;
-            $LibInfo{$Version}{"info"}{$1}=$3;
+            $LibInfo{$Version}{"info"}{$1}=$3." ";
         }
         
         # clean memory
@@ -4143,8 +4143,11 @@ sub setBaseClasses($$)
 sub getBinfClassId($)
 {
     my $Info = $LibInfo{$Version}{"info"}{$_[0]};
-    $Info=~/type[ ]*:[ ]*@(\d+) /;
-    return $1;
+    if($Info=~/type[ ]*:[ ]*@(\d+) /) {
+        return $1;
+    }
+    
+    return "";
 }
 
 sub unmangledFormat($$)
@@ -5800,8 +5803,8 @@ sub getTreeValue($)
 {
     if($_[0] and my $Info = $LibInfo{$Version}{"info"}{$_[0]})
     {
-        if($Info=~/low[ ]*:[ ]*([^ ]+) /) {
-            return $1;
+        if($Info=~/(low|int)[ ]*:[ ]*([^ ]+) /) {
+            return $2;
         }
     }
     return "";
@@ -17860,24 +17863,19 @@ sub get_Report_Problems($$)
 sub composeHTML_Head($$$$$)
 {
     my ($Title, $Keywords, $Description, $Styles, $Scripts) = @_;
-    return "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">
-    <html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">
-    <head>
-    <meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />
-    <meta name=\"keywords\" content=\"$Keywords\" />
-    <meta name=\"description\" content=\"$Description\" />
-    <title>
-        $Title
-    </title>
-    <style type=\"text/css\">
-    $Styles
-    </style>
-    <script type=\"text/javascript\" language=\"JavaScript\">
-    <!--
-    $Scripts
-    -->
-    </script>
-    </head>";
+    
+    my $Head = "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n";
+    $Head .= "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n";
+    $Head .= "<head>\n";
+    $Head .= "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />\n";
+    $Head .= "<meta name=\"keywords\" content=\"$Keywords\" />\n";
+    $Head .= "<meta name=\"description\" content=\"$Description\" />\n";
+    $Head .= "<title>$Title</title>\n";
+    $Head .= "<style type=\"text/css\">\n$Styles</style>\n";
+    $Head .= "<script type=\"text/javascript\" language=\"JavaScript\">\n<!--\n$Scripts\n-->\n</script>\n";
+    $Head .= "</head>\n";
+    
+    return $Head;
 }
 
 sub insertIDs($)
