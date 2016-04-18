@@ -71,8 +71,8 @@
 <li><a href="#Supported_Platforms">Supported Platforms</a></li>
 <li><a href="#Dependencies">Dependencies</a></li>
 <li><a href="#Installation">Installation</a></li>
-<li><a href="#Usage">Usage (Original)</a></li>
 <li><a href="#ABI_Dumper">Usage with ABI Dumper</a></li>
+<li><a href="#Usage">Usage (Original)</a></li>
 <li><a href="#Tutorial">Tutorial</a></li>
 <li><a href="#Examples">Examples</a></li>
 <li><a href="#BinaryProblems">Detectable Binary-Compatibility Problems</a></li>
@@ -139,6 +139,28 @@ On MS Windows the tool also requires MinGW, MS Visual C++ (dumpbin, undname, cl)
 <code class='code'>&nbsp;sudo make install prefix=PREFIX [/usr, /usr/local]&nbsp;</code>
 <p>This command will install the <code>abi-compliance-checker</code> program into the <code>PREFIX/bin</code> system directory and private modules into the <code>PREFIX/share</code>.</p>
 
+<a name="ABI_Dumper"></a>
+<h2>Usage with ABI Dumper</h2>
+This new way is based on the analysis of the debug-info from binary objects. It's more reliable, faster and simple way. 
+<p/>
+The analyzed library should be compiled with "-g -Og" GCC options to contain DWARF debug info.
+<p/>
+Create ABI dumps for both library versions first using the <a href='https://github.com/lvc/abi-dumper'>ABI Dumper</a> tool:
+<p/>
+<code class='code'>abi-dumper OLD.so -o ABI-0.dump -lver 0</code>
+<p/>
+<code class='code'>abi-dumper NEW.so -o ABI-1.dump -lver 1</code>
+<p/>
+And then compare ABI dumps to create report:
+<p/>
+<code class='code'>abi-compliance-checker -l NAME -old ABI-0.dump -new ABI-1.dump</code>
+<p/>
+The compatibility report will be generated to:
+<p/>
+<code class='code'>compat_reports/NAME/V0_to_V1/compat_report.html</code>
+<p/>
+You can filter out private symbols from the ABI dumps by specifying of additional <code>-public-headers</code> option of the ABI Dumper tool. 
+
 <a name="Usage"></a>
 <h2>Usage (Original)</h2>
 The original usage is based on the analysis of header files and shared objects (without debug-info). 
@@ -170,28 +192,6 @@ The compatibility report will be generated to:
 <p/>
 <code class='code'>compat_reports/NAME/V1_to_V2/compat_report.html</code>
 <p/>
-
-<a name="ABI_Dumper"></a>
-<h2>Usage with ABI Dumper</h2>
-This new way is based on the analysis of the debug-info from binary objects. It's more reliable, faster and simple way. 
-<p/>
-The analyzed library should be compiled with "-g -Og" GCC options to contain DWARF debug info.
-<p/>
-Create ABI dumps for both library versions first using the <a href='https://github.com/lvc/abi-dumper'>ABI Dumper</a> tool:
-<p/>
-<code class='code'>abi-dumper OLD.so -o ABI-0.dump -lver 0</code>
-<p/>
-<code class='code'>abi-dumper NEW.so -o ABI-1.dump -lver 1</code>
-<p/>
-And then compare ABI dumps to create report:
-<p/>
-<code class='code'>abi-compliance-checker -l NAME -old ABI-0.dump -new ABI-1.dump</code>
-<p/>
-The compatibility report will be generated to:
-<p/>
-<code class='code'>compat_reports/NAME/V0_to_V1/compat_report.html</code>
-<p/>
-You can filter out private symbols from the ABI dumps by specifying of additional <code>-public-headers</code> option of the ABI Dumper tool. 
 
 <a name="Tutorial"></a>
 <h2>Tutorial</h2>
