@@ -92,13 +92,11 @@
 
 <a name="Downloads"></a>
 <h2>Downloads</h2>
-<p>All releases can be downloaded from <a href="https://github.com/lvc/abi-compliance-checker/releases">this page</a>.</p>
-
-<p>Latest release: <a href="https://github.com/lvc/abi-compliance-checker/archive/1.99.17.tar.gz">abi-compliance-checker-1.99.17.tar.gz</a></p>
+<p>The latest release can be downloaded from <a href="https://github.com/lvc/abi-compliance-checker/releases">this page</a>.</p>
 
 <p>Read-only access to the latest development version:</p>
 
-<code class='code'>&nbsp;git clone git://github.com/lvc/abi-compliance-checker&nbsp;</code>
+<code class='code'>&nbsp;git clone https://github.com/lvc/abi-compliance-checker.git&nbsp;</code>
 
 <a name="License"></a>
 <h2>License</h2>
@@ -112,16 +110,16 @@ GNU/Linux, FreeBSD, Mac OS X, MS Windows.
 <h2>Dependencies</h2>
 <ul>
 <li>
-  <a href="http://gcc.gnu.org/">G++</a> (3.0-4.7, 4.8.3, 4.9 or newer)
+  <a href="http://gcc.gnu.org/">G++</a> (3.0-4.7, 4.8.3 or newer)
 </li>
 <li>
   <a href="http://www.gnu.org/software/binutils/">GNU Binutils</a> (readelf, c++filt, objdump)
 </li>
 <li>
-  <a href="http://www.perl.org/">Perl 5</a> (5.8 or newer)
+  <a href="http://www.perl.org/">Perl 5</a>
 </li>
 <li>
-  <a href="http://ctags.sourceforge.net/">Ctags</a> (5.8 or newer)
+  <a href="http://ctags.sourceforge.net/">Ctags</a>
 </li>
 </ul>
 
@@ -138,6 +136,12 @@ On MS Windows the tool also requires MinGW, MS Visual C++ (dumpbin, undname, cl)
 <p>You can also use a Makefile to install the tool into the system:</p>
 <code class='code'>&nbsp;sudo make install prefix=PREFIX [/usr, /usr/local]&nbsp;</code>
 <p>This command will install the <code>abi-compliance-checker</code> program into the <code>PREFIX/bin</code> system directory and private modules into the <code>PREFIX/share</code>.</p>
+
+<p>To verify that the tool is installed correctly and it works on your host run:</p>
+<code class='code'>&nbsp;cd tmp/&nbsp;</code>
+<p>
+<code class='code'>&nbsp;abi-compliance-checker -test&nbsp;</code>
+</p>
 
 <a name="ABI_Dumper"></a>
 <h2>Usage with ABI Dumper</h2>
@@ -203,19 +207,19 @@ An excellent tutorial <a href='http://blog.famillecollet.com/post/2010/06/20/ABI
 <table class='summary'>
 <tr><th>Library</th><th>Versions</th><th>Report</th></tr>
 <tr>
-<td>NetCDF</td>
-<td>4.0.1 to 4.1.1</td>
-<td><a href='http://upstream.rosalinux.ru/compat_reports/netcdf/4.0.1_to_4.1.1/compat_report.html'>report</a></td>
+<td>libhttpd</td>
+<td>2.2.31 vs 2.4.1</td>
+<td><a href='http://abi-laboratory.pro/tracker/compat_report/httpd/2.2.31/2.4.1/58f6a/abi_compat_report.html'>report</a></td>
 </tr>
 <tr>
-<td>MySQL++</td>
-<td>3.0.9 to 3.1.0</td>
-<td><a href='http://upstream.rosalinux.ru/compat_reports/mysql++/3.0.9_to_3.1.0/abi_compat_report.html'>report</a></td>
+<td>libMagick++</td>
+<td>6.9.0-0 vs 6.9.0-10</td>
+<td><a href='http://abi-laboratory.pro/tracker/compat_report/imagemagick/6.9.0-0/6.9.0-10/c3418/abi_compat_report.html'>report</a></td>
 </tr>
 <tr>
 <td>libssh</td>
-<td>0.3.4 to 0.4.0</td>
-<td><a href='http://upstream.rosalinux.ru/compat_reports/libssh/0.3.4_to_0.4.0/abi_compat_report.html'>report</a></td>
+<td>0.3.4 vs 0.3.91</td>
+<td><a href='http://abi-laboratory.pro/tracker/compat_report/libssh/0.3.4/0.3.91/1f31d/abi_compat_report.html'>report</a></td>
 </tr>
 </table>
 <p/>
