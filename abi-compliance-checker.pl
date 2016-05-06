@@ -10419,32 +10419,34 @@ sub isReserved($)
 sub isPublic($$)
 {
     my ($TypePtr, $FieldPos) = @_;
+    
     return 0 if(not $TypePtr);
     return 0 if(not defined $TypePtr->{"Memb"}{$FieldPos});
     return 0 if(not defined $TypePtr->{"Memb"}{$FieldPos}{"name"});
-    if(not $TypePtr->{"Memb"}{$FieldPos}{"access"})
-    { # by name in C language
-      # FIXME: add other methods to detect private members
-        my $MName = $TypePtr->{"Memb"}{$FieldPos}{"name"};
-        if($MName=~/priv|abidata|parent_object/i)
-        { # C-styled private data
-            return 0;
-        }
-        if(lc($MName) eq "abi")
-        { # ABI information/reserved field
-            return 0;
-        }
-        if(isReserved($MName))
-        { # reserved fields
-            return 0;
-        }
-        return 1;
-    }
-    elsif($TypePtr->{"Memb"}{$FieldPos}{"access"} ne "private")
+    
+    my $Access = $TypePtr->{"Memb"}{$FieldPos}{"access"};
+    if($Access eq "private")
     { # by access in C++ language
-        return 1;
+        return 0;
     }
-    return 0;
+    
+    # by name in C language
+    # TODO: add other methods to detect private members
+    my $MName = $TypePtr->{"Memb"}{$FieldPos}{"name"};
+    if($MName=~/priv|abidata|parent_object/i)
+    { # C-styled private data
+        return 0;
+    }
+    if(lc($MName) eq "abi")
+    { # ABI information/reserved field
+        return 0;
+    }
+    if(isReserved($MName))
+    { # reserved fields
+        return 0;
+    }
+    
+    return 1;
 }
 
 sub getVTable_Real($$)
@@ -19763,8 +19765,26 @@ sub getArch_Object($)
             return $Arch;
         }
     }
+    elsif($OStarget=~/macos/)
+    {
+        my $OtoolCmd = get_CmdPath("otool");
+        if(not $OtoolCmd) {
+            exitStatus("Not_Found", "can't find \"otool\"");
+        }
+        
+        my $Cmd = $OtoolCmd." -hv -arch all \"$Path\"";
+        my $Out = qx/$Cmd/;
+        
+        if($Out=~/X86_64/i) {
+            return "x86_64";
+        }
+        elsif($Out=~/X86/i) {
+            return "x86";
+        }
+    }
     else
-    { # macos, etc.
+    {
+        exitStatus("Error", "Not implemented yet");
         # TODO
     }
     
@@ -19896,9 +19916,26 @@ sub getArch_GCC($)
         return $Cache{"getArch_GCC"}{$LibVersion};
     }
     
+    if(not $GCC_PATH) {
+        return undef;
+    }
+    
     my $Arch = undef;
     
-    if($GCC_PATH)
+    if(my $Target = get_dumpmachine($GCC_PATH))
+    {
+        if($Target=~/x86_64/) {
+            $Arch = "x86_64";
+        }
+        elsif($Target=~/i[3-6]86/) {
+            $Arch = "x86";
+        }
+        elsif($Target=~/\Aarm/i) {
+            $Arch = "arm";
+        }
+    }
+    
+    if(not $Arch)
     {
         writeFile("$TMP_DIR/test.c", "int main(){return 0;}\n");
         
@@ -21031,6 +21068,15 @@ sub detect_default_paths($)
             { # gcc (Ubuntu 4.8.4-2ubuntu1~14.04) 4.8.4
               # gcc (GCC) 4.9.2 20150212 (Red Hat 4.9.2-6)
                 $GCC_Ver = $2;
+            }
+        }
+        
+        if($OStarget=~/macos/)
+        {
+            my $Info = `$GCC_PATH --version`;
+            
+            if($Info=~/clang/i) {
+                printMsg("WARNING", "doesn't work with clang, please install GCC instead (and select it by -gcc-path option)");
             }
         }
         

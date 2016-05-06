@@ -32,8 +32,8 @@ Content:
 
    1. G++ (3.0-4.7, 4.8.3, 4.9 or newer)
    2. GNU Binutils (c++filt, readelf, objdump)
-   3. Perl 5 (5.8 or newer)
-   4. Ctags (5.8 or newer)
+   3. Perl 5
+   4. Ctags
    5. ABI Dumper (0.99.15 or newer)
 
 
@@ -43,6 +43,19 @@ Content:
 
    1. Xcode (g++, c++filt, otool, nm)
    2. Ctags (5.8 or newer)
+
+2.1 Setup environment
+
+   1. If /usr/bin/g++ points to clang, then please
+      specify GCC path by the -gcc-path option
+   
+   2. You can install GCC by the command:
+        
+        brew install homebrew/versions/gcc49
+      
+      And then specify its path:
+      
+        abi-compliance-checker --gcc-path=/usr/local/bin/gcc-4.9 ...
 
 
 
