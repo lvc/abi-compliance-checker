@@ -28,7 +28,7 @@
     pre {padding: 0px;margin: 0px;padding-left: 10px;word-wrap:break-word;white-space: pre-wrap;}
     hr { border: 0; width: 80%; border-bottom: 1px solid #aaa}
     .footer { text-align:center; padding-top:30px; font-style: italic; }
-    .code {border: dashed 1px gray; background-color: #f0f0f0;}
+    .code {border: dashed 1px gray; background-color: #f0f0f0; padding: 5px; padding-left: 10px; padding-right: 10px;}
     .listing {padding: 10px;border: 1px solid black;width: 70%;font-family:"DejaVu Sans Mono", "Monaco", "Courier New", monospace;font-size:14px;}
     .summary {border:1px solid black;border-collapse:collapse;}
     table.summary td, table.summary th {border:1px solid black;padding:2px;}
@@ -96,7 +96,7 @@
 
 <p>Read-only access to the latest development version:</p>
 
-<code class='code'>&nbsp;git clone https://github.com/lvc/abi-compliance-checker.git&nbsp;</code>
+<code class='code'>git clone https://github.com/lvc/abi-compliance-checker.git</code>
 
 <a name="License"></a>
 <h2>License</h2>
@@ -134,13 +134,13 @@ On MS Windows the tool also requires MinGW, MS Visual C++ (dumpbin, undname, cl)
 <p>The tool is <b>ready-to-use</b> after extracting the archive.</p>
 
 <p>You can also use a Makefile to install the tool into the system:</p>
-<code class='code'>&nbsp;sudo make install prefix=PREFIX [/usr, /usr/local]&nbsp;</code>
+<code class='code'>sudo make install prefix=PREFIX [/usr, /usr/local]</code>
 <p>This command will install the <code>abi-compliance-checker</code> program into the <code>PREFIX/bin</code> system directory and private modules into the <code>PREFIX/share</code>.</p>
 
 <p>To verify that the tool is installed correctly and it works on your host run:</p>
-<code class='code'>&nbsp;cd tmp/&nbsp;</code>
+<code class='code'>cd tmp/</code>
 <p>
-<code class='code'>&nbsp;abi-compliance-checker -test&nbsp;</code>
+<code class='code'>abi-compliance-checker -test</code>
 </p>
 
 <a name="ABI_Dumper"></a>
