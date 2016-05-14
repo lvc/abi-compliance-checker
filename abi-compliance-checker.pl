@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 1.99.19
+# ABI Compliance Checker (ABICC) 1.99.20
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -60,7 +60,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.19";
+my $TOOL_VERSION = "1.99.20";
 my $ABI_DUMP_VERSION = "3.2";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -1762,9 +1762,8 @@ sub get_CmdPath_Default_I($)
 sub classifyPath($)
 {
     my $Path = $_[0];
-    if($Path=~/[\*\[]/)
-    { # wildcard
-        $Path=~s/\*/.*/g;
+    if($Path=~/[\*\+\(\[\|]/)
+    { # pattern
         $Path=~s/\\/\\\\/g;
         return ($Path, "Pattern");
     }
@@ -1932,6 +1931,7 @@ sub readDescriptor($$)
     foreach my $Path (split(/\s*\n\s*/, $Descriptor{$LibVersion}{"SkipHeaders"}))
     {
         $SkipHeadersList{$LibVersion}{$Path} = 1;
+        
         my ($CPath, $Type) = classifyPath($Path);
         $SkipHeaders{$LibVersion}{$Type}{$CPath} = 1;
     }
@@ -20313,6 +20313,7 @@ sub read_ABI_Dump($$)
     foreach my $Path (keys(%{$ABI->{"SkipHeaders"}}))
     {
         $SkipHeadersList{$LibVersion}{$Path} = $ABI->{"SkipHeaders"}{$Path};
+        
         my ($CPath, $Type) = classifyPath($Path);
         $SkipHeaders{$LibVersion}{$Type}{$CPath} = $ABI->{"SkipHeaders"}{$Path};
     }
@@ -22653,14 +22654,6 @@ sub scenario()
         }
     }
     
-    if($SkipInternalSymbols) {
-        $SkipInternalSymbols=~s/\*/.*/g;
-    }
-    
-    if($SkipInternalTypes) {
-        $SkipInternalTypes=~s/\*/.*/g;
-    }
-    
     if($Quick) {
         $ADD_TMPL_INSTANCES = 0;
     }
@@ -22966,6 +22959,7 @@ sub scenario()
         { # register for both versions
             $SkipHeadersList{1}{$Path} = 1;
             $SkipHeadersList{2}{$Path} = 1;
+            
             my ($CPath, $Type) = classifyPath($Path);
             $SkipHeaders{1}{$Type}{$CPath} = 1;
             $SkipHeaders{2}{$Type}{$CPath} = 1;
