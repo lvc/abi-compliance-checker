@@ -191,7 +191,7 @@ span.p {
 }
 span.fp {
     font-style:italic;
-    background-color:#FFCCCC;
+    background-color:#DCDCDC;
 }
 span.ttype {
     font-weight:100;
@@ -203,17 +203,29 @@ span.value {
     white-space:nowrap;
     font-weight:bold;
 }
-td.passed {
+.passed {
     background-color:#CCFFCC;
 }
-td.warning {
+.warning {
     background-color:#F4F4AF;
 }
-td.failed {
+.failed {
     background-color:#FFCCCC;
 }
-td.new {
+.new {
     background-color:#C6DEFF;
+}
+.compatible {
+    background-color:#CCFFCC;
+}
+.almost_compatible {
+    background-color:#FFDAA3;
+}
+.incompatible {
+    background-color:#FFCCCC;
+}
+.gray {
+    background-color:#DCDCDC;
 }
 .top_ref {
     font-size:0.69em;

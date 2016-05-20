@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 1.99.20
+# ABI Compliance Checker (ABICC) 1.99.21
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -60,7 +60,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.20";
+my $TOOL_VERSION = "1.99.21";
 my $ABI_DUMP_VERSION = "3.2";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -91,7 +91,7 @@ $SourceReportPath, $UseXML, $SortDump, $DumpFormat,
 $ExtraInfo, $ExtraDump, $Force, $Tolerance, $Tolerant, $SkipSymbolsListPath,
 $CheckInfo, $Quick, $AffectLimit, $AllAffected, $CppIncompat,
 $SkipInternalSymbols, $SkipInternalTypes, $TargetArch, $GccOptions,
-$TypesListPath, $SkipTypesListPath, $CheckPrivateABI);
+$TypesListPath, $SkipTypesListPath, $CheckPrivateABI, $CountSymbols);
 
 my $CmdName = get_filename($0);
 my %OS_LibExt = (
@@ -221,6 +221,7 @@ GetOptions("h|help!" => \$Help,
   "binary|bin|abi!" => \$BinaryOnly,
   "source|src|api!" => \$SourceOnly,
   "limit-affected|affected-limit=s" => \$AffectLimit,
+  "count-symbols=s" => \$CountSymbols,
 # other options
   "test!" => \$TestTool,
   "test-dump!" => \$TestDump,
@@ -611,6 +612,9 @@ EXTRA OPTIONS:
   -limit-affected LIMIT
       The maximum number of affected symbols listed under the description
       of the changed type in the report.
+  
+  -count-symbols PATH
+      Count total public symbols in the ABI dump.
 
 OTHER OPTIONS:
   -test
@@ -1452,6 +1456,12 @@ my %SourceAlternative_B;
 my %SourceReplacement;
 my $CurrentSymbol; # for debugging
 
+#Report
+my %TypeChanges;
+
+#Speedup
+my %TypeProblemsIndex;
+
 # Calling Conventions
 my %UseConv_Real = (
   1=>{ "R"=>0, "P"=>0 },
@@ -1468,9 +1478,6 @@ my %TargetHeaders;
 # Format of objects
 my $OStarget = $OSgroup;
 my %TargetTools;
-
-# Compliance Report
-my %Type_MaxSeverity;
 
 # Recursion locks
 my @RecurLib;
@@ -8784,12 +8791,14 @@ sub unpackDump($)
 {
     my $Path = $_[0];
     return "" if(not $Path or not -e $Path);
+    
     $Path = get_abs_path($Path);
     $Path = path_format($Path, $OSgroup);
     my ($Dir, $FileName) = separate_path($Path);
     my $UnpackDir = $TMP_DIR."/unpack";
     rmtree($UnpackDir);
     mkpath($UnpackDir);
+    
     if($FileName=~s/\Q.zip\E\Z//g)
     { # *.zip
         my $UnzipCmd = get_CmdPath("unzip");
@@ -12226,9 +12235,9 @@ sub mergeTypes($$$)
                     
                     my %DupProblems = ();
                     
-                    foreach my $Sub_SubProblemType (keys(%{$Sub_SubProblems}))
+                    foreach my $Sub_SubProblemType (sort keys(%{$Sub_SubProblems}))
                     {
-                        foreach my $Sub_SubLocation (keys(%{$Sub_SubProblems->{$Sub_SubProblemType}}))
+                        foreach my $Sub_SubLocation (sort {length($a)<=>length($b)} sort keys(%{$Sub_SubProblems->{$Sub_SubProblemType}}))
                         {
                             if(not defined $AllAffected)
                             {
@@ -15613,7 +15622,7 @@ sub get_SourceInfo()
     
     if(my @Headers = get_CheckedHeaders(1))
     {
-        $CheckedHeaders = "<a name='Headers'></a><h2>Header Files (".($#Headers+1).")</h2><hr/>\n";
+        $CheckedHeaders = "<a name='Headers'></a><h2>Header Files <span class='gray'>&nbsp;".($#Headers+1)."&nbsp;</span></h2><hr/>\n";
         $CheckedHeaders .= "<div class='h_list'>\n";
         foreach my $Header_Path (sort {lc($Registered_Headers{1}{$a}{"Identity"}) cmp lc($Registered_Headers{1}{$b}{"Identity"})} @Headers)
         {
@@ -15628,7 +15637,7 @@ sub get_SourceInfo()
     
     if(my @Sources = keys(%{$Registered_Sources{1}}))
     {
-        $CheckedSources = "<a name='Sources'></a><h2>Source Files (".($#Sources+1).")</h2><hr/>\n";
+        $CheckedSources = "<a name='Sources'></a><h2>Source Files <span class='gray'>&nbsp;".($#Sources+1)."&nbsp;</span></h2><hr/>\n";
         $CheckedSources .= "<div class='h_list'>\n";
         foreach my $Header_Path (sort {lc($Registered_Sources{1}{$a}{"Identity"}) cmp lc($Registered_Sources{1}{$b}{"Identity"})} @Sources)
         {
@@ -15643,7 +15652,7 @@ sub get_SourceInfo()
     
     if(not $CheckHeadersOnly)
     {
-        $CheckedLibs = "<a name='Libs'></a><h2>".get_ObjTitle()." (".keys(%{$Library_Symbol{1}}).")</h2><hr/>\n";
+        $CheckedLibs = "<a name='Libs'></a><h2>".get_ObjTitle()." <span class='gray'>&nbsp;".keys(%{$Library_Symbol{1}})."&nbsp;</span></h2><hr/>\n";
         $CheckedLibs .= "<div class='lib_list'>\n";
         foreach my $Library (sort {lc($a) cmp lc($b)}  keys(%{$Library_Symbol{1}}))
         {
@@ -15667,31 +15676,29 @@ sub get_ObjTitle()
     }
 }
 
-sub get_TypeProblems_Count($$$)
+sub get_TypeProblems_Count($$)
 {
-    my ($TypeChanges, $TargetPriority, $Level) = @_;
+    my ($TargetSeverity, $Level) = @_;
     my $Type_Problems_Count = 0;
-    foreach my $Type_Name (sort keys(%{$TypeChanges}))
+    
+    foreach my $Type_Name (sort keys(%{$TypeChanges{$Level}}))
     {
         my %Kinds_Target = ();
-        foreach my $Kind (keys(%{$TypeChanges->{$Type_Name}}))
+        foreach my $Kind (keys(%{$TypeChanges{$Level}{$Type_Name}}))
         {
-            foreach my $Location (keys(%{$TypeChanges->{$Type_Name}{$Kind}}))
+            foreach my $Location (keys(%{$TypeChanges{$Level}{$Type_Name}{$Kind}}))
             {
-                my $Target = $TypeChanges->{$Type_Name}{$Kind}{$Location}{"Target"};
+                my $Target = $TypeChanges{$Level}{$Type_Name}{$Kind}{$Location}{"Target"};
                 my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
-                next if($Severity ne $TargetPriority);
+                
+                if($Severity ne $TargetSeverity) {
+                    next;
+                }
+                
                 if($Kinds_Target{$Kind}{$Target}) {
                     next;
                 }
                 
-                if(my $MaxSeverity = $Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target})
-                {
-                    if($Severity_Val{$MaxSeverity}>$Severity_Val{$Severity})
-                    { # select a problem with the highest priority
-                        next;
-                    }
-                }
                 $Kinds_Target{$Kind}{$Target} = 1;
                 $Type_Problems_Count += 1;
             }
@@ -15780,31 +15787,37 @@ sub get_Summary($)
             }
         }
     }
-    my %TypeChanges = ();
+    
+    my %MethodTypeIndex = ();
+    
     foreach my $Interface (sort keys(%{$CompatProblems{$Level}}))
     {
-        foreach my $Kind (keys(%{$CompatProblems{$Level}{$Interface}}))
+        my @Kinds = sort keys(%{$CompatProblems{$Level}{$Interface}});
+        foreach my $Kind (@Kinds)
         {
             if($CompatRules{$Level}{$Kind}{"Kind"} eq "Types")
             {
-                foreach my $Location (sort {cmpLocations($b, $a)} sort keys(%{$CompatProblems{$Level}{$Interface}{$Kind}}))
+                my @Locs = sort {cmpLocations($b, $a)} sort keys(%{$CompatProblems{$Level}{$Interface}{$Kind}});
+                foreach my $Location (@Locs)
                 {
                     my $Type_Name = $CompatProblems{$Level}{$Interface}{$Kind}{$Location}{"Type_Name"};
                     my $Target = $CompatProblems{$Level}{$Interface}{$Kind}{$Location}{"Target"};
-                    my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
-                    my $MaxSeverity = $Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target};
                     
-                    if($MaxSeverity and $Severity_Val{$MaxSeverity}>$Severity_Val{$Severity})
-                    { # select a problem with the highest priority
+                    if(defined $MethodTypeIndex{$Interface}{$Type_Name}{$Kind}{$Target})
+                    { # one location for one type and target
                         next;
                     }
+                    $MethodTypeIndex{$Interface}{$Type_Name}{$Kind}{$Target} = 1;
+                    $TypeChanges{$Level}{$Type_Name}{$Kind}{$Location} = $CompatProblems{$Level}{$Interface}{$Kind}{$Location};
+                    
+                    my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
                     
                     if(($Severity ne "Low" or $StrictCompat)
                     and $Severity ne "Safe")
                     {
-                        if(defined $TotalAffected{$Level}{$Interface})
+                        if(my $Sev = $TotalAffected{$Level}{$Interface})
                         {
-                            if($Severity_Val{$Severity}>$Severity_Val{$TotalAffected{$Level}{$Interface}}) {
+                            if($Severity_Val{$Severity}>$Severity_Val{$Sev}) {
                                 $TotalAffected{$Level}{$Interface} = $Severity;
                             }
                         }
@@ -15812,29 +15825,15 @@ sub get_Summary($)
                             $TotalAffected{$Level}{$Interface} = $Severity;
                         }
                     }
-                    
-                    $TypeChanges{$Type_Name}{$Kind}{$Location} = $CompatProblems{$Level}{$Interface}{$Kind}{$Location};
-                    
-                    if($MaxSeverity)
-                    {
-                        if($Severity_Val{$Severity}>$Severity_Val{$MaxSeverity}) {
-                            $Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target} = $Severity;
-                        }
-                    }
-                    else {
-                        $Type_MaxSeverity{$Level}{$Type_Name}{$Kind}{$Target} = $Severity;
-                    }
                 }
             }
         }
     }
     
-    $T_Problems_High = get_TypeProblems_Count(\%TypeChanges, "High", $Level);
-    $T_Problems_Medium = get_TypeProblems_Count(\%TypeChanges, "Medium", $Level);
-    $T_Problems_Low = get_TypeProblems_Count(\%TypeChanges, "Low", $Level);
-    $T_Other = get_TypeProblems_Count(\%TypeChanges, "Safe", $Level);
-    
-    %TypeChanges = (); # free memory
+    $T_Problems_High = get_TypeProblems_Count("High", $Level);
+    $T_Problems_Medium = get_TypeProblems_Count("Medium", $Level);
+    $T_Problems_Low = get_TypeProblems_Count("Low", $Level);
+    $T_Other = get_TypeProblems_Count("Safe", $Level);
     
     # changed and removed public symbols
     my $SCount = keys(%{$CheckedSymbols{$Level}});
@@ -16091,12 +16090,24 @@ sub get_Summary($)
         if($JoinReport) {
             $META_DATA = "kind:".lc($Level).";".$META_DATA;
         }
-        $TestResults .= "<tr><th>Verdict</th>";
-        if($RESULT{$Level}{"Verdict"} eq "incompatible") {
-            $TestResults .= "<td><span style='color:Red;'><b>Incompatible<br/>(".$RESULT{$Level}{"Affected"}."%)</b></span></td>";
+        
+        my $BC_Rate = 100 - $RESULT{$Level}{"Affected"};
+        
+        $TestResults .= "<tr><th>Compatibility</th>\n";
+        if($RESULT{$Level}{"Verdict"} eq "incompatible")
+        {
+            my $Cl = "incompatible";
+            if($BC_Rate>=90) {
+                $Cl = "warning";
+            }
+            elsif($BC_Rate>=80) {
+                $Cl = "almost_compatible";
+            }
+            
+            $TestResults .= "<td class=\'$Cl\'>".$BC_Rate."%</td>\n";
         }
         else {
-            $TestResults .= "<td><span style='color:Green;'><b>Compatible</b></span></td>";
+            $TestResults .= "<td class=\'compatible\'>100%</td>\n";
         }
         $TestResults .= "</tr>\n";
         $TestResults .= "</table>\n";
@@ -16118,7 +16129,7 @@ sub get_Summary($)
             }
         }
         $META_DATA .= "added:$Added;";
-        $Problem_Summary .= "<tr><th>Added Symbols</th><td>-</td><td".getStyle("I", "A", $Added).">$Added_Link</td></tr>\n";
+        $Problem_Summary .= "<tr><th>Added Symbols</th><td>-</td><td".getStyle("I", "Added", $Added).">$Added_Link</td></tr>\n";
         
         my $Removed_Link = "0";
         if($Removed>0)
@@ -16132,72 +16143,72 @@ sub get_Summary($)
         }
         $META_DATA .= "removed:$Removed;";
         $Problem_Summary .= "<tr><th>Removed Symbols</th>";
-        $Problem_Summary .= "<td>High</td><td".getStyle("I", "R", $Removed).">$Removed_Link</td></tr>\n";
+        $Problem_Summary .= "<td>High</td><td".getStyle("I", "Removed", $Removed).">$Removed_Link</td></tr>\n";
         
         my $TH_Link = "0";
         $TH_Link = "<a href='#".get_Anchor("Type", $Level, "High")."' style='color:Blue;'>$T_Problems_High</a>" if($T_Problems_High>0);
         $META_DATA .= "type_problems_high:$T_Problems_High;";
         $Problem_Summary .= "<tr><th rowspan='3'>Problems with<br/>Data Types</th>";
-        $Problem_Summary .= "<td>High</td><td".getStyle("T", "H", $T_Problems_High).">$TH_Link</td></tr>\n";
+        $Problem_Summary .= "<td>High</td><td".getStyle("T", "High", $T_Problems_High).">$TH_Link</td></tr>\n";
         
         my $TM_Link = "0";
         $TM_Link = "<a href='#".get_Anchor("Type", $Level, "Medium")."' style='color:Blue;'>$T_Problems_Medium</a>" if($T_Problems_Medium>0);
         $META_DATA .= "type_problems_medium:$T_Problems_Medium;";
-        $Problem_Summary .= "<tr><td>Medium</td><td".getStyle("T", "M", $T_Problems_Medium).">$TM_Link</td></tr>\n";
+        $Problem_Summary .= "<tr><td>Medium</td><td".getStyle("T", "Medium", $T_Problems_Medium).">$TM_Link</td></tr>\n";
         
         my $TL_Link = "0";
         $TL_Link = "<a href='#".get_Anchor("Type", $Level, "Low")."' style='color:Blue;'>$T_Problems_Low</a>" if($T_Problems_Low>0);
         $META_DATA .= "type_problems_low:$T_Problems_Low;";
-        $Problem_Summary .= "<tr><td>Low</td><td".getStyle("T", "L", $T_Problems_Low).">$TL_Link</td></tr>\n";
+        $Problem_Summary .= "<tr><td>Low</td><td".getStyle("T", "Low", $T_Problems_Low).">$TL_Link</td></tr>\n";
         
         my $IH_Link = "0";
         $IH_Link = "<a href='#".get_Anchor("Symbol", $Level, "High")."' style='color:Blue;'>$I_Problems_High</a>" if($I_Problems_High>0);
         $META_DATA .= "interface_problems_high:$I_Problems_High;";
         $Problem_Summary .= "<tr><th rowspan='3'>Problems with<br/>Symbols</th>";
-        $Problem_Summary .= "<td>High</td><td".getStyle("I", "H", $I_Problems_High).">$IH_Link</td></tr>\n";
+        $Problem_Summary .= "<td>High</td><td".getStyle("I", "High", $I_Problems_High).">$IH_Link</td></tr>\n";
         
         my $IM_Link = "0";
         $IM_Link = "<a href='#".get_Anchor("Symbol", $Level, "Medium")."' style='color:Blue;'>$I_Problems_Medium</a>" if($I_Problems_Medium>0);
         $META_DATA .= "interface_problems_medium:$I_Problems_Medium;";
-        $Problem_Summary .= "<tr><td>Medium</td><td".getStyle("I", "M", $I_Problems_Medium).">$IM_Link</td></tr>\n";
+        $Problem_Summary .= "<tr><td>Medium</td><td".getStyle("I", "Medium", $I_Problems_Medium).">$IM_Link</td></tr>\n";
         
         my $IL_Link = "0";
         $IL_Link = "<a href='#".get_Anchor("Symbol", $Level, "Low")."' style='color:Blue;'>$I_Problems_Low</a>" if($I_Problems_Low>0);
         $META_DATA .= "interface_problems_low:$I_Problems_Low;";
-        $Problem_Summary .= "<tr><td>Low</td><td".getStyle("I", "L", $I_Problems_Low).">$IL_Link</td></tr>\n";
+        $Problem_Summary .= "<tr><td>Low</td><td".getStyle("I", "Low", $I_Problems_Low).">$IL_Link</td></tr>\n";
         
         my $ChangedConstants_Link = "0";
         if(keys(%{$CheckedSymbols{$Level}}) and $C_Problems_Low) {
             $ChangedConstants_Link = "<a href='#".get_Anchor("Constant", $Level, "Low")."' style='color:Blue;'>$C_Problems_Low</a>";
         }
         $META_DATA .= "changed_constants:$C_Problems_Low;";
-        $Problem_Summary .= "<tr><th>Problems with<br/>Constants</th><td>Low</td><td".getStyle("C", "L", $C_Problems_Low).">$ChangedConstants_Link</td></tr>\n";
+        $Problem_Summary .= "<tr><th>Problems with<br/>Constants</th><td>Low</td><td".getStyle("C", "Low", $C_Problems_Low).">$ChangedConstants_Link</td></tr>\n";
         
         # Safe Changes
         if($T_Other)
         {
             my $TS_Link = "<a href='#".get_Anchor("Type", $Level, "Safe")."' style='color:Blue;'>$T_Other</a>";
-            $Problem_Summary .= "<tr><th>Other Changes<br/>in Data Types</th><td>-</td><td".getStyle("T", "S", $T_Other).">$TS_Link</td></tr>\n";
+            $Problem_Summary .= "<tr><th>Other Changes<br/>in Data Types</th><td>-</td><td".getStyle("T", "Safe", $T_Other).">$TS_Link</td></tr>\n";
             $META_DATA .= "type_changes_other:$T_Other;";
         }
         
         if($I_Other)
         {
             my $IS_Link = "<a href='#".get_Anchor("Symbol", $Level, "Safe")."' style='color:Blue;'>$I_Other</a>";
-            $Problem_Summary .= "<tr><th>Other Changes<br/>in Symbols</th><td>-</td><td".getStyle("I", "S", $I_Other).">$IS_Link</td></tr>\n";
+            $Problem_Summary .= "<tr><th>Other Changes<br/>in Symbols</th><td>-</td><td".getStyle("I", "Safe", $I_Other).">$IS_Link</td></tr>\n";
             $META_DATA .= "interface_changes_other:$I_Other;";
         }
         
         if($C_Other)
         {
             my $CS_Link = "<a href='#".get_Anchor("Constant", $Level, "Safe")."' style='color:Blue;'>$C_Other</a>";
-            $Problem_Summary .= "<tr><th>Other Changes<br/>in Constants</th><td>-</td><td".getStyle("C", "S", $C_Other).">$CS_Link</td></tr>\n";
+            $Problem_Summary .= "<tr><th>Other Changes<br/>in Constants</th><td>-</td><td".getStyle("C", "Safe", $C_Other).">$CS_Link</td></tr>\n";
             $META_DATA .= "constant_changes_other:$C_Other;";
         }
         
         $META_DATA .= "tool_version:$TOOL_VERSION";
         $Problem_Summary .= "</table>\n";
-        # $TestInfo = getLegend().$TestInfo;
+        
         return ($TestInfo.$TestResults.$Problem_Summary, $META_DATA);
     }
 }
@@ -16206,16 +16217,18 @@ sub getStyle($$$)
 {
     my ($Subj, $Act, $Num) = @_;
     my %Style = (
-        "A"=>"new",
-        "R"=>"failed",
-        "S"=>"passed",
-        "L"=>"warning",
-        "M"=>"failed",
-        "H"=>"failed"
+        "Added"=>"new",
+        "Removed"=>"failed",
+        "Safe"=>"passed",
+        "Low"=>"warning",
+        "Medium"=>"failed",
+        "High"=>"failed"
     );
+    
     if($Num>0) {
         return " class='".$Style{$Act}."'";
     }
+    
     return "";
 }
 
@@ -16324,7 +16337,7 @@ sub get_Report_ChangedConstants($$)
     }
     else
     { # HTML
-        my $Number = 0;
+        my $ProblemsNum = 0;
         foreach my $HeaderName (sort {lc($a) cmp lc($b)} keys(%ReportMap))
         {
             $CHANGED_CONSTANTS .= "<span class='h_name'>$HeaderName</span><br/>\n";
@@ -16337,7 +16350,7 @@ sub get_Report_ChangedConstants($$)
                     my $Change = applyMacroses($Level, $Kind, $CompatRules{$Level}{$Kind}{"Change"}, $CompatProblems_Constants{$Level}{$Constant}{$Kind});
                     my $Effect = $CompatRules{$Level}{$Kind}{"Effect"};
                     $Report .= "<tr>\n<th>1</th>\n<td>".$Change."</td>\n<td>$Effect</td>\n</tr>\n";
-                    $Number += 1;
+                    $ProblemsNum += 1;
                 }
                 if($Report)
                 {
@@ -16356,7 +16369,7 @@ sub get_Report_ChangedConstants($$)
             { # Safe Changes
                 $Title = "Other Changes in Constants";
             }
-            $CHANGED_CONSTANTS = "<a name='".get_Anchor("Constant", $Level, $TargetSeverity)."'></a><h2>$Title ($Number)</h2><hr/>\n".$CHANGED_CONSTANTS.$TOP_REF."<br/>\n";
+            $CHANGED_CONSTANTS = "<a name='".get_Anchor("Constant", $Level, $TargetSeverity)."'></a><h2>$Title <span".getStyle("C", $TargetSeverity, $ProblemsNum).">&nbsp;$ProblemsNum&nbsp;</span></h2><hr/>\n".$CHANGED_CONSTANTS.$TOP_REF."<br/>\n";
         }
     }
     return $CHANGED_CONSTANTS;
@@ -16382,9 +16395,11 @@ sub getTitle($$$)
     elsif($Header) {
         $Title .= "<span class='h_name'>$Header</span><br/>\n";
     }
+    
     if($NameSpace) {
         $Title .= "<span class='ns'>namespace <b>$NameSpace</b></span><br/>\n";
     }
+    
     return $Title;
 }
 
@@ -16477,7 +16492,7 @@ sub get_Report_Added($)
             if($JoinReport) {
                 $Anchor = "<a name='".$Level."_Added'></a>";
             }
-            $ADDED_INTERFACES = $Anchor."<h2>Added Symbols ($Added_Number)</h2><hr/>\n".$ADDED_INTERFACES.$TOP_REF."<br/>\n";
+            $ADDED_INTERFACES = $Anchor."<h2>Added Symbols <span".getStyle("I", "Added", $Added_Number).">&nbsp;$Added_Number&nbsp;</span></h2><hr/>\n".$ADDED_INTERFACES.$TOP_REF."<br/>\n";
         }
     }
     return $ADDED_INTERFACES;
@@ -16573,7 +16588,7 @@ sub get_Report_Removed($)
             if($JoinReport) {
                 $Anchor = "<a name='".$Level."_Removed'></a><a name='".$Level."_Withdrawn'></a>";
             }
-            $REMOVED_INTERFACES = $Anchor."<h2>Removed Symbols ($Removed_Number)</h2><hr/>\n".$REMOVED_INTERFACES.$TOP_REF."<br/>\n";
+            $REMOVED_INTERFACES = $Anchor."<h2>Removed Symbols <span".getStyle("I", "Removed", $Removed_Number).">&nbsp;$Removed_Number&nbsp;</span></h2><hr/>\n".$REMOVED_INTERFACES.$TOP_REF."<br/>\n";
         }
     }
     return $REMOVED_INTERFACES;
@@ -16725,43 +16740,36 @@ sub get_Report_SymbolProblems($$)
         if($SV and defined $CompatProblems{$Level}{$SN}) {
             next;
         }
+        my $HeaderName = $CompleteSignature{1}{$Symbol}{"Header"};
+        my $DyLib = $Symbol_Library{1}{$Symbol};
+        if(not $DyLib and my $VSym = $SymVer{1}{$Symbol})
+        { # Symbol with Version
+            $DyLib = $Symbol_Library{1}{$VSym};
+        }
+        if(not $DyLib)
+        { # const global data
+            $DyLib = "";
+        }
+        if($Level eq "Source" and $ReportFormat eq "html")
+        { # do not show library name in HTML report
+            $DyLib = "";
+        }
+        
         foreach my $Kind (sort keys(%{$CompatProblems{$Level}{$Symbol}}))
         {
             if($CompatRules{$Level}{$Kind}{"Kind"} eq "Symbols"
             and $Kind ne "Added_Symbol" and $Kind ne "Removed_Symbol")
             {
-                my $HeaderName = $CompleteSignature{1}{$Symbol}{"Header"};
-                my $DyLib = $Symbol_Library{1}{$Symbol};
-                if(not $DyLib and my $VSym = $SymVer{1}{$Symbol})
-                { # Symbol with Version
-                    $DyLib = $Symbol_Library{1}{$VSym};
-                }
-                if(not $DyLib)
-                { # const global data
-                    $DyLib = "";
-                }
-                if($Level eq "Source" and $ReportFormat eq "html")
-                { # do not show library name in HTML report
-                    $DyLib = "";
-                }
-                %{$SymbolChanges{$Symbol}{$Kind}} = %{$CompatProblems{$Level}{$Symbol}{$Kind}};
-                foreach my $Location (sort keys(%{$SymbolChanges{$Symbol}{$Kind}}))
+                my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
+                foreach my $Location (sort keys(%{$CompatProblems{$Level}{$Symbol}{$Kind}}))
                 {
-                    my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
-                    if($Severity ne $TargetSeverity) {
-                        delete($SymbolChanges{$Symbol}{$Kind}{$Location});
+                    if($Severity eq $TargetSeverity)
+                    {
+                        $SymbolChanges{$Symbol}{$Kind} = $CompatProblems{$Level}{$Symbol}{$Kind};
+                        $ReportMap{$HeaderName}{$DyLib}{$Symbol} = 1;
                     }
                 }
-                if(not keys(%{$SymbolChanges{$Symbol}{$Kind}}))
-                {
-                    delete($SymbolChanges{$Symbol}{$Kind});
-                    next;
-                }
-                $ReportMap{$HeaderName}{$DyLib}{$Symbol} = 1;
             }
-        }
-        if(not keys(%{$SymbolChanges{$Symbol}})) {
-            delete($SymbolChanges{$Symbol});
         }
     }
     
@@ -16855,7 +16863,7 @@ sub get_Report_SymbolProblems($$)
                                 $ShowSymbol = cut_Namespace($ShowSymbol, $NameSpace);
                             }
                             
-                            $INTERFACE_PROBLEMS .= $ContentSpanStart."<span class='ext'>[+]</span> ".$ShowSymbol." ($ProblemNum)".$ContentSpanEnd."<br/>\n";
+                            $INTERFACE_PROBLEMS .= $ContentSpanStart."<span class='ext'>[+]</span> ".$ShowSymbol." <span".getStyle("I", $TargetSeverity, $ProblemNum).">&nbsp;$ProblemNum&nbsp;</span>".$ContentSpanEnd."<br/>\n";
                             $INTERFACE_PROBLEMS .= $ContentDivStart."\n";
                             
                             if(my $NSign = $NewSignature{$Symbol})
@@ -16887,7 +16895,7 @@ sub get_Report_SymbolProblems($$)
             { # Safe Changes
                 $Title = "Other Changes in Symbols";
             }
-            $INTERFACE_PROBLEMS = "<a name=\'".get_Anchor("Symbol", $Level, $TargetSeverity)."\'></a><a name=\'".get_Anchor("Interface", $Level, $TargetSeverity)."\'></a>\n<h2>$Title ($ProblemsNum)</h2><hr/>\n".$INTERFACE_PROBLEMS.$TOP_REF."<br/>\n";
+            $INTERFACE_PROBLEMS = "<a name=\'".get_Anchor("Symbol", $Level, $TargetSeverity)."\'></a><a name=\'".get_Anchor("Interface", $Level, $TargetSeverity)."\'></a>\n<h2>$Title <span".getStyle("I", $TargetSeverity, $ProblemsNum).">&nbsp;$ProblemsNum&nbsp;</span></h2><hr/>\n".$INTERFACE_PROBLEMS.$TOP_REF."<br/>\n";
         }
     }
     return $INTERFACE_PROBLEMS;
@@ -16904,74 +16912,30 @@ sub get_Report_TypeProblems($$)
 {
     my ($TargetSeverity, $Level) = @_;
     my $TYPE_PROBLEMS = "";
-    my (%ReportMap, %TypeChanges) = ();
     
-    foreach my $Interface (sort keys(%{$CompatProblems{$Level}}))
-    {
-        foreach my $Kind (keys(%{$CompatProblems{$Level}{$Interface}}))
-        {
-            if($CompatRules{$Level}{$Kind}{"Kind"} eq "Types")
-            {
-                foreach my $Location (sort {cmpLocations($b, $a)} sort keys(%{$CompatProblems{$Level}{$Interface}{$Kind}}))
-                {
-                    my $TypeName = $CompatProblems{$Level}{$Interface}{$Kind}{$Location}{"Type_Name"};
-                    my $Target = $CompatProblems{$Level}{$Interface}{$Kind}{$Location}{"Target"};
-                    my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
-                    
-                    if($Severity eq "Safe"
-                    and $TargetSeverity ne "Safe") {
-                        next;
-                    }
-                    
-                    if(my $MaxSeverity = $Type_MaxSeverity{$Level}{$TypeName}{$Kind}{$Target})
-                    {
-                        if($Severity_Val{$MaxSeverity}>$Severity_Val{$Severity})
-                        { # select a problem with the highest priority
-                            next;
-                        }
-                    }
-                    
-                    $TypeChanges{$TypeName}{$Kind}{$Location} = $CompatProblems{$Level}{$Interface}{$Kind}{$Location};
-                }
-            }
-        }
-    }
+    my %ReportMap = ();
+    my %TypeChanges_Sev = ();
     
-    my %Kinds_Locations = ();
-    foreach my $TypeName (keys(%TypeChanges))
+    foreach my $TypeName (keys(%{$TypeChanges{$Level}}))
     {
-        my %Kind_Target = ();
-        foreach my $Kind (sort keys(%{$TypeChanges{$TypeName}}))
+        my $HeaderName = $TypeInfo{1}{$TName_Tid{1}{$TypeName}}{"Header"};
+        
+        foreach my $Kind (keys(%{$TypeChanges{$Level}{$TypeName}}))
         {
-            foreach my $Location (sort {cmpLocations($b, $a)} sort keys(%{$TypeChanges{$TypeName}{$Kind}}))
+            foreach my $Location (keys(%{$TypeChanges{$Level}{$TypeName}{$Kind}}))
             {
+                my $Target = $TypeChanges{$Level}{$TypeName}{$Kind}{$Location}{"Target"};
                 my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
-                if($Severity ne $TargetSeverity)
-                { # other priority
-                    delete($TypeChanges{$TypeName}{$Kind}{$Location});
-                    next;
+                
+                if($Severity eq $TargetSeverity)
+                {
+                    $ReportMap{$HeaderName}{$TypeName} = 1;
+                    $TypeChanges_Sev{$TypeName}{$Kind}{$Location} = $TypeChanges{$Level}{$TypeName}{$Kind}{$Location};
                 }
-                $Kinds_Locations{$TypeName}{$Kind}{$Location} = 1;
-                my $Target = $TypeChanges{$TypeName}{$Kind}{$Location}{"Target"};
-                if($Kind_Target{$Kind}{$Target})
-                { # duplicate target
-                    delete($TypeChanges{$TypeName}{$Kind}{$Location});
-                    next;
-                }
-                $Kind_Target{$Kind}{$Target} = 1;
-                my $HeaderName = $TypeInfo{1}{$TName_Tid{1}{$TypeName}}{"Header"};
-                $ReportMap{$HeaderName}{$TypeName} = 1;
             }
-            if(not keys(%{$TypeChanges{$TypeName}{$Kind}})) {
-                delete($TypeChanges{$TypeName}{$Kind});
-            }
-        }
-        if(not keys(%{$TypeChanges{$TypeName}})) {
-            delete($TypeChanges{$TypeName});
         }
     }
     
-    my @Symbols = sort {lc($tr_name{$a}?$tr_name{$a}:$a) cmp lc($tr_name{$b}?$tr_name{$b}:$b)} keys(%{$CompatProblems{$Level}});
     if($ReportFormat eq "xml")
     { # XML
         foreach my $HeaderName (sort {lc($a) cmp lc($b)} keys(%ReportMap))
@@ -16979,12 +16943,21 @@ sub get_Report_TypeProblems($$)
             $TYPE_PROBLEMS .= "  <header name=\"$HeaderName\">\n";
             foreach my $TypeName (keys(%{$ReportMap{$HeaderName}}))
             {
+                my (%Kinds_Locations, %Kinds_Target) = ();
                 $TYPE_PROBLEMS .= "    <type name=\"".xmlSpecChars($TypeName)."\">\n";
-                foreach my $Kind (sort {$b=~/Size/ <=> $a=~/Size/} sort keys(%{$TypeChanges{$TypeName}}))
+                foreach my $Kind (sort {$b=~/Size/ <=> $a=~/Size/} sort keys(%{$TypeChanges_Sev{$TypeName}}))
                 {
-                    foreach my $Location (sort {cmpLocations($b, $a)} sort keys(%{$TypeChanges{$TypeName}{$Kind}}))
+                    foreach my $Location (sort {cmpLocations($b, $a)} sort keys(%{$TypeChanges_Sev{$TypeName}{$Kind}}))
                     {
-                        my %Problem = %{$TypeChanges{$TypeName}{$Kind}{$Location}};
+                        $Kinds_Locations{$Kind}{$Location} = 1;
+                        
+                        my $Target = $TypeChanges_Sev{$TypeName}{$Kind}{$Location}{"Target"};
+                        if($Kinds_Target{$Kind}{$Target}) {
+                            next;
+                        }
+                        $Kinds_Target{$Kind}{$Target} = 1;
+                        
+                        my %Problem = %{$TypeChanges_Sev{$TypeName}{$Kind}{$Location}};
                         $TYPE_PROBLEMS .= "      <problem id=\"$Kind\">\n";
                         my $Change = $CompatRules{$Level}{$Kind}{"Change"};
                         $TYPE_PROBLEMS .= "        <change".getXmlParams($Change, \%Problem).">$Change</change>\n";
@@ -16996,7 +16969,7 @@ sub get_Report_TypeProblems($$)
                         $TYPE_PROBLEMS .= "      </problem>\n";
                     }
                 }
-                $TYPE_PROBLEMS .= getAffectedSymbols($Level, $TypeName, $Kinds_Locations{$TypeName}, \@Symbols);
+                $TYPE_PROBLEMS .= getAffectedSymbols($Level, $TypeName, $Kinds_Locations{$TypeName});
                 if($Level eq "Binary" and grep {$_=~/Virtual|Base_Class/} keys(%{$Kinds_Locations{$TypeName}})) {
                     $TYPE_PROBLEMS .= showVTables($TypeName);
                 }
@@ -17023,12 +16996,21 @@ sub get_Report_TypeProblems($$)
                 {
                     my $ProblemNum = 1;
                     my $TYPE_REPORT = "";
+                    my (%Kinds_Locations, %Kinds_Target) = ();
                     
-                    foreach my $Kind (sort {$b=~/Size/ <=> $a=~/Size/} sort keys(%{$TypeChanges{$TypeName}}))
+                    foreach my $Kind (sort {$b=~/Size/ <=> $a=~/Size/} sort keys(%{$TypeChanges_Sev{$TypeName}}))
                     {
-                        foreach my $Location (sort {cmpLocations($b, $a)} sort keys(%{$TypeChanges{$TypeName}{$Kind}}))
+                        foreach my $Location (sort {cmpLocations($b, $a)} sort keys(%{$TypeChanges_Sev{$TypeName}{$Kind}}))
                         {
-                            my %Problem = %{$TypeChanges{$TypeName}{$Kind}{$Location}};
+                            $Kinds_Locations{$Kind}{$Location} = 1;
+                            
+                            my $Target = $TypeChanges_Sev{$TypeName}{$Kind}{$Location}{"Target"};
+                            if($Kinds_Target{$Kind}{$Target}) {
+                                next;
+                            }
+                            $Kinds_Target{$Kind}{$Target} = 1;
+                            
+                            my %Problem = %{$TypeChanges_Sev{$TypeName}{$Kind}{$Location}};
                             if(my $Change = applyMacroses($Level, $Kind, $CompatRules{$Level}{$Kind}{"Change"}, \%Problem))
                             {
                                 my $Effect = applyMacroses($Level, $Kind, $CompatRules{$Level}{$Kind}{"Effect"}, \%Problem);
@@ -17041,9 +17023,9 @@ sub get_Report_TypeProblems($$)
                     $ProblemNum -= 1;
                     if($TYPE_REPORT)
                     {
-                        my $Affected = getAffectedSymbols($Level, $TypeName, $Kinds_Locations{$TypeName}, \@Symbols);
+                        my $Affected = getAffectedSymbols($Level, $TypeName, \%Kinds_Locations);
                         my $ShowVTables = "";
-                        if($Level eq "Binary" and grep {$_=~/Virtual|Base_Class/} keys(%{$Kinds_Locations{$TypeName}})) {
+                        if($Level eq "Binary" and grep {$_=~/Virtual|Base_Class/} keys(%Kinds_Locations)) {
                             $ShowVTables = showVTables($TypeName);
                         }
                         
@@ -17057,7 +17039,7 @@ sub get_Report_TypeProblems($$)
                             $ShowVTables = cut_Namespace($ShowVTables, $NameSpace);
                         }
                         
-                        $TYPE_PROBLEMS .= $ContentSpanStart."<span class='ext'>[+]</span> ".$ShowType." ($ProblemNum)".$ContentSpanEnd;
+                        $TYPE_PROBLEMS .= $ContentSpanStart."<span class='ext'>[+]</span> ".$ShowType." <span".getStyle("T", $TargetSeverity, $ProblemNum).">&nbsp;$ProblemNum&nbsp;</span>".$ContentSpanEnd;
                         $TYPE_PROBLEMS .= "<br/>\n".$ContentDivStart."<table class='ptable'><tr>\n";
                         $TYPE_PROBLEMS .= "<th width='2%'></th><th width='47%'>Change</th>\n";
                         $TYPE_PROBLEMS .= "<th>Effect</th></tr>".$TYPE_REPORT."</table>\n";
@@ -17076,7 +17058,7 @@ sub get_Report_TypeProblems($$)
             { # Safe Changes
                 $Title = "Other Changes in Data Types";
             }
-            $TYPE_PROBLEMS = "<a name=\'".get_Anchor("Type", $Level, $TargetSeverity)."\'></a>\n<h2>$Title ($ProblemsNum)</h2><hr/>\n".$TYPE_PROBLEMS.$TOP_REF."<br/>\n";
+            $TYPE_PROBLEMS = "<a name=\'".get_Anchor("Type", $Level, $TargetSeverity)."\'></a>\n<h2>$Title <span".getStyle("T", $TargetSeverity, $ProblemsNum).">&nbsp;$ProblemsNum&nbsp;</span></h2><hr/>\n".$TYPE_PROBLEMS.$TOP_REF."<br/>\n";
         }
     }
     return $TYPE_PROBLEMS;
@@ -17262,9 +17244,9 @@ sub getParamName($)
     return $Loc;
 }
 
-sub getAffectedSymbols($$$$)
+sub getAffectedSymbols($$$)
 {
-    my ($Level, $Target_TypeName, $Kinds_Locations, $Syms) = @_;
+    my ($Level, $Target_TypeName, $Kinds_Locations) = @_;
     
     my $LIMIT = 10;
     if(defined $AffectLimit) {
@@ -17280,7 +17262,7 @@ sub getAffectedSymbols($$$$)
     }
     
     my %SymLocKind = ();
-    foreach my $Symbol (@{$Syms})
+    foreach my $Symbol (sort keys(%{$TypeProblemsIndex{$Level}{$Target_TypeName}}))
     {
         if(index($Symbol, "_Z")==0
         and $Symbol=~/(C2|D2|D0)[EI]/)
@@ -17290,11 +17272,6 @@ sub getAffectedSymbols($$$$)
         
         foreach my $Kind (@Kinds)
         {
-            if(not defined $CompatProblems{$Level}{$Symbol}
-            or not defined $CompatProblems{$Level}{$Symbol}{$Kind}) {
-                next;
-            }
-            
             foreach my $Loc (@{$KLocs{$Kind}})
             {
                 if(not defined $CompatProblems{$Level}{$Symbol}{$Kind}{$Loc}) {
@@ -17327,11 +17304,6 @@ sub getAffectedSymbols($$$$)
                 last;
             }
         }
-        
-        # if(keys(%SymLocKind)>=$LIMIT)
-        # {
-        #     last;
-        # }
     }
     
     %KLocs = (); # clear
@@ -17396,9 +17368,12 @@ sub getAffectedSymbols($$$$)
     { # HTML
         foreach my $Symbol (sort {lc($a) cmp lc($b)} keys(%SymSel))
         {
-            my $Desc = getAffectDesc($Level, $Symbol, $SymSel{$Symbol}{"Kind"}, $SymSel{$Symbol}{"Loc"});
+            my $Kind = $SymSel{$Symbol}{"Kind"};
+            my $Loc = $SymSel{$Symbol}{"Loc"};
+            
+            my $Desc = getAffectDesc($Level, $Symbol, $Kind, $Loc);
             my $S = get_Signature($Symbol, 1);
-            my $PName = getParamName($SymSel{$Symbol}{"Loc"});
+            my $PName = getParamName($Loc);
             my $Pos = adjustParamPos(getParamPos($PName, $Symbol, 1), $Symbol, 1);
             
             $Affected .= "<span class='iname_a'>".highLight_Signature_PPos_Italic($S, $Pos, 1, 0, 0)."</span><br/>\n";
@@ -17412,8 +17387,10 @@ sub getAffectedSymbols($$$$)
         $Affected = "<div class='affected'>".$Affected."</div>\n";
         if($Affected)
         {
+            my $Num = keys(%SymLocKind);
+            my $Per = show_number($Num*100/keys(%{$CheckedSymbols{$Level}}));
             $Affected = $ContentDivStart.$Affected.$ContentDivEnd;
-            $Affected = $ContentSpanStart_Affected."[+] affected symbols (".keys(%SymLocKind).")".$ContentSpanEnd.$Affected;
+            $Affected = $ContentSpanStart_Affected."[+] affected symbols: $Num ($Per\%)".$ContentSpanEnd.$Affected;
         }
     }
     
@@ -17770,20 +17747,6 @@ sub getReport($)
             return $Report;
         }
     }
-}
-
-sub getLegend()
-{
-    return "<br/>
-<table class='summary'>
-<tr>
-    <td class='new'>added</td>
-    <td class='passed'>compatible</td>
-</tr>
-<tr>
-    <td class='warning'>warning</td>
-    <td class='failed'>incompatible</td>
-</tr></table>\n";
 }
 
 sub createReport()
@@ -22059,8 +22022,17 @@ sub quickEmptyReports()
   # OVERCOME 2: separate meta info from the dumps in ACC 2.0
     if(-s $Descriptor{1}{"Path"} == -s $Descriptor{2}{"Path"})
     {
-        my $FilePath1 = unpackDump($Descriptor{1}{"Path"});
-        my $FilePath2 = unpackDump($Descriptor{2}{"Path"});
+        my $FilePath1 = $Descriptor{1}{"Path"};
+        my $FilePath2 = $Descriptor{2}{"Path"};
+        
+        if(not isDump_U($FilePath1)) {
+            $FilePath1 = unpackDump($FilePath1);
+        }
+        
+        if(not isDump_U($FilePath2)) {
+            $FilePath2 = unpackDump($FilePath2);
+        }
+        
         if($FilePath1 and $FilePath2)
         {
             my $Line = readLineNum($FilePath1, 0);
@@ -22110,8 +22082,22 @@ sub quickEmptyReports()
                 %{$CheckedTypes{"Binary"}} = %{$ABIdump->{"TypeInfo"}};
                 %{$CheckedTypes{"Source"}} = %{$ABIdump->{"TypeInfo"}};
                 
-                %{$CheckedSymbols{"Binary"}} = %{$ABIdump->{"SymbolInfo"}};
-                %{$CheckedSymbols{"Source"}} = %{$ABIdump->{"SymbolInfo"}};
+                foreach my $S (keys(%{$ABIdump->{"SymbolInfo"}}))
+                {
+                    if(my $Class = $ABIdump->{"SymbolInfo"}{$S}{"Class"})
+                    {
+                        if(defined $ABIdump->{"TypeInfo"}{$Class}{"PrivateABI"}) {
+                            next;
+                        }
+                    }
+                    
+                    my $Access = $ABIdump->{"SymbolInfo"}{$S}{"Access"};
+                    if($Access ne "private")
+                    {
+                        $CheckedSymbols{"Binary"}{$S} = 1;
+                        $CheckedSymbols{"Source"}{$S} = 1;
+                    }
+                }
                 
                 $Descriptor{1}{"Version"} = $TargetVersion{1}?$TargetVersion{1}:$ABIdump->{"LibraryVersion"};
                 $Descriptor{2}{"Version"} = $TargetVersion{2}?$TargetVersion{2}:$ABIdump->{"LibraryVersion"};
@@ -22596,6 +22582,19 @@ sub compareAPIs($)
     { # added/removed in libs
         mergeLibs($Level);
     }
+    
+    foreach my $S (keys(%{$CompatProblems{$Level}}))
+    {
+        foreach my $K (keys(%{$CompatProblems{$Level}{$S}}))
+        {
+            foreach my $L (keys(%{$CompatProblems{$Level}{$S}{$K}}))
+            {
+                if(my $T = $CompatProblems{$Level}{$S}{$K}{$L}{"Type_Name"}) {
+                    $TypeProblemsIndex{$Level}{$T}{$S} = 1;
+                }
+            }
+        }
+    }
 }
 
 sub getSysOpts()
@@ -22890,6 +22889,7 @@ sub scenario()
         dumpSystem(getSysOpts());
         exit(0);
     }
+    
     if($CmpSystems)
     { # --cmp-systems
         detect_default_paths("bin"); # to extract dumps
@@ -22897,15 +22897,20 @@ sub scenario()
         cmpSystems($Descriptor{1}{"Path"}, $Descriptor{2}{"Path"}, getSysOpts());
         exit(0);
     }
-    if(not $TargetLibraryName) {
-        exitStatus("Error", "library name is not selected (-l option)");
-    }
-    else
-    { # validate library name
-        if($TargetLibraryName=~/[\*\/\\]/) {
-            exitStatus("Error", "\"\\\", \"\/\" and \"*\" symbols are not allowed in the library name");
+    
+    if(not $CountSymbols)
+    {
+        if(not $TargetLibraryName) {
+            exitStatus("Error", "library name is not selected (-l option)");
+        }
+        else
+        { # validate library name
+            if($TargetLibraryName=~/[\*\/\\]/) {
+                exitStatus("Error", "\"\\\", \"\/\" and \"*\" symbols are not allowed in the library name");
+            }
         }
     }
+    
     if(not $TargetTitle) {
         $TargetTitle = $TargetLibraryName;
     }
@@ -22991,6 +22996,7 @@ sub scenario()
             }
         }
     }
+    
     if($AppPath)
     {
         if(not -f $AppPath) {
@@ -23002,6 +23008,54 @@ sub scenario()
             $SymbolsList_App{$Interface} = 1;
         }
     }
+    
+    if($CountSymbols)
+    {
+        if(not -e $CountSymbols) {
+            exitStatus("Access_Error", "can't access \'$CountSymbols\'");
+        }
+        
+        read_ABI_Dump(1, $CountSymbols);
+        
+        foreach my $Id (keys(%{$SymbolInfo{1}}))
+        {
+            my $MnglName = $SymbolInfo{1}{$Id}{"MnglName"};
+            if(not $MnglName) {
+                $MnglName = $SymbolInfo{1}{$Id}{"ShortName"}
+            }
+            
+            if(my $SV = $SymVer{1}{$MnglName}) {
+                $CompleteSignature{1}{$SV} = $SymbolInfo{1}{$Id};
+            }
+            else {
+                $CompleteSignature{1}{$MnglName} = $SymbolInfo{1}{$Id};
+            }
+            
+            if(my $Alias = $CompleteSignature{1}{$MnglName}{"Alias"}) {
+                $CompleteSignature{1}{$Alias} = $SymbolInfo{1}{$Id};
+            }
+        }
+        
+        my $Count = 0;
+        foreach my $Symbol (sort keys(%{$CompleteSignature{1}}))
+        {
+            if($CompleteSignature{1}{$Symbol}{"PureVirt"}) {
+                next;
+            }
+            if($CompleteSignature{1}{$Symbol}{"Private"}) {
+                next;
+            }
+            if(not $CompleteSignature{1}{$Symbol}{"Header"}) {
+                next;
+            }
+            
+            $Count += symbolFilter($Symbol, 1, "Affected + InlineVirt", "Binary");
+        }
+        
+        printMsg("INFO", $Count);
+        exit(0);
+    }
+    
     if($DumpAPI)
     { # --dump-abi
       # make an API dump
