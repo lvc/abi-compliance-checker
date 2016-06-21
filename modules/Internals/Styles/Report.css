@@ -205,27 +205,35 @@ span.value {
 }
 .passed {
     background-color:#CCFFCC;
+    font-weight:100;
 }
 .warning {
     background-color:#F4F4AF;
+    font-weight:100;
 }
 .failed {
     background-color:#FFCCCC;
+    font-weight:100;
 }
 .new {
     background-color:#C6DEFF;
+    font-weight:100;
 }
 .compatible {
     background-color:#CCFFCC;
+    font-weight:100;
 }
 .almost_compatible {
     background-color:#FFDAA3;
+    font-weight:100;
 }
 .incompatible {
     background-color:#FFCCCC;
+    font-weight:100;
 }
 .gray {
     background-color:#DCDCDC;
+    font-weight:100;
 }
 .top_ref {
     font-size:0.69em;

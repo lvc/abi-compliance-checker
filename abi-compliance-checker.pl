@@ -1771,7 +1771,6 @@ sub classifyPath($)
     my $Path = $_[0];
     if($Path=~/[\*\+\(\[\|]/)
     { # pattern
-        $Path=~s/\\/\\\\/g;
         return ($Path, "Pattern");
     }
     elsif($Path=~/[\/\\]/)
@@ -11383,7 +11382,7 @@ sub isLastElem($$)
 {
     my ($Pos, $TypeRef) = @_;
     my $Name = $TypeRef->{"Memb"}{$Pos}{"name"};
-    if($Name=~/last|count|max|total/i)
+    if($Name=~/last|count|max|total|num/i)
     { # GST_LEVEL_COUNT, GST_RTSP_ELAST
         return 1;
     }
@@ -16091,7 +16090,7 @@ sub get_Summary($)
             $META_DATA = "kind:".lc($Level).";".$META_DATA;
         }
         
-        my $BC_Rate = 100 - $RESULT{$Level}{"Affected"};
+        my $BC_Rate = show_number(100 - $RESULT{$Level}{"Affected"});
         
         $TestResults .= "<tr><th>Compatibility</th>\n";
         if($RESULT{$Level}{"Verdict"} eq "incompatible")
