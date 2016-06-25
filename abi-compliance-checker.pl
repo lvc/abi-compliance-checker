@@ -739,7 +739,7 @@ OTHER OPTIONS:
       Levels:
           1 - skip non-Linux headers (e.g. win32_*.h, etc.)
           2 - skip internal headers (e.g. *_p.h, impl/*.h, etc.)
-          3 - skip headers that iclude non-Linux headers
+          3 - skip headers that include non-Linux headers
           4 - skip headers included by others
           
   -tolerant
