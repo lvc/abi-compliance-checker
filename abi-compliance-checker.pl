@@ -91,7 +91,7 @@ $SourceReportPath, $UseXML, $SortDump, $DumpFormat,
 $ExtraInfo, $ExtraDump, $Force, $Tolerance, $Tolerant, $SkipSymbolsListPath,
 $CheckInfo, $Quick, $AffectLimit, $AllAffected, $CppIncompat,
 $SkipInternalSymbols, $SkipInternalTypes, $TargetArch, $GccOptions,
-$TypesListPath, $SkipTypesListPath, $CheckPrivateABI, $CountSymbols);
+$TypesListPath, $SkipTypesListPath, $CheckPrivateABI, $CountSymbols, $OldStyle);
 
 my $CmdName = get_filename($0);
 my %OS_LibExt = (
@@ -222,6 +222,7 @@ GetOptions("h|help!" => \$Help,
   "source|src|api!" => \$SourceOnly,
   "limit-affected|affected-limit=s" => \$AffectLimit,
   "count-symbols=s" => \$CountSymbols,
+  "old-style!" => \$OldStyle,
 # other options
   "test!" => \$TestTool,
   "test-dump!" => \$TestDump,
@@ -615,6 +616,9 @@ EXTRA OPTIONS:
   
   -count-symbols PATH
       Count total public symbols in the ABI dump.
+  
+  -old-style
+      Generate old-style report.
 
 OTHER OPTIONS:
   -test
@@ -15621,8 +15625,14 @@ sub get_SourceInfo()
     
     if(my @Headers = get_CheckedHeaders(1))
     {
-        $CheckedHeaders = "<a name='Headers'></a><h2>Header Files <span class='gray'>&nbsp;".($#Headers+1)."&nbsp;</span></h2><hr/>\n";
-        $CheckedHeaders .= "<div class='h_list'>\n";
+        $CheckedHeaders = "<a name='Headers'></a>";
+        if($OldStyle) {
+            $CheckedHeaders .= "<h2>Header Files (".($#Headers+1).")</h2>";
+        }
+        else {
+            $CheckedHeaders .= "<h2>Header Files <span class='gray'>&nbsp;".($#Headers+1)."&nbsp;</span></h2>";
+        }
+        $CheckedHeaders .= "<hr/>\n<div class='h_list'>\n";
         foreach my $Header_Path (sort {lc($Registered_Headers{1}{$a}{"Identity"}) cmp lc($Registered_Headers{1}{$b}{"Identity"})} @Headers)
         {
             my $Identity = $Registered_Headers{1}{$Header_Path}{"Identity"};
@@ -15636,8 +15646,14 @@ sub get_SourceInfo()
     
     if(my @Sources = keys(%{$Registered_Sources{1}}))
     {
-        $CheckedSources = "<a name='Sources'></a><h2>Source Files <span class='gray'>&nbsp;".($#Sources+1)."&nbsp;</span></h2><hr/>\n";
-        $CheckedSources .= "<div class='h_list'>\n";
+        $CheckedSources = "<a name='Sources'></a>";
+        if($OldStyle) {
+            $CheckedSources .= "<h2>Source Files (".($#Sources+1).")</h2>";
+        }
+        else {
+            $CheckedSources .= "<h2>Source Files <span class='gray'>&nbsp;".($#Sources+1)."&nbsp;</span></h2>";
+        }
+        $CheckedSources .= "<hr/>\n<div class='h_list'>\n";
         foreach my $Header_Path (sort {lc($Registered_Sources{1}{$a}{"Identity"}) cmp lc($Registered_Sources{1}{$b}{"Identity"})} @Sources)
         {
             my $Identity = $Registered_Sources{1}{$Header_Path}{"Identity"};
@@ -15651,11 +15667,15 @@ sub get_SourceInfo()
     
     if(not $CheckHeadersOnly)
     {
-        $CheckedLibs = "<a name='Libs'></a><h2>".get_ObjTitle()." <span class='gray'>&nbsp;".keys(%{$Library_Symbol{1}})."&nbsp;</span></h2><hr/>\n";
-        $CheckedLibs .= "<div class='lib_list'>\n";
-        foreach my $Library (sort {lc($a) cmp lc($b)}  keys(%{$Library_Symbol{1}}))
-        {
-            # $Library .= " (.$LIB_EXT)" if($Library!~/\.\w+\Z/);
+        $CheckedLibs = "<a name='Libs'></a>";
+        if($OldStyle) {
+            $CheckedLibs .= "<h2>".get_ObjTitle()." (".keys(%{$Library_Symbol{1}}).")</h2>";
+        }
+        else {
+            $CheckedLibs .= "<h2>".get_ObjTitle()." <span class='gray'>&nbsp;".keys(%{$Library_Symbol{1}})."&nbsp;</span></h2>";
+        }
+        $CheckedLibs .= "<hr/>\n<div class='lib_list'>\n";
+        foreach my $Library (sort {lc($a) cmp lc($b)}  keys(%{$Library_Symbol{1}})) {
             $CheckedLibs .= $Library."<br/>\n";
         }
         $CheckedLibs .= "</div>\n";
@@ -16368,7 +16388,13 @@ sub get_Report_ChangedConstants($$)
             { # Safe Changes
                 $Title = "Other Changes in Constants";
             }
-            $CHANGED_CONSTANTS = "<a name='".get_Anchor("Constant", $Level, $TargetSeverity)."'></a><h2>$Title <span".getStyle("C", $TargetSeverity, $ProblemsNum).">&nbsp;$ProblemsNum&nbsp;</span></h2><hr/>\n".$CHANGED_CONSTANTS.$TOP_REF."<br/>\n";
+            if($OldStyle) {
+                $CHANGED_CONSTANTS = "<h2>$Title ($ProblemsNum)</h2><hr/>\n".$CHANGED_CONSTANTS;
+            }
+            else {
+                $CHANGED_CONSTANTS = "<h2>$Title <span".getStyle("C", $TargetSeverity, $ProblemsNum).">&nbsp;$ProblemsNum&nbsp;</span></h2><hr/>\n".$CHANGED_CONSTANTS;
+            }
+            $CHANGED_CONSTANTS = "<a name='".get_Anchor("Constant", $Level, $TargetSeverity)."'></a>\n".$CHANGED_CONSTANTS.$TOP_REF."<br/>\n";
         }
     }
     return $CHANGED_CONSTANTS;
@@ -16491,7 +16517,13 @@ sub get_Report_Added($)
             if($JoinReport) {
                 $Anchor = "<a name='".$Level."_Added'></a>";
             }
-            $ADDED_INTERFACES = $Anchor."<h2>Added Symbols <span".getStyle("I", "Added", $Added_Number).">&nbsp;$Added_Number&nbsp;</span></h2><hr/>\n".$ADDED_INTERFACES.$TOP_REF."<br/>\n";
+            if($OldStyle) {
+                $ADDED_INTERFACES = "<h2>Added Symbols ($Added_Number)</h2><hr/>\n".$ADDED_INTERFACES;
+            }
+            else {
+                $ADDED_INTERFACES = "<h2>Added Symbols <span".getStyle("I", "Added", $Added_Number).">&nbsp;$Added_Number&nbsp;</span></h2><hr/>\n".$ADDED_INTERFACES;
+            }
+            $ADDED_INTERFACES = $Anchor.$ADDED_INTERFACES.$TOP_REF."<br/>\n";
         }
     }
     return $ADDED_INTERFACES;
@@ -16587,7 +16619,14 @@ sub get_Report_Removed($)
             if($JoinReport) {
                 $Anchor = "<a name='".$Level."_Removed'></a><a name='".$Level."_Withdrawn'></a>";
             }
-            $REMOVED_INTERFACES = $Anchor."<h2>Removed Symbols <span".getStyle("I", "Removed", $Removed_Number).">&nbsp;$Removed_Number&nbsp;</span></h2><hr/>\n".$REMOVED_INTERFACES.$TOP_REF."<br/>\n";
+            if($OldStyle) {
+                $REMOVED_INTERFACES = "<h2>Removed Symbols ($Removed_Number)</h2><hr/>\n".$REMOVED_INTERFACES;
+            }
+            else {
+                $REMOVED_INTERFACES = "<h2>Removed Symbols <span".getStyle("I", "Removed", $Removed_Number).">&nbsp;$Removed_Number&nbsp;</span></h2><hr/>\n".$REMOVED_INTERFACES;
+            }
+            
+            $REMOVED_INTERFACES = $Anchor.$REMOVED_INTERFACES.$TOP_REF."<br/>\n";
         }
     }
     return $REMOVED_INTERFACES;
@@ -16862,7 +16901,14 @@ sub get_Report_SymbolProblems($$)
                                 $ShowSymbol = cut_Namespace($ShowSymbol, $NameSpace);
                             }
                             
-                            $INTERFACE_PROBLEMS .= $ContentSpanStart."<span class='ext'>[+]</span> ".$ShowSymbol." <span".getStyle("I", $TargetSeverity, $ProblemNum).">&nbsp;$ProblemNum&nbsp;</span>".$ContentSpanEnd."<br/>\n";
+                            $INTERFACE_PROBLEMS .= $ContentSpanStart."<span class='ext'>[+]</span> ".$ShowSymbol;
+                            if($OldStyle) {
+                                $INTERFACE_PROBLEMS .= " ($ProblemNum)";
+                            }
+                            else {
+                                $INTERFACE_PROBLEMS .= " <span".getStyle("I", $TargetSeverity, $ProblemNum).">&nbsp;$ProblemNum&nbsp;</span>";
+                            }
+                            $INTERFACE_PROBLEMS .= $ContentSpanEnd."<br/>\n";
                             $INTERFACE_PROBLEMS .= $ContentDivStart."\n";
                             
                             if(my $NSign = $NewSignature{$Symbol})
@@ -16894,7 +16940,13 @@ sub get_Report_SymbolProblems($$)
             { # Safe Changes
                 $Title = "Other Changes in Symbols";
             }
-            $INTERFACE_PROBLEMS = "<a name=\'".get_Anchor("Symbol", $Level, $TargetSeverity)."\'></a><a name=\'".get_Anchor("Interface", $Level, $TargetSeverity)."\'></a>\n<h2>$Title <span".getStyle("I", $TargetSeverity, $ProblemsNum).">&nbsp;$ProblemsNum&nbsp;</span></h2><hr/>\n".$INTERFACE_PROBLEMS.$TOP_REF."<br/>\n";
+            if($OldStyle) {
+                $INTERFACE_PROBLEMS = "<h2>$Title ($ProblemsNum)</h2><hr/>\n".$INTERFACE_PROBLEMS;
+            }
+            else {
+                $INTERFACE_PROBLEMS = "<h2>$Title <span".getStyle("I", $TargetSeverity, $ProblemsNum).">&nbsp;$ProblemsNum&nbsp;</span></h2><hr/>\n".$INTERFACE_PROBLEMS;
+            }
+            $INTERFACE_PROBLEMS = "<a name=\'".get_Anchor("Symbol", $Level, $TargetSeverity)."\'></a><a name=\'".get_Anchor("Interface", $Level, $TargetSeverity)."\'></a>\n".$INTERFACE_PROBLEMS.$TOP_REF."<br/>\n";
         }
     }
     return $INTERFACE_PROBLEMS;
@@ -17038,7 +17090,14 @@ sub get_Report_TypeProblems($$)
                             $ShowVTables = cut_Namespace($ShowVTables, $NameSpace);
                         }
                         
-                        $TYPE_PROBLEMS .= $ContentSpanStart."<span class='ext'>[+]</span> ".$ShowType." <span".getStyle("T", $TargetSeverity, $ProblemNum).">&nbsp;$ProblemNum&nbsp;</span>".$ContentSpanEnd;
+                        $TYPE_PROBLEMS .= $ContentSpanStart."<span class='ext'>[+]</span> ".$ShowType;
+                        if($OldStyle) {
+                            $TYPE_PROBLEMS .= " ($ProblemNum)";
+                        }
+                        else {
+                            $TYPE_PROBLEMS .= " <span".getStyle("T", $TargetSeverity, $ProblemNum).">&nbsp;$ProblemNum&nbsp;</span>";
+                        }
+                        $TYPE_PROBLEMS .= $ContentSpanEnd;
                         $TYPE_PROBLEMS .= "<br/>\n".$ContentDivStart."<table class='ptable'><tr>\n";
                         $TYPE_PROBLEMS .= "<th width='2%'></th><th width='47%'>Change</th>\n";
                         $TYPE_PROBLEMS .= "<th>Effect</th></tr>".$TYPE_REPORT."</table>\n";
@@ -17057,7 +17116,13 @@ sub get_Report_TypeProblems($$)
             { # Safe Changes
                 $Title = "Other Changes in Data Types";
             }
-            $TYPE_PROBLEMS = "<a name=\'".get_Anchor("Type", $Level, $TargetSeverity)."\'></a>\n<h2>$Title <span".getStyle("T", $TargetSeverity, $ProblemsNum).">&nbsp;$ProblemsNum&nbsp;</span></h2><hr/>\n".$TYPE_PROBLEMS.$TOP_REF."<br/>\n";
+            if($OldStyle) {
+                $TYPE_PROBLEMS = "<h2>$Title ($ProblemsNum)</h2><hr/>\n".$TYPE_PROBLEMS;
+            }
+            else {
+                $TYPE_PROBLEMS = "<h2>$Title <span".getStyle("T", $TargetSeverity, $ProblemsNum).">&nbsp;$ProblemsNum&nbsp;</span></h2><hr/>\n".$TYPE_PROBLEMS;
+            }
+            $TYPE_PROBLEMS = "<a name=\'".get_Anchor("Type", $Level, $TargetSeverity)."\'></a>\n".$TYPE_PROBLEMS.$TOP_REF."<br/>\n";
         }
     }
     return $TYPE_PROBLEMS;
@@ -22813,7 +22878,7 @@ sub scenario()
         detect_default_paths("bin|gcc"); # to compile libs
         loadModule("RegTests");
         testTool($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode, $ReportFormat, $DumpFormat,
-        $LIB_EXT, $GCC_PATH, $SortDump, $CheckHeadersOnly);
+        $LIB_EXT, $GCC_PATH, $SortDump, $CheckHeadersOnly, $OldStyle);
         exit(0);
     }
     if($DumpSystem)
