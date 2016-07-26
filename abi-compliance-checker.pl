@@ -14626,6 +14626,10 @@ sub diffTypes_I($$$)
     { # from void* to something
         return 0;
     }
+    if($Type2_Pure{"Name"} eq "void")
+    { # from something to void*
+        return 0;
+    }
     if($Type1_Pure{"Name"}=~/\*/
     or $Type2_Pure{"Name"}=~/\*/)
     { # compared in detectTypeChange()
@@ -17020,8 +17024,8 @@ sub get_Report_TypeProblems($$)
                         $TYPE_PROBLEMS .= "      </problem>\n";
                     }
                 }
-                $TYPE_PROBLEMS .= getAffectedSymbols($Level, $TypeName, $Kinds_Locations{$TypeName});
-                if($Level eq "Binary" and grep {$_=~/Virtual|Base_Class/} keys(%{$Kinds_Locations{$TypeName}})) {
+                $TYPE_PROBLEMS .= getAffectedSymbols($Level, $TypeName, \%Kinds_Locations);
+                if($Level eq "Binary" and grep {$_=~/Virtual|Base_Class/} keys(%Kinds_Locations)) {
                     $TYPE_PROBLEMS .= showVTables($TypeName);
                 }
                 $TYPE_PROBLEMS .= "    </type>\n";
