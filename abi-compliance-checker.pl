@@ -59,6 +59,7 @@ use Cwd qw(abs_path cwd realpath);
 use Storable qw(dclone);
 use Data::Dumper;
 use Config;
+use IPC::Run;
 
 my $TOOL_VERSION = "1.99.22";
 my $ABI_DUMP_VERSION = "3.2";
@@ -8122,7 +8123,7 @@ sub checkCTags($)
     }
     
     my $Out = $TMP_DIR."/ctags.txt";
-    system("$CTags --c-kinds=pxn -f \"$Out\" \"$Path\" 2>\"$TMP_DIR/null\"");
+    shellcmd("$CTags --c-kinds=pxn -f \"$Out\" \"$Path\"", undef, "$TMP_DIR/null");
     if($Debug) {
         copy($Out, $DEBUG_PATH{$Version}."/ctags.txt");
     }
@@ -8426,7 +8427,7 @@ sub getDump()
         }
         my $ClassHierarchyCmd = getCompileCmd($HeaderPath, $CHdump, $IncludeString);
         chdir($TMP_DIR);
-        system($ClassHierarchyCmd." >null 2>&1");
+        shellcmd("$ClassHierarchyCmd 2>&1", "null");
         chdir($ORIG_DIR);
         if(my $ClassDump = (cmd_find($TMP_DIR,"f","*.class",1))[0])
         {
@@ -8525,9 +8526,8 @@ sub getDump()
     my $SyntaxTreeCmd = getCompileCmd($HeaderPath, $TUdump, $IncludeString);
     writeLog($Version, "The GCC parameters:\n  $SyntaxTreeCmd\n\n");
     chdir($TMP_DIR);
-    system($SyntaxTreeCmd." >\"$TMP_DIR/tu_errors\" 2>&1");
     my $Errors = "";
-    if($?)
+    shellcmd("$SyntaxTreeCmd 2>&1", "$TMP_DIR/tu_errors") or do
     { # failed to compile, but the TU dump still can be created
         if($Errors = readFile($TMP_DIR."/tu_errors"))
         { # try to recompile
@@ -8600,7 +8600,7 @@ sub getDump()
         printErrorLog($Version);
         $COMPILE_ERRORS = $ERROR_CODE{"Compile_Error"};
         writeLog($Version, "\n"); # new line
-    }
+    };
     chdir($ORIG_DIR);
     unlink($TmpHeaderPath);
     unlink($HeaderPath);
@@ -8702,7 +8702,7 @@ sub callPreprocessor($$$)
     }
     my $Cmd = getCompileCmd($Path, "-dD -E", $IncludeString);
     my $Out = $TMP_DIR."/preprocessed.h";
-    system($Cmd." >\"$Out\" 2>\"$TMP_DIR/null\"");
+    shellcmd($Cmd, $Out, "$TMP_DIR/null");
     return $Out;
 }
 
@@ -8809,10 +8809,9 @@ sub unpackDump($)
             exitStatus("Not_Found", "can't find \"unzip\" command");
         }
         chdir($UnpackDir);
-        system("$UnzipCmd \"$Path\" >\"$TMP_DIR/null\"");
-        if($?) {
-            exitStatus("Error", "can't extract \'$Path\' ($?): $!");
-        }
+        shellcmd("$UnzipCmd \"$Path\"", "$TMP_DIR/null") or
+          exitStatus("Error", "can't extract \'$Path\' ($?): $!");
+
         chdir($ORIG_DIR);
         my @Contents = cmd_find($UnpackDir, "f");
         if(not @Contents) {
@@ -8835,14 +8834,12 @@ sub unpackDump($)
                 exitStatus("Not_Found", "can't find \"gzip\" command");
             }
             chdir($UnpackDir);
-            system("$GzipCmd -k -d -f \"$Path\""); # keep input files (-k)
-            if($?) {
+            shellcmd("$GzipCmd -k -d -f \"$Path\"") or # keep input files (-k)
                 exitStatus("Error", "can't extract \'$Path\'");
-            }
-            system("$TarCmd -xvf \"$Dir\\$FileName.tar\" >\"$TMP_DIR/null\"");
-            if($?) {
+
+            shellcmd("$TarCmd -xvf \"$Dir\\$FileName.tar\"", "$TMP_DIR/null") or
                 exitStatus("Error", "can't extract \'$Path\' ($?): $!");
-            }
+
             chdir($ORIG_DIR);
             unlink($Dir."/".$FileName.".tar");
             my @Contents = cmd_find($UnpackDir, "f");
@@ -8858,10 +8855,9 @@ sub unpackDump($)
                 exitStatus("Not_Found", "can't find \"tar\" command");
             }
             chdir($UnpackDir);
-            system("$TarCmd -xvzf \"$Path\" >\"$TMP_DIR/null\"");
-            if($?) {
+            shellcmd("$TarCmd -xvzf \"$Path\"", "$TMP_DIR/null") or
                 exitStatus("Error", "can't extract \'$Path\' ($?): $!");
-            }
+
             chdir($ORIG_DIR);
             my @Contents = cmd_find($UnpackDir, "f");
             if(not @Contents) {
@@ -8892,12 +8888,11 @@ sub createArchive($$)
         my $Pkg = $To."/".$Name.".zip";
         unlink($Pkg);
         chdir($To);
-        system("$ZipCmd -j \"$Name.zip\" \"$Path\" >\"$TMP_DIR/null\"");
-        if($?)
+        shellcmd("$ZipCmd -j \"$Name.zip\" \"$Path\"", "$TMP_DIR/null") or do
         { # cannot allocate memory (or other problems with "zip")
             unlink($Path);
             exitStatus("Error", "can't pack the ABI dump: ".$!);
-        }
+        };
         chdir($ORIG_DIR);
         unlink($Path);
         return $Pkg;
@@ -8915,12 +8910,11 @@ sub createArchive($$)
         my $Pkg = abs_path($To)."/".$Name.".tar.gz";
         unlink($Pkg);
         chdir($From);
-        system($TarCmd, "-czf", $Pkg, $Name);
-        if($?)
+        shellcmd([$TarCmd, "-czf", $Pkg, $Name]) or do
         { # cannot allocate memory (or other problems with "tar")
             unlink($Path);
             exitStatus("Error", "can't pack the ABI dump: ".$!);
-        }
+        };
         chdir($ORIG_DIR);
         unlink($Path);
         return $To."/".$Name.".tar.gz";
@@ -15349,6 +15343,79 @@ sub find_center($$)
     return 0;
 }
 
+# takes in 3 arguments:
+#
+#   cmd:     A string to execute via a shell or a list-ref of arguments to execve()
+#   outfile: If defined, a file where the stdout of the command should be
+#            written. If undefined, written to STDOUT
+#   errfile: If defined, a file where the stderr of the command should be
+#            written. If undefined, written to STDERR
+#
+#   $? and $! are set such as with system()
+#   return value is true on success, unlike system()
+#
+#   if($Debug) then the arguments and output are logged via printMsg()
+sub shellcmd
+{
+    my ($cmd, $outfile, $errfile) = @_;
+
+    # $cmd can be a listref of command arguments, in which case we execve() it
+    # directly. Otherwise, we pass the string to a shell
+    if( !ref $cmd)
+    {
+        $cmd = ['sh', '-c', $cmd];
+    }
+
+
+    my $in  = '';
+    my $out = '';
+    my $err = '';
+
+    if($Debug)
+    {
+        printMsg( "INFO", "vvvvvvvvvvvvvvvvvvvvvvvvvvvv\n");
+        printMsg( "INFO", "Running cmd: " . Dumper($cmd));
+    }
+    my $result = IPC::Run::run($cmd, \$in, \$out, \$err);
+
+    if($Debug)
+    {
+        printMsg( "INFO",
+                  "======= Got STDOUT: =======\n" . $out . "===========================\n");
+        printMsg( "INFO",
+                  "======= Got STDERR: =======\n" . $err . "===========================\n");
+        printMsg( "INFO",
+                  "Return value: " . ($? >> 8)  . "; \$\?: " . $? . "\n");
+        printMsg( "INFO",
+                  "^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+    }
+
+    if( defined $outfile )
+    {
+        my $fd;
+        open $fd, '>', $outfile;
+        print $fd $out;
+        close $fd;
+    }
+    else
+    {
+        print STDOUT $out;
+    }
+
+    if( defined $errfile )
+    {
+        my $fd;
+        open $fd, '>', $errfile;
+        print $fd $err;
+        close $fd;
+    }
+    else
+    {
+        print STDERR $err;
+    }
+    return $result;
+}
+
 sub appendFile($$)
 {
     my ($Path, $Content) = @_;
@@ -19069,7 +19136,7 @@ sub readSymbols_Lib($$$$$$)
         if($DebugPath)
         { # debug mode
           # write to file
-            system($NM." >\"$DebugPath\"");
+            shellcmd($NM." >\"$DebugPath\"");
             open(LIB, $DebugPath);
         }
         else
@@ -19148,7 +19215,7 @@ sub readSymbols_Lib($$$$$$)
         if($DebugPath)
         { # debug mode
           # write to file
-            system($DumpBinCmd." >\"$DebugPath\"");
+            shellcmd($DumpBinCmd." >\"$DebugPath\"");
             open(LIB, $DebugPath);
         }
         else
@@ -19215,7 +19282,7 @@ sub readSymbols_Lib($$$$$$)
         if($DebugPath)
         { # debug mode
           # write to file
-            system($Cmd." >\"$DebugPath\"");
+            shellcmd($Cmd." >\"$DebugPath\"");
             open(LIB, $DebugPath);
         }
         else
@@ -19977,7 +20044,7 @@ sub getArch_GCC($)
         }
         
         chdir($TMP_DIR);
-        system($Cmd);
+        shellcmd($Cmd);
         chdir($ORIG_DIR);
         
         $Arch = getArch_Object("$TMP_DIR/test");
@@ -22383,7 +22450,7 @@ sub compareInit()
                 @PARAMS = (@PARAMS, "-debug");
                 printMsg("INFO", "running perl $0 @PARAMS");
             }
-            system("perl", $0, @PARAMS);
+            shellcmd(["perl", $0, @PARAMS]);
             if(not -f $DumpPath1) {
                 exit(1);
             }
@@ -22438,7 +22505,7 @@ sub compareInit()
                 @PARAMS = (@PARAMS, "-debug");
                 printMsg("INFO", "running perl $0 @PARAMS");
             }
-            system("perl", $0, @PARAMS);
+            shellcmd(["perl", $0, @PARAMS]);
             if(not -f $DumpPath2) {
                 exit(1);
             }
@@ -22494,7 +22561,7 @@ sub compareInit()
             @CMP_PARAMS = (@CMP_PARAMS, "-debug");
             printMsg("INFO", "running perl $0 @CMP_PARAMS");
         }
-        system("perl", $0, @CMP_PARAMS);
+        shellcmd(["perl", $0, @CMP_PARAMS]);
         exit($?>>8);
     }
     if(not $Descriptor{1}{"Dump"}
