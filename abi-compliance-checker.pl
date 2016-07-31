@@ -15347,9 +15347,11 @@ sub find_center($$)
 #
 #   cmd:     A string to execute via a shell or a list-ref of arguments to execve()
 #   outfile: If defined, a file where the stdout of the command should be
-#            written. If undefined, written to STDOUT
+#            written. If the file matches m{null$}, the output is discarded. If
+#            undefined, written to STDOUT
 #   errfile: If defined, a file where the stderr of the command should be
-#            written. If undefined, written to STDERR
+#            written. If the file matches m{null$}, the output is discarded. If
+#            undefined, written to STDERR
 #
 #   $? and $! are set such as with system()
 #   return value is true on success, unlike system()
@@ -15392,10 +15394,13 @@ sub shellcmd
 
     if( defined $outfile )
     {
-        my $fd;
-        open $fd, '>', $outfile;
-        print $fd $out;
-        close $fd;
+        if($outfile !~ m{null$})
+        {
+            my $fd;
+            open $fd, '>', $outfile;
+            print $fd $out;
+            close $fd;
+        }
     }
     else
     {
@@ -15404,10 +15409,13 @@ sub shellcmd
 
     if( defined $errfile )
     {
-        my $fd;
-        open $fd, '>', $errfile;
-        print $fd $err;
-        close $fd;
+        if($errfile !~ m{null$})
+        {
+            my $fd;
+            open $fd, '>', $errfile;
+            print $fd $err;
+            close $fd;
+        }
     }
     else
     {
