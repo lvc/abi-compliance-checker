@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 1.99.22
+# ABI Compliance Checker (ABICC) 1.99.23
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -31,11 +31,11 @@
 #    - MinGW (3.0-4.7, 4.8.3, 4.9 or newer)
 #    - MS Visual C++ (dumpbin, undname, cl)
 #    - Active Perl 5 (5.8 or newer)
-#    - Sigcheck v1.71 or newer
-#    - Info-ZIP 3.0 (zip, unzip)
-#    - Ctags (5.8 or newer)
+#    - Sigcheck v2.52 or newer
+#    - GnuWin Zip and UnZip
+#    - Exuberant Ctags (5.8 or newer)
 #    - Add tool locations to the PATH environment variable
-#    - Run vsvars32.bat (C:\Microsoft Visual Studio 9.0\Common7\Tools\)
+#    - Run vcvars64.bat (C:\Microsoft Visual Studio 9.0\VC\bin\)
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License or the GNU Lesser
@@ -60,7 +60,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.22";
+my $TOOL_VERSION = "1.99.23";
 my $ABI_DUMP_VERSION = "3.2";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -91,7 +91,8 @@ $SourceReportPath, $UseXML, $SortDump, $DumpFormat,
 $ExtraInfo, $ExtraDump, $Force, $Tolerance, $Tolerant, $SkipSymbolsListPath,
 $CheckInfo, $Quick, $AffectLimit, $AllAffected, $CppIncompat,
 $SkipInternalSymbols, $SkipInternalTypes, $TargetArch, $GccOptions,
-$TypesListPath, $SkipTypesListPath, $CheckPrivateABI, $CountSymbols, $OldStyle);
+$TypesListPath, $SkipTypesListPath, $CheckPrivateABI, $CountSymbols, $OldStyle,
+$DisableQuickEmptyReport);
 
 my $CmdName = get_filename($0);
 my %OS_LibExt = (
@@ -148,7 +149,7 @@ my $HomePage = "http://lvc.github.io/abi-compliance-checker/";
 
 my $ShortUsage = "ABI Compliance Checker (ABICC) $TOOL_VERSION
 A tool for checking backward compatibility of a C/C++ library API
-Copyright (C) 2015 Andrey Ponomarenko's ABI Laboratory
+Copyright (C) 2016 Andrey Ponomarenko's ABI Laboratory
 License: GNU LGPL or GNU GPL
 
 Usage: $CmdName [options]
@@ -187,7 +188,7 @@ GetOptions("h|help!" => \$Help,
   "dump|dump-abi|dump_abi=s" => \$DumpAPI,
 # extra options
   "app|application=s" => \$AppPath,
-  "static-libs!" => \$UseStaticLibs,
+  "static|static-libs!" => \$UseStaticLibs,
   "gcc-path|cross-gcc=s" => \$CrossGcc,
   "gcc-prefix|cross-prefix=s" => \$CrossPrefix,
   "gcc-options=s" => \$GccOptions,
@@ -251,6 +252,7 @@ GetOptions("h|help!" => \$Help,
   "tolerant!" => \$Tolerant,
   "check!" => \$CheckInfo,
   "quick!" => \$Quick,
+  "disable-quick-empty-report!" => \$DisableQuickEmptyReport,
   "all-affected!" => \$AllAffected,
   "skip-internal-symbols|skip-internal=s" => \$SkipInternalSymbols,
   "skip-internal-types=s" => \$SkipInternalTypes,
@@ -401,7 +403,7 @@ EXTRA OPTIONS:
       This option allows to specify the application that should be checked
       for portability to the new library version.
 
-  -static-libs
+  -static
       Check static libraries instead of the shared ones. The <libs> section
       of the XML-descriptor should point to static libraries location.
 
@@ -754,6 +756,9 @@ OTHER OPTIONS:
       
   -quick
       Quick analysis. Disable check of some template instances.
+  
+  -disable-quick-empty-report
+      Do not generate quick empty report if input ABI dumps are equal.
       
   -skip-internal-symbols PATTERN
       Do not check symbols matched by the pattern.
@@ -6742,7 +6747,7 @@ sub detect_recursive_includes($$)
         { # for #include "..."
             my $Candidate = join_P($AbsDir, $Include);
             if(-f $Candidate) {
-                $HPath = realpath($Candidate);
+                $HPath = realpath_F($Candidate);
             }
         }
         elsif($IncType>0
@@ -7866,6 +7871,8 @@ sub platformSpecs($)
     { # add options to MinGW compiler
       # to simulate the MSVC compiler
         my %MinGW_Opts = map {$_=>1} (
+            "-D__unaligned=\" \"",
+            "-D__nullptr=\"nullptr\"",
             "-D_WIN32",
             "-D_STDCALL_SUPPORTED",
             "-D__int64=\"long long\"",
@@ -7904,11 +7911,14 @@ sub platformSpecs($)
             "-DDECLSPEC_DEPRECATED=\" \"",
             "-D__builtin_alignof(x)=__alignof__(x)",
             "-DSORTPP_PASS");
-        if($Arch eq "x86") {
+        if($Arch eq "x86")
+        {
             $MinGW_Opts{"-D_M_IX86=300"}=1;
         }
-        elsif($Arch eq "x86_64") {
+        elsif($Arch eq "x86_64")
+        {
             $MinGW_Opts{"-D_M_AMD64=300"}=1;
+            $MinGW_Opts{"-D_M_X64=300"}=1;
         }
         elsif($Arch eq "ia64") {
             $MinGW_Opts{"-D_M_IA64=300"}=1;
@@ -10445,7 +10455,7 @@ sub isPublic($$)
     # by name in C language
     # TODO: add other methods to detect private members
     my $MName = $TypePtr->{"Memb"}{$FieldPos}{"name"};
-    if($MName=~/priv|abidata|parent_object/i)
+    if($MName=~/priv|abidata|parent_object|impl/i)
     { # C-styled private data
         return 0;
     }
@@ -15463,7 +15473,7 @@ sub get_abs_path($)
     if(not is_abs($Path)) {
         $Path = abs_path($Path);
     }
-    return $Path;
+    return path_format($Path, $OSgroup);
 }
 
 sub get_OSgroup()
@@ -17405,9 +17415,11 @@ sub getAffectedSymbols($$$)
         
         foreach my $Symbol (sort {lc($a) cmp lc($b)} keys(%SymSel))
         {
+            my $Kind = $SymSel{$Symbol}{"Kind"};
             my $Loc = $SymSel{$Symbol}{"Loc"};
+            
             my $PName = getParamName($Loc);
-            my $Desc = getAffectDesc($Level, $Symbol, $SymSel{$Symbol}{"Kind"}, $Loc);
+            my $Desc = getAffectDesc($Level, $Symbol, $Kind, $Loc);
             
             my $Target = "";
             if($PName)
@@ -18715,7 +18727,6 @@ sub translateSymbols(@)
         }
         elsif(index($Symbol, "?")==0)
         {
-            next if($tr_name{$Symbol});
             push(@MnglNames2, $Symbol);
         }
         else
@@ -19011,7 +19022,7 @@ sub readSymbols_Lib($$$$$$)
     my ($LibVersion, $Lib_Path, $IsNeededLib, $Weak, $Deps, $Vers) = @_;
     return () if(not $LibVersion or not $Lib_Path);
     
-    my $Real_Path = realpath($Lib_Path);
+    my $Real_Path = realpath_F($Lib_Path);
     
     if(not $Real_Path)
     { # broken link
@@ -19156,15 +19167,32 @@ sub readSymbols_Lib($$$$$$)
             open(LIB, $DumpBinCmd." |");
         }
         while(<LIB>)
-        { # 1197 4AC 0000A620 SetThreadStackGuarantee
-          # 1198 4AD          SetThreadToken (forwarded to ...)
-          # 3368 _o2i_ECPublicKey
-          # 1 0 00005B30 ??0?N = ... (with pdb)
-            if(/\A\s*\d+\s+[a-f\d]+\s+[a-f\d]+\s+([\w\?\@]+)\s*(?:=.+)?\Z/i
-            or /\A\s*\d+\s+[a-f\d]+\s+([\w\?\@]+)\s*\(\s*forwarded\s+/
-            or /\A\s*\d+\s+_([\w\?\@]+)\s*(?:=.+)?\Z/)
-            { # dynamic, static and forwarded symbols
-                my $realname = $1;
+        {
+            my $realname = undef;
+            if($LIB_TYPE eq "dynamic")
+            {
+                # 1197 4AC 0000A620 SetThreadStackGuarantee
+                # 1198 4AD          SetThreadToken (forwarded to ...)
+                # 3368 _o2i_ECPublicKey
+                # 1 0 00005B30 ??0?N = ... (with pdb)
+                if(/\A\s*\d+\s+[a-f\d]+\s+[a-f\d]+\s+([\w\?\@]+)\s*(?:=.+)?\Z/i
+                or /\A\s*\d+\s+[a-f\d]+\s+([\w\?\@]+)\s*\(\s*forwarded\s+/
+                or /\A\s*\d+\s+_([\w\?\@]+)\s*(?:=.+)?\Z/)
+                { # dynamic, static and forwarded symbols
+                    $realname = $1;
+                }
+            }
+            else
+            { # static
+                if(/\A\s{10,}\d*\s+([\w\?\@]+)\s*\Z/i)
+                {
+                    # 16 IID_ISecurityInformation
+                    $realname = $1;
+                }
+            }
+            
+            if($realname)
+            {
                 if($IsNeededLib)
                 {
                     if(not defined $RegisteredObjects_Short{$LibVersion}{$Lib_ShortName})
@@ -19876,7 +19904,7 @@ sub getSOPaths_Dest($$)
                 if(get_filename($Path)=~/\A(|lib)\Q$TargetLibraryName\E[\d\-]*\.$LIB_EXT[\d\.]*\Z/i)
                 {
                     registerObject($Path, $LibVersion);
-                    $Libs{realpath($Path)}=1;
+                    $Libs{realpath_F($Path)} = 1;
                 }
             }
         }
@@ -19887,7 +19915,7 @@ sub getSOPaths_Dest($$)
                 next if(ignore_path($Path));
                 next if(skipLib($Path, $LibVersion));
                 registerObject($Path, $LibVersion);
-                $Libs{realpath($Path)}=1;
+                $Libs{realpath_F($Path)} = 1;
             }
             if($OSgroup eq "macos")
             { # shared libraries on MacOS X may have no extension
@@ -19899,7 +19927,7 @@ sub getSOPaths_Dest($$)
                     and cmd_file($Path)=~/(shared|dynamic)\s+library/i)
                     {
                         registerObject($Path, $LibVersion);
-                        $Libs{realpath($Path)}=1;
+                        $Libs{realpath_F($Path)} = 1;
                     }
                 }
             }
@@ -19909,6 +19937,12 @@ sub getSOPaths_Dest($$)
     else {
         return ();
     }
+}
+
+sub realpath_F($)
+{
+    my $Path = $_[0];
+    return path_format(realpath($Path), $OSgroup);
 }
 
 sub isCyclical($$)
@@ -19980,10 +20014,16 @@ sub getArch_GCC($)
         system($Cmd);
         chdir($ORIG_DIR);
         
-        $Arch = getArch_Object("$TMP_DIR/test");
+        my $EX = join_P($TMP_DIR, "test");
+        
+        if($OSgroup eq "windows") {
+            $EX = join_P($TMP_DIR, "test.exe");
+        }
+        
+        $Arch = getArch_Object($EX);
         
         unlink("$TMP_DIR/test.c");
-        unlink("$TMP_DIR/test");
+        unlink($EX);
     }
     
     if(not $Arch) {
@@ -20304,7 +20344,7 @@ sub read_ABI_Dump($$)
         $Descriptor{$LibVersion}{"Version"} = $ABI->{"LibraryVersion"};
     }
     
-    if(not $SkipTypes{$LibVersion})
+    if(not keys(%{$SkipTypes{$LibVersion}}))
     { # if not defined by -skip-types option
         if(defined $ABI->{"SkipTypes"})
         {
@@ -20322,14 +20362,16 @@ sub read_ABI_Dump($$)
         }
     }
     
-    if(not $SkipSymbols{$LibVersion})
+    if(not keys(%{$SkipSymbols{$LibVersion}}))
     { # if not defined by -skip-symbols option
-        $SkipSymbols{$LibVersion} = $ABI->{"SkipSymbols"};
-        if(not $SkipSymbols{$LibVersion})
+        if(defined $ABI->{"SkipSymbols"}) {
+            $SkipSymbols{$LibVersion} = $ABI->{"SkipSymbols"};
+        }
+        if(defined $ABI->{"SkipInterfaces"})
         { # support for old dumps
             $SkipSymbols{$LibVersion} = $ABI->{"SkipInterfaces"};
         }
-        if(not $SkipSymbols{$LibVersion})
+        if(defined $ABI->{"InternalInterfaces"})
         { # support for old dumps
             $SkipSymbols{$LibVersion} = $ABI->{"InternalInterfaces"};
         }
@@ -20891,8 +20933,7 @@ sub detect_inc_default_paths()
         
         if($Line=~/\A[ \t]*((\/|\w+:\\).+)[ \t]*\Z/)
         {
-            my $Path = realpath($1);
-            $Path = path_format($Path, $OSgroup);
+            my $Path = realpath_F($1);
             if(index($Path, "c++")!=-1
             or index($Path, "/g++/")!=-1)
             {
@@ -21547,6 +21588,9 @@ sub is_target_lib($)
     if(not $LName) {
         return 0;
     }
+    if($OSgroup eq "windows") {
+        $LName = lc($LName);
+    }
     if($TargetLibraryName
     and $LName!~/\Q$TargetLibraryName\E/) {
         return 0;
@@ -21840,9 +21884,9 @@ sub printReport()
 
 sub check_win32_env()
 {
-    if(not $ENV{"DevEnvDir"}
-    or not $ENV{"LIB"}) {
-        exitStatus("Error", "can't start without VS environment (vsvars32.bat)");
+    if(not $ENV{"VCINSTALLDIR"}
+    or not $ENV{"INCLUDE"}) {
+        exitStatus("Error", "can't start without VC environment (vcvars64.bat)");
     }
 }
 
@@ -22082,13 +22126,14 @@ sub create_ABI_Dump()
 
 sub quickEmptyReports()
 { # Quick "empty" reports
-  # 4 times faster than merging equal dumps
+  # ~4 times faster than merging equal dumps
   # NOTE: the dump contains the "LibraryVersion" attribute
   # if you change the version, then your dump will be different
   # OVERCOME: use -v1 and v2 options for comparing dumps
   # and don't change version in the XML descriptor (and dumps)
   # OVERCOME 2: separate meta info from the dumps in ACC 2.0
-    if(-s $Descriptor{1}{"Path"} == -s $Descriptor{2}{"Path"})
+    if($Descriptor{1}{"Path"} eq $Descriptor{2}{"Path"}
+    or -s $Descriptor{1}{"Path"} == -s $Descriptor{2}{"Path"})
     {
         my $FilePath1 = $Descriptor{1}{"Path"};
         my $FilePath2 = $Descriptor{2}{"Path"};
@@ -22116,15 +22161,29 @@ sub quickEmptyReports()
             my $Content1 = <DUMP1>;
             close(DUMP1);
             
-            open(DUMP2, $FilePath2);
-            my $Content2 = <DUMP2>;
-            close(DUMP2);
+            my $Eq = 0;
             
-            if($Content1 eq $Content2)
+            if($FilePath1 eq $FilePath2) {
+                $Eq = 1;
+            }
+            
+            if(not $Eq)
             {
+                open(DUMP2, $FilePath2);
+                my $Content2 = <DUMP2>;
+                close(DUMP2);
+                
+                if($Content1 eq $Content2) {
+                    $Eq = 1;
+                }
+                
                 # clean memory
                 undef $Content2;
-                
+            }
+            
+            if($Eq)
+            {
+                printMsg("INFO", "Input ABI dumps are equal, so generating quick empty report");
                 # read a number of headers, libs, symbols and types
                 my $ABIdump = eval($Content1);
                 
@@ -22143,6 +22202,11 @@ sub quickEmptyReports()
                     $ABIdump->{"SymbolInfo"} = $ABIdump->{"FuncDescr"};
                 }
                 read_Source_DumpInfo($ABIdump, 1);
+                
+                foreach (keys(%{$Registered_Headers{1}})) {
+                    $TargetHeaders{1}{$_} = 1;
+                }
+                
                 read_Libs_DumpInfo($ABIdump, 1);
                 read_Machine_DumpInfo($ABIdump, 1);
                 read_Machine_DumpInfo($ABIdump, 2);
@@ -22169,6 +22233,16 @@ sub quickEmptyReports()
                 
                 $Descriptor{1}{"Version"} = $TargetVersion{1}?$TargetVersion{1}:$ABIdump->{"LibraryVersion"};
                 $Descriptor{2}{"Version"} = $TargetVersion{2}?$TargetVersion{2}:$ABIdump->{"LibraryVersion"};
+                
+                if(defined $ABIdump->{"ABI_DUMPER_VERSION"})
+                {
+                    $UsedDump{1}{"DWARF"} = 1;
+                    $UsedDump{2}{"DWARF"} = 1;
+                    
+                    $UsedDump{1}{"M"} = $ABIdump->{"LibraryName"};
+                    $UsedDump{2}{"M"} = $ABIdump->{"LibraryName"};
+                }
+                
                 exitReport();
             }
         }
@@ -22187,7 +22261,7 @@ sub initLogging($)
     if($LogMode ne "n") {
         mkpath($LOG_DIR);
     }
-    $LOG_PATH{$LibVersion} = get_abs_path($LOG_DIR)."/".$LOG_FILE;
+    $LOG_PATH{$LibVersion} = join_P(get_abs_path($LOG_DIR), $LOG_FILE);
     if($Debug)
     { # debug directory
         $DEBUG_PATH{$LibVersion} = "debug/$TargetLibraryName/".$Descriptor{$LibVersion}{"Version"};
@@ -22263,10 +22337,14 @@ sub compareInit()
     }
     
     detect_default_paths("bin"); # to extract dumps
-    if(isDump($Descriptor{1}{"Path"})
-    and isDump($Descriptor{2}{"Path"}))
-    { # optimization: equal ABI dumps
-        quickEmptyReports();
+    
+    if(not defined $DisableQuickEmptyReport)
+    {
+        if(isDump($Descriptor{1}{"Path"})
+        and isDump($Descriptor{2}{"Path"}))
+        { # optimization: equal ABI dumps
+            quickEmptyReports();
+        }
     }
     
     printMsg("INFO", "preparation, please wait ...");
@@ -22682,6 +22760,7 @@ sub getSysOpts()
     "CrossGcc"=>$CrossGcc,
     "UseStaticLibs"=>$UseStaticLibs,
     "NoStdInc"=>$NoStdInc,
+    "CppCompat"=>$CppCompat,
     
     "BinaryOnly" => $BinaryOnly,
     "SourceOnly" => $SourceOnly
@@ -22821,7 +22900,7 @@ sub scenario()
     }
     if($ShowVersion)
     {
-        printMsg("INFO", "ABI Compliance Checker (ABICC) $TOOL_VERSION\nCopyright (C) 2015 Andrey Ponomarenko's ABI Laboratory\nLicense: LGPL or GPL <http://www.gnu.org/licenses/>\nThis program is free software: you can redistribute it and/or modify it.\n\nWritten by Andrey Ponomarenko.");
+        printMsg("INFO", "ABI Compliance Checker (ABICC) $TOOL_VERSION\nCopyright (C) 2016 Andrey Ponomarenko's ABI Laboratory\nLicense: LGPL or GPL <http://www.gnu.org/licenses/>\nThis program is free software: you can redistribute it and/or modify it.\n\nWritten by Andrey Ponomarenko.");
         exit(0);
     }
     if($DumpVersion)
@@ -22856,8 +22935,14 @@ sub scenario()
         if(not -f $TargetLibsPath) {
             exitStatus("Access_Error", "can't access file \'$TargetLibsPath\'");
         }
-        foreach my $Lib (split(/\s*\n\s*/, readFile($TargetLibsPath))) {
-            $TargetLibs{$Lib} = 1;
+        foreach my $Lib (split(/\s*\n\s*/, readFile($TargetLibsPath)))
+        {
+            if($OSgroup eq "windows") {
+                $TargetLibs{lc($Lib)} = 1;
+            }
+            else {
+                $TargetLibs{$Lib} = 1;
+            }
         }
     }
     if($TargetHeadersPath)
@@ -22887,7 +22972,10 @@ sub scenario()
     }
     if($DumpSystem)
     { # --dump-system
-        
+        if(-d $MODULES_DIR."/Targets/"
+        and -d $MODULES_DIR."/Targets/".$OStarget) {
+            $TargetSysInfo = $MODULES_DIR."/Targets/".$OStarget;
+        }
         if(not $TargetSysInfo) {
             exitStatus("Error", "-sysinfo option should be specified to dump system ABI");
         }

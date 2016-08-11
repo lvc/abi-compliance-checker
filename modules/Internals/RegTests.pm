@@ -72,33 +72,33 @@ sub testCpp()
     $SOURCE2 .= "namespace TestNS {\n";
     
     # Changed template internals
-    $HEADER1 .= "
-        template <typename T, int _P>
-        class $DECL_SPEC ChangedTemplate {
-        public:
-            T value;
-            T*const field;
-            T array[_P];
-            typedef int My;
-            My var;
-        };
-        ChangedTemplate<int, 1>* changedTemplate();";
-    $SOURCE1 .= "
-        ChangedTemplate<int, 1>* changedTemplate() { return new ChangedTemplate<int, 1>(); }";
-    
-    $HEADER2 .= "
-        template <typename T, int _P>
-        class $DECL_SPEC ChangedTemplate {
-        public:
-            double value;
-            T* field;
-            double array[_P];
-            typedef int My;
-            My var;
-        };
-        ChangedTemplate<int, 1>* changedTemplate();";
-    $SOURCE2 .= "
-        ChangedTemplate<int, 1>* changedTemplate() { return new ChangedTemplate<int, 1>(); }";
+    # $HEADER1 .= "
+    #     template <typename T, int _P>
+    #     class $DECL_SPEC ChangedTemplate {
+    #     public:
+    #         T value;
+    #         T*const field;
+    #         T array[_P];
+    #         typedef int My;
+    #         My var;
+    #     };
+    #     ChangedTemplate<int, 1>* changedTemplate();";
+    # $SOURCE1 .= "
+    #     ChangedTemplate<int, 1>* changedTemplate() { return new ChangedTemplate<int, 1>(); }";
+    # 
+    # $HEADER2 .= "
+    #     template <typename T, int _P>
+    #     class $DECL_SPEC ChangedTemplate {
+    #     public:
+    #         double value;
+    #         T* field;
+    #         double array[_P];
+    #         typedef int My;
+    #         My var;
+    #     };
+    #     ChangedTemplate<int, 1>* changedTemplate();";
+    # $SOURCE2 .= "
+    #     ChangedTemplate<int, 1>* changedTemplate() { return new ChangedTemplate<int, 1>(); }";
     
     # Removed inline method
     $HEADER1 .= "
@@ -4743,6 +4743,7 @@ sub runTests($$$$$$$$)
     {
         check_win32_env(); # to run MS VC++ compiler
         my $CL = get_CmdPath("cl");
+        
         if(not $CL) {
             exitStatus("Not_Found", "can't find \"cl\" compiler");
         }

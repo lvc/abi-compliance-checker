@@ -28,7 +28,7 @@ use Fcntl;
 
 my ($Debug, $Quiet, $LogMode, $CheckHeadersOnly, $SystemRoot, $GCC_PATH,
 $CrossPrefix, $TargetSysInfo, $TargetLibraryName, $CrossGcc, $UseStaticLibs,
-$NoStdInc, $OStarget, $BinaryOnly, $SourceOnly);
+$NoStdInc, $CppCompat, $OStarget, $BinaryOnly, $SourceOnly);
 
 my $OSgroup = get_OSgroup();
 my $TMP_DIR = tempdir(CLEANUP=>1);
@@ -123,16 +123,9 @@ sub cmpSystems($$$)
             $LibV2{$LFName} = $V;
         }
     }
-    my @Dumps1 = cmd_find($SPath1."/abi_dumps","f","*.tar.gz",1);
-    if(not @Dumps1)
-    { # zip-based dump
-        @Dumps1 = cmd_find($SPath1."/abi_dumps","f","*.zip",1);
-    }
-    my @Dumps2 = cmd_find($SPath2."/abi_dumps","f","*.tar.gz",1);
-    if(not @Dumps2)
-    { # zip-based dump
-        @Dumps2 = cmd_find($SPath2."/abi_dumps","f","*.zip",1);
-    }
+    my @Dumps1 = cmd_find($SPath1."/abi_dumps","f","*.abi",1);
+    my @Dumps2 = cmd_find($SPath2."/abi_dumps","f","*.abi",1);
+    
     my (%LibVers1, %LibVers2) = ();
     my (%ShortNames1, %ShortNames2) = ();
     foreach my $DPath (@Dumps1)
@@ -276,18 +269,18 @@ sub cmpSystems($$$)
         }
         foreach my $LSName (keys(%AddedShort))
         { # changed SONAME
-            my @AddedSonames = keys(%{$AddedShort{$LSName}});
+            my @AddedSonames = sort keys(%{$AddedShort{$LSName}});
             next if($#AddedSonames!=0);
             
             if(defined $RemovedShort{$LSName})
             { # removed old soname
-                my @RemovedSonames = keys(%{$RemovedShort{$LSName}});
+                my @RemovedSonames = sort keys(%{$RemovedShort{$LSName}});
                 $ChangedSoname{$AddedSonames[0]} = $RemovedSonames[0];
                 $ChangedSoname{$RemovedSonames[0]} = $AddedSonames[0];
             }
             elsif(defined $ShortNames1{$LSName})
             { # saved old soname
-                my @Sonames = keys(%{$ShortNames1{$LSName}});
+                my @Sonames = sort keys(%{$ShortNames1{$LSName}});
                 $ChangedSoname{$AddedSonames[0]} = $Sonames[0];
                 $ChangedSoname{$Sonames[0]} = $AddedSonames[0];
             }
@@ -1150,6 +1143,7 @@ sub initModule($)
     $CrossGcc = $S->{"CrossGcc"};
     $UseStaticLibs = $S->{"UseStaticLibs"};
     $NoStdInc = $S->{"NoStdInc"};
+    $CppCompat = $S->{"CppCompat"};
     
     $BinaryOnly = $S->{"BinaryOnly"};
     $SourceOnly = $S->{"SourceOnly"};
@@ -1338,7 +1332,7 @@ sub get_binversion($)
         if(not $SigcheckCmd) {
             return "";
         }
-        my $VInfo = `$SigcheckCmd -n $Path 2>$TMP_DIR/null`;
+        my $VInfo = `$SigcheckCmd -nobanner -n $Path 2>$TMP_DIR/null`;
         $VInfo=~s/\s*\(.*\)\s*//;
         chomp($VInfo);
         return $VInfo;
@@ -1473,7 +1467,7 @@ sub dumpSystem($)
             if(not defined $LibSoname{$LName}) {
                 $LibSoname{$LName}=$Soname;
             }
-            if(-l $LPath and my $Path = realpath($LPath))
+            if(-l $LPath and my $Path = realpath_F($LPath))
             {
                 my $Name = get_filename($Path);
                 if(not defined $LibSoname{$Name}) {
@@ -1579,7 +1573,7 @@ sub dumpSystem($)
         }
         if(-l $LPath)
         { # symlinks
-            if(my $Path = realpath($LPath)) {
+            if(my $Path = realpath_F($LPath)) {
                 $SysLibs{$Path} = 1;
             }
         }
@@ -1593,7 +1587,7 @@ sub dumpSystem($)
                 {
                     my $Candidate = $Candidates[0];
                     if(-l $Candidate
-                    and my $Path = realpath($Candidate)) {
+                    and my $Path = realpath_F($Candidate)) {
                         $Candidate = $Path;
                     }
                     $SysLibs{$Candidate} = 1;
@@ -1605,6 +1599,11 @@ sub dumpSystem($)
         }
     }
     @SystemLibs = (); # clear memory
+    
+    if(not keys(%SysLibs)) {
+        exitStatus("Error", "can't find libraries");
+    }
+    
     if(not $CheckHeadersOnly)
     {
         if($Debug) {
@@ -1630,6 +1629,11 @@ sub dumpSystem($)
         $ShortestNames{$LPath} = parse_libname($LName, "shortest", $OStarget);
         
         my $Res = readSymbols_Lib(1, $LPath, 0, "-Weak", 0, 0);
+        
+        if(not keys(%{$Res}) and $TargetLibraryName) {
+            exitStatus("Error", "can't find exported symbols in the library");
+        }
+        
         $Syms{$LPath} = $Res->{$LName};
         push(@AllSyms, keys(%{$Syms{$LPath}}));
     }
@@ -2339,7 +2343,7 @@ sub dumpSystem($)
             }
             my @Content = ("<version>\n    $LVersion\n</version>");
             
-            my @IncHeaders = keys(%Includes);
+            my @IncHeaders = sort keys(%Includes);
             
             # sort files up
             @IncHeaders = sort {$b=~/\.h\Z/<=>$a=~/\.h\Z/} @IncHeaders;
@@ -2373,13 +2377,13 @@ sub dumpSystem($)
             }
             
             # system
-            if(my @SearchHeaders = keys(%{$SysDescriptor{"SearchHeaders"}})) {
+            if(my @SearchHeaders = sort keys(%{$SysDescriptor{"SearchHeaders"}})) {
                 push(@Content, "<search_headers>\n    ".join("\n    ", @SearchHeaders)."\n</search_headers>");
             }
-            if(my @SearchLibs = keys(%{$SysDescriptor{"SearchLibs"}})) {
+            if(my @SearchLibs = sort keys(%{$SysDescriptor{"SearchLibs"}})) {
                 push(@Content, "<search_libs>\n    ".join("\n    ", @SearchLibs)."\n</search_libs>");
             }
-            if(my @Tools = keys(%{$SysDescriptor{"Tools"}})) {
+            if(my @Tools = sort keys(%{$SysDescriptor{"Tools"}})) {
                 push(@Content, "<tools>\n    ".join("\n    ", @Tools)."\n</tools>");
             }
             if(my $Prefix = $SysDescriptor{"CrossPrefix"}) {
@@ -2402,6 +2406,27 @@ sub dumpSystem($)
                 push(@TryNames, $LSName);
             }
             
+            # common
+            if(my $List = $SysCInfo->{"include_preamble"}) {
+                push(@Preamble, @{$List});
+            }
+            if(my $List = $SysCInfo->{"skip_headers"}) {
+                @Skip = (@Skip, @{$List});
+            }
+            if(my $List = $SysCInfo->{"skip_including"}) {
+                @SkipInc = (@SkipInc, @{$List});
+            }
+            if(my $List = $SysCInfo->{"skip_symbols"}) {
+                push(@SkipSymb, @{$List});
+            }
+            if(my $List = $SysCInfo->{"gcc_options"}) {
+                push(@CompilerOpts, @{$List});
+            }
+            if($SysCInfo->{"defines"}) {
+                push(@Defines, $SysCInfo->{"defines"});
+            }
+            
+            # particular
             foreach (@TryNames)
             {
                 if(my $List = $SysInfo->{$_}{"include_preamble"}) {
@@ -2431,26 +2456,6 @@ sub dumpSystem($)
                 if(my $List = $SysInfo->{$_}{"defines"}) {
                     push(@Defines, $List);
                 }
-            }
-            
-            # common
-            if(my $List = $SysCInfo->{"include_preamble"}) {
-                push(@Preamble, @{$List});
-            }
-            if(my $List = $SysCInfo->{"skip_headers"}) {
-                @Skip = (@Skip, @{$List});
-            }
-            if(my $List = $SysCInfo->{"skip_including"}) {
-                @SkipInc = (@SkipInc, @{$List});
-            }
-            if(my $List = $SysCInfo->{"skip_symbols"}) {
-                push(@SkipSymb, @{$List});
-            }
-            if(my $List = $SysCInfo->{"gcc_options"}) {
-                push(@CompilerOpts, @{$List});
-            }
-            if($SysCInfo->{"defines"}) {
-                push(@Defines, $SysCInfo->{"defines"});
             }
             
             # common other
@@ -2538,7 +2543,7 @@ sub dumpSystem($)
             $ACC_dump .= " -relpath \"$SystemRoot\"";
             $ACC_dump .= " -sysroot \"$SystemRoot\"";
         }
-        my $DumpPath = "$SYS_DUMP_PATH/abi_dumps/$LName.abi.".getAR_EXT($OSgroup);
+        my $DumpPath = "$SYS_DUMP_PATH/abi_dumps/$LName.abi";
         $ACC_dump .= " -dump-path \"$DumpPath\"";
         my $LogPath = "$SYS_DUMP_PATH/logs/$LName.txt";
         unlink($LogPath);
@@ -2562,6 +2567,9 @@ sub dumpSystem($)
           # 3. symbian/GCC
             $ACC_dump .= " -nostdinc";
         }
+        if($CppCompat) {
+            $ACC_dump .= " -cpp-compatible";
+        }
         if($Quiet)
         { # quiet mode
             $ACC_dump .= " -quiet";
@@ -2579,15 +2587,20 @@ sub dumpSystem($)
         }
         printMsg("INFO_C", "Dumping $LName: ");
         system($ACC_dump." 1>$TMP_DIR/null 2>$TMP_DIR/$LName.stderr");
+        my $ErrCode = $?;
         appendFile("$SYS_DUMP_PATH/logs/$LName.txt", "The ACC parameters:\n  $ACC_dump\n");
-        if(-s "$TMP_DIR/$LName.stderr")
+        my $ErrCont = readFile("$TMP_DIR/$LName.stderr");
+        if($ErrCont) {
+            appendFile("$SYS_DUMP_PATH/logs/$LName.txt", $ErrCont);
+        }
+        
+        if(filterError($ErrCont))
         {
-            appendFile("$SYS_DUMP_PATH/logs/$LName.txt", readFile("$TMP_DIR/$LName.stderr"));
-            if(get_CodeError($?>>8) eq "Invalid_Dump") {
+            if(get_CodeError($ErrCode>>8) eq "Invalid_Dump") {
                 printMsg("INFO", "Empty");
             }
             else {
-                printMsg("INFO", "Failed (\'$SYS_DUMP_PATH/logs/$LName.txt\')");
+                printMsg("INFO", "Errors (\'$SYS_DUMP_PATH/logs/$LName.txt\')");
             }
         }
         elsif(not -f $DumpPath) {
@@ -2608,6 +2621,25 @@ sub dumpSystem($)
     }
     printMsg("INFO", "Dumped ABIs:             ".keys(%Dumped)." ($SYS_DUMP_PATH/abi_dumps/)");
     printMsg("INFO", "The ".$SysDescriptor{"Name"}." system ABI has been dumped to:\n  $SYS_DUMP_PATH");
+}
+
+sub filterError($)
+{
+    my $Error = $_[0];
+    
+    if(not $Error) {
+        return undef;
+    }
+    
+    my @Err = ();
+    foreach my $L (split(/\n/, $Error))
+    {
+        if($L!~/warning:/) {
+            push(@Err, $L);
+        }
+    }
+    
+    return join("\n", @Err);
 }
 
 return 1;
