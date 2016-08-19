@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 1.99.23
+# ABI Compliance Checker (ABICC) 1.99.24
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -60,8 +60,8 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.23";
-my $ABI_DUMP_VERSION = "3.2";
+my $TOOL_VERSION = "1.99.24";
+my $ABI_DUMP_VERSION = "3.3";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
 my $OSgroup = get_OSgroup();
@@ -92,7 +92,7 @@ $ExtraInfo, $ExtraDump, $Force, $Tolerance, $Tolerant, $SkipSymbolsListPath,
 $CheckInfo, $Quick, $AffectLimit, $AllAffected, $CppIncompat,
 $SkipInternalSymbols, $SkipInternalTypes, $TargetArch, $GccOptions,
 $TypesListPath, $SkipTypesListPath, $CheckPrivateABI, $CountSymbols, $OldStyle,
-$DisableQuickEmptyReport);
+$DisableQuickEmptyReport, $SkipTypedefUncover);
 
 my $CmdName = get_filename($0);
 my %OS_LibExt = (
@@ -256,6 +256,7 @@ GetOptions("h|help!" => \$Help,
   "all-affected!" => \$AllAffected,
   "skip-internal-symbols|skip-internal=s" => \$SkipInternalSymbols,
   "skip-internal-types=s" => \$SkipInternalTypes,
+  "skip-typedef-uncover!" => \$SkipTypedefUncover,
   "check-private-abi!" => \$CheckPrivateABI
 ) or ERR_MESSAGE();
 
@@ -765,6 +766,10 @@ OTHER OPTIONS:
   
   -skip-internal-types PATTERN
       Do not check types matched by the pattern.
+  
+  -skip-typedef-uncover
+      Do not report a problem if type is covered or
+      uncovered by typedef (useful for broken debug info).
   
   -check-private-abi
       Check data types from the private part of the ABI when
@@ -11619,7 +11624,8 @@ sub mergeTypes($$$)
         if($Base_1{"Name"} ne $Base_2{"Name"})
         {
             if(differentDumps("G")
-            or differentDumps("V"))
+            or differentDumps("V")
+            or $SkipTypedefUncover)
             { # different GCC versions or different dumps
                 $Base_1{"Name"} = uncover_typedefs($Base_1{"Name"}, 1);
                 $Base_2{"Name"} = uncover_typedefs($Base_2{"Name"}, 2);
@@ -14784,6 +14790,17 @@ sub detectTypeChange($$$$)
     my %Type1_Pure = get_PureType($Type1_Id, $TypeInfo{1});
     my %Type2_Pure = get_PureType($Type2_Id, $TypeInfo{2});
     
+    if(defined $SkipTypedefUncover)
+    {
+        if($Type1_Pure{"Name"} eq $Type2_Pure{"Name"}) {
+            return ();
+        }
+        
+        if(cmpBTypes($Type1_Pure{"Name"}, $Type2_Pure{"Name"}, 1, 2)) {
+            return ();
+        }
+    }
+    
     my %Type1_Base = ($Type1_Pure{"Type"} eq "Array")?get_OneStep_BaseType($Type1_Pure{"Tid"}, $TypeInfo{1}):get_BaseType($Type1_Id, 1);
     my %Type2_Base = ($Type2_Pure{"Type"} eq "Array")?get_OneStep_BaseType($Type2_Pure{"Tid"}, $TypeInfo{2}):get_BaseType($Type2_Id, 2);
     
@@ -16059,7 +16076,8 @@ sub get_Summary($)
                 push(@VInf2, showArch($Arch2));
             }
         }
-        if($GccV1 ne "unknown"
+        if($Level eq "Binary"
+        and $GccV1 ne "unknown"
         and $GccV2 ne "unknown"
         and $OStarget ne "windows")
         { # GCC version
