@@ -1248,7 +1248,7 @@ my $MAX_COMMAND_LINE_ARGUMENTS = 4096;
 my $MAX_CPPFILT_FILE_SIZE = 50000;
 my $CPPFILT_SUPPORT_FILE;
 
-my (%WORD_SIZE, %CPU_ARCH, %GCC_VERSION);
+my (%WORD_SIZE, %CPU_ARCH, %GCC_VERSION, %CLANG_VERSION);
 
 my $STDCXX_TESTING = 0;
 my $GLIBC_TESTING = 0;
@@ -15963,6 +15963,7 @@ sub get_Summary($)
     
     my ($Arch1, $Arch2) = (getArch(1), getArch(2));
     my ($GccV1, $GccV2) = (getGccVersion(1), getGccVersion(2));
+    my ($ClangV1, $ClangV2) = ($CLANG_VERSION{1}, $CLANG_VERSION{2});
     
     my ($TestInfo, $TestResults, $Problem_Summary) = ();
     
@@ -15973,13 +15974,23 @@ sub get_Summary($)
         $TestInfo .= "  <version1>\n";
         $TestInfo .= "    <number>".$Descriptor{1}{"Version"}."</number>\n";
         $TestInfo .= "    <arch>$Arch1</arch>\n";
-        $TestInfo .= "    <gcc>$GccV1</gcc>\n";
+        if($GccV1) {
+            $TestInfo .= "    <gcc>$GccV1</gcc>\n";
+        }
+        elsif($ClangV1) {
+            $TestInfo .= "    <clang>$ClangV1</clang>\n";
+        }
         $TestInfo .= "  </version1>\n";
         
         $TestInfo .= "  <version2>\n";
         $TestInfo .= "    <number>".$Descriptor{2}{"Version"}."</number>\n";
         $TestInfo .= "    <arch>$Arch2</arch>\n";
-        $TestInfo .= "    <gcc>$GccV2</gcc>\n";
+        if($GccV2) {
+            $TestInfo .= "    <gcc>$GccV2</gcc>\n";
+        }
+        elsif($ClangV2) {
+            $TestInfo .= "    <clang>$ClangV2</clang>\n";
+        }
         $TestInfo .= "  </version2>\n";
         $TestInfo = "<test_info>\n".$TestInfo."</test_info>\n\n";
         
@@ -16077,17 +16088,42 @@ sub get_Summary($)
             }
         }
         if($Level eq "Binary"
-        and $GccV1 ne "unknown"
-        and $GccV2 ne "unknown"
         and $OStarget ne "windows")
-        { # GCC version
-            if($GccV1 eq $GccV2)
-            { # go to the separate section
-                $AddTestInfo .= "<tr><th>GCC Version</th><td>$GccV1</td></tr>\n";
+        {
+            if($GccV1 ne "unknown"
+            and $GccV2 ne "unknown")
+            { # GCC version
+                if($GccV1 eq $GccV2)
+                { # go to the separate section
+                    $AddTestInfo .= "<tr><th>GCC Version</th><td>$GccV1</td></tr>\n";
+                }
+                else
+                { # go to the version number
+                    push(@VInf1, "gcc ".$GccV1);
+                    push(@VInf2, "gcc ".$GccV2);
+                }
             }
-            else
-            { # go to the version number
+            elsif($ClangV1
+            and $ClangV2)
+            { # Clang version
+                if($ClangV1 eq $ClangV2)
+                { # go to the separate section
+                    $AddTestInfo .= "<tr><th>Clang Version</th><td>$ClangV1</td></tr>\n";
+                }
+                else
+                { # go to the version number
+                    push(@VInf1, "clang ".$ClangV1);
+                    push(@VInf2, "clang ".$ClangV2);
+                }
+            }
+            elsif($GccV1 ne "unknown" and $ClangV2)
+            {
                 push(@VInf1, "gcc ".$GccV1);
+                push(@VInf2, "clang ".$ClangV2);
+            }
+            elsif($ClangV1 and $GccV2 ne "unknown")
+            {
+                push(@VInf1, "clang ".$ClangV1);
                 push(@VInf2, "gcc ".$GccV2);
             }
         }
@@ -20756,6 +20792,9 @@ sub read_Machine_DumpInfo($$)
     if($ABI->{"GccVersion"}) {
         $GCC_VERSION{$LibVersion} = $ABI->{"GccVersion"};
     }
+    elsif($ABI->{"ClangVersion"}) {
+        $CLANG_VERSION{$LibVersion} = $ABI->{"ClangVersion"};
+    }
 }
 
 sub read_Libs_DumpInfo($$)
@@ -22251,6 +22290,14 @@ sub quickEmptyReports()
                 
                 $Descriptor{1}{"Version"} = $TargetVersion{1}?$TargetVersion{1}:$ABIdump->{"LibraryVersion"};
                 $Descriptor{2}{"Version"} = $TargetVersion{2}?$TargetVersion{2}:$ABIdump->{"LibraryVersion"};
+                
+                if(not defined $Descriptor{1}{"Version"}) {
+                    $Descriptor{1}{"Version"} = "X";
+                }
+                
+                if(not defined $Descriptor{2}{"Version"}) {
+                    $Descriptor{2}{"Version"} = "Y";
+                }
                 
                 if(defined $ABIdump->{"ABI_DUMPER_VERSION"})
                 {
