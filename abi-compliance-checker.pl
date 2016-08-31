@@ -16079,7 +16079,7 @@ sub get_Summary($)
         { # CPU arch
             if($Arch1 eq $Arch2)
             { # go to the separate section
-                $AddTestInfo .= "<tr><th>CPU Type</th><td>".showArch($Arch1)."</td></tr>\n";
+                $AddTestInfo .= "<tr><th>Arch</th><td>".showArch($Arch1)."</td></tr>\n";
             }
             else
             { # go to the version number
