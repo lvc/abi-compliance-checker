@@ -4849,7 +4849,7 @@ sub runTests($$$$$$$$)
         exitStatus("Error", "can't compile $LibName v.2: \'$Path_v2/build-log.txt\'");
     }
     # running the tool
-    my @Cmd = ("perl", $0, "-l", $LibName, "-d1", "$LibName/v1.xml", "-d2", "$LibName/v2.xml");
+    my @Cmd = ("perl", $0, "-l", $LibName, "-d1", "$LibName/v1.xml", "-d2", "$LibName/v2.xml", "-cxx-incompatible");
     if($TestDump)
     {
         @Cmd = (@Cmd, "-use-dumps");

@@ -28,7 +28,7 @@ use Fcntl;
 
 my ($Debug, $Quiet, $LogMode, $CheckHeadersOnly, $SystemRoot, $GCC_PATH,
 $CrossPrefix, $TargetSysInfo, $TargetLibraryName, $CrossGcc, $UseStaticLibs,
-$NoStdInc, $CppCompat, $OStarget, $BinaryOnly, $SourceOnly);
+$NoStdInc, $CxxIncompat, $SkipUnidentified, $OStarget, $BinaryOnly, $SourceOnly);
 
 my $OSgroup = get_OSgroup();
 my $TMP_DIR = tempdir(CLEANUP=>1);
@@ -403,6 +403,117 @@ sub cmpSystems($$$)
             $TestResults{$LName}{"v1"} = $LV1;
             $TestResults{$LName}{"v2"} = $LV2;
         }
+        
+        my $HP1 = $SPath1."/headers/".$LName;
+        my $HP2 = $SPath2."/headers/".$LName;
+        
+        if(-d $HP1
+        and -d $HP2
+        and my $RfcDiff = get_CmdPath("rfcdiff"))
+        {
+            my @Headers1 = cmd_find($HP1,"f");
+            my @Headers2 = cmd_find($HP2,"f");
+            
+            my (%Files1, %Files2) = ();
+            
+            foreach my $P (@Headers1) {
+                $Files1{get_filename($P)} = $P;
+            }
+            
+            foreach my $P (@Headers2) {
+                $Files2{get_filename($P)} = $P;
+            }
+            
+            my $Diff = "";
+            foreach my $N (sort {lc($a) cmp lc($b)} keys(%Files1))
+            {
+                my $Path1 = $Files1{$N};
+                my $Path2 = undef;
+                
+                if(defined $Files2{$N}) {
+                    $Path2 = $Files2{$N};
+                }
+                else {
+                    next;
+                }
+                
+                if(-s $Path1 == -s $Path2)
+                {
+                    if(readFile($Path1) eq readFile($Path2)) {
+                        next;
+                    }
+                }
+                
+                my $DiffOut = $TMP_DIR."/rfcdiff";
+                
+                if(-e $DiffOut) {
+                    unlink($DiffOut);
+                }
+                
+                my $Cmd_R = $RfcDiff." --width 75 --stdout \"$Path1\" \"$Path2\" >$DiffOut 2>/dev/null";
+                qx/$Cmd_R/; # execute
+                
+                if(-s $DiffOut)
+                {
+                    my $Content = readFile($DiffOut);
+                    if(length($Content)<3500 and $Content=~/The files are identical|No changes|Failed to create/i) {
+                        next;
+                    }
+                    
+                    $Content=~s/<\!--(.|\n)+?-->\s*//g;
+                    $Content=~s/\A((.|\n)+<body\s*>)((.|\n)+)(<\/body>(.|\n)+)\Z/$3/;
+                    $Content=~s/(<td colspan=\"5\"[^>]*>)(.+)(<\/td>)/$1$3/;
+                    $Content=~s/(<table) /$1 class='diff_tbl' /g;
+                    
+                    $Content=~s/(\Q$N\E)(&nbsp;)/$1 ($LV1-$SystemName1)$2/;
+                    $Content=~s/(\Q$N\E)(&nbsp;)/$1 ($LV2-$SystemName2)$2/;
+                    
+                    if($Diff) {
+                        $Diff .= "<br/><br/>\n";
+                    }
+                    $Diff .= $Content;
+                }
+            }
+            
+            my $Title = $LName.": headers diff between $LV1-$SystemName1 and $LV2-$SystemName2 versions";
+            my $Keywords = $LName.", header, diff";
+            my $Description = "Diff for header files between $LV1-$SystemName1 and $LV2-$SystemName2 versions of $LName";
+            my $Styles = readModule("Styles", "HeadersDiff.css");
+            
+            my $Link = "This html diff was produced by <a href='http://tools.ietf.org/tools/rfcdiff/'>rfcdiff</a> 1.41.";
+            
+            $Diff .= "<br/>";
+            $Diff .= "<div style='width:100%;' align='left'>$Link</div>\n";
+            
+            $Diff = "<h1>Headers diff for <span style='color:Blue;'>$LName</span> between <span style='color:Red;'>$LV1-$SystemName1</span> and <span style='color:Red;'>$LV2-$SystemName2</span> versions</h1><br/><br/>".$Diff;
+            
+            $Diff = "<table width='100%' cellpadding='0' cellspacing='0'><tr><td>$Diff</td></tr></table>";
+            
+            $Diff = composeHTML_Head($Title, $Keywords, $Description, $Styles, "")."\n<body>\n$Diff\n</body>\n</html>\n";
+            
+            my $Output = $SYS_REPORT_PATH."/headers_diff/$LName";
+            writeFile($Output."/diff.html", $Diff);
+        }
+    }
+    
+    my %TOTAL = ();
+    foreach my $LName (keys(%TestResults))
+    {
+        if($SONAME_Changed{$LName}) {
+            next;
+        }
+        foreach my $Comp ("Binary", "Source")
+        {
+            if(not defined $TestResults{$LName}{$Comp}) {
+                next;
+            }
+            foreach my $Kind (keys(%{$TestResults{$LName}{$Comp}}))
+            {
+                if($Kind=~/_problems_(high|medium|low)/) {
+                    $TOTAL{$LName}{$Comp} += $TestResults{$LName}{$Comp}{$Kind};
+                }
+            }
+        }
     }
     
     my %META_DATA = ();
@@ -495,203 +606,55 @@ sub cmpSystems($$$)
     $SYS_REPORT .= " on <span style='color:Blue;'>".showArch($ArchName)."</span>\n";
     
     $SYS_REPORT .= "</h1>";
+    $SYS_REPORT .= "<br/>\n";
     
     # legend
-    my $LEGEND = "<table cellspacing='2' cellpadding='3'><tr>\n";
-    $LEGEND .= "<td class='new' width='70px' style='text-align:left'>Added</td>\n";
-    $LEGEND .= "<td class='passed' width='70px' style='text-align:left'>Compatible</td>\n";
+    my $LEGEND = "<table class='legend'><tr>\n";
+    $LEGEND .= "<td class='new' width='70px' style='text-align:left'>ADDED</td>\n";
+    $LEGEND .= "<td class='passed' width='70px' style='text-align:left'>COMPATIBLE</td>\n";
     $LEGEND .= "</tr><tr>\n";
-    $LEGEND .= "<td class='warning' style='text-align:left'>Warning</td>\n";
-    $LEGEND .= "<td class='failed' style='text-align:left'>Incompatible</td>\n";
+    $LEGEND .= "<td class='warning' style='text-align:left'>WARNING</td>\n";
+    $LEGEND .= "<td class='failed' style='text-align:left'>INCOMPATIBLE</td>\n";
     $LEGEND .= "</tr></table>\n";
     
     $SYS_REPORT .= $LEGEND;
-    
-    # test info
-    my $TEST_INFO = "<h2>Test Info</h2><hr/>\n";
-    $TEST_INFO .= "<table class='summary'>\n";
-    $TEST_INFO .= "<tr><th>System #1</th><td>$SystemName1</td></tr>\n";
-    $TEST_INFO .= "<tr><th>System #2</th><td>$SystemName2</td></tr>\n";
-    $TEST_INFO .= "<tr><th>CPU Type</th><td>".showArch($ArchName)."</td></tr>\n";
-    $TEST_INFO .= "</table>\n";
-    
-    # $SYS_REPORT .= $TEST_INFO;
-    
-    my $Total = (keys(%TestResults) + keys(%Added) + keys(%Removed) - keys(%SONAME_Changed));
-    
-    # test results
-    my $TEST_RES = "<h2>Test Results</h2><hr/>\n";
-    $TEST_RES .= "<table class='summary'>\n";
-    $TEST_RES .= "<tr><th>Total Libraries</th><td><a href='#Report'>$Total</a></td></tr>\n";
-    if($BinaryOnly and $SourceOnly)
-    {
-        if(my $Affected = $STAT{"Binary"}{"affected"}) {
-            $TEST_RES .= "<tr><th>Binary Compatibility</th><td class='failed'>".cut_off_number(100 - $Affected, 3, 1)."%</td></tr>\n";
-        }
-        else {
-            $TEST_RES .= "<tr><th>Binary Compatibility</th><td class='passed'>100%</td></tr>\n";
-        }
-        if(my $Affected = $STAT{"Source"}{"affected"}) {
-            $TEST_RES .= "<tr><th>Source Compatibility</th><td class='failed'>".cut_off_number(100 - $Affected, 3, 1)."%</td></tr>\n";
-        }
-        else {
-            $TEST_RES .= "<tr><th>Source Compatibility</th><td class='passed'>100%</td></tr>\n";
-        }
-    }
-    elsif($BinaryOnly)
-    {
-        if(my $Affected = $STAT{"Binary"}{"affected"}) {
-            $TEST_RES .= "<tr><th>Compatibility</th><td class='failed'>".cut_off_number(100 - $Affected, 3, 1)."%</td></tr>\n";
-        }
-        else {
-            $TEST_RES .= "<tr><th>Compatibility</th><td class='passed'>100%</td></tr>\n";
-        }
-    }
-    elsif($SourceOnly)
-    {
-        if(my $Affected = $STAT{"Source"}{"affected"}) {
-            $TEST_RES .= "<tr><th>Compatibility</th><td class='failed'>".cut_off_number(100 - $Affected, 3, 1)."%</td></tr>\n";
-        }
-        else {
-            $TEST_RES .= "<tr><th>Compatibility</th><td class='passed'>100%</td></tr>\n";
-        }
-    }
-    $TEST_RES .= "</table>\n";
-    
-    $SYS_REPORT .= $TEST_RES;
-    
-    # problem summary
-    foreach my $Comp ("Binary", "Source")
-    {
-        my $PSUMMARY = "<h2>Problem Summary";
-        if(not $BinaryOnly or not $SourceOnly)
-        {
-            next if($BinaryOnly and $Comp eq "Source");
-            next if($SourceOnly and $Comp eq "Binary");
-        }
-        else {
-            $PSUMMARY .= " ($Comp Compatibility)\n";
-        }
-        $PSUMMARY .= "</h2><hr/>\n";
-        
-        $PSUMMARY .= "<table class='summary'>\n";
-        $PSUMMARY .= "<tr><th></th><th style='text-align:center;font-weight:bold;'>Severity</th><th style='text-align:center;font-weight:bold;'>Count</th></tr>\n";
-        if(my $Added = $STAT{$Comp}{"added_interfaces"}) {
-            $PSUMMARY .= "<tr><th>Added Symbols</th><td>-</td><td class='new'>$Added</td></tr>\n";
-        }
-        else {
-            $PSUMMARY .= "<tr><th>Added Symbols</th><td>-</td><td>0</td></tr>\n";
-        }
-        if(my $Removed = $STAT{$Comp}{"removed_interfaces"}) {
-            $PSUMMARY .= "<tr><th>Removed Symbols</th><td>High</td><td class='failed'>$Removed</td></tr>\n";
-        }
-        else {
-            $PSUMMARY .= "<tr><th>Removed Symbols</th><td>High</td><td>0</td></tr>\n";
-        }
-        $PSUMMARY .= "<tr>";
-        
-        if($BinaryOnly and $SourceOnly) {
-            $PSUMMARY .= "<th rowspan='3'>$Comp Compatibility<br/>Problems</th>";
-        }
-        else {
-            $PSUMMARY .= "<th rowspan='3'>Compatibility<br/>Problems</th>";
-        }
-        if(my $High = $STAT{$Comp}{"interface_problems_high"}+$STAT{$Comp}{"type_problems_high"}) {
-            $PSUMMARY .= "<td>High</td><td class='failed'>$High</td>\n";
-        }
-        else {
-            $PSUMMARY .= "<td>High</td><td>0</td>\n";
-        }
-        $PSUMMARY .= "</tr>";
-        $PSUMMARY .= "<tr>";
-        if(my $Medium = $STAT{$Comp}{"interface_problems_medium"}+$STAT{$Comp}{"type_problems_medium"}) {
-            $PSUMMARY .= "<td>Medium</td><td class='failed'>$Medium</td>\n";
-        }
-        else {
-            $PSUMMARY .= "<td>Medium</td><td>0</td>\n";
-        }
-        $PSUMMARY .= "</tr>";
-        $PSUMMARY .= "<tr>";
-        if(my $Low = $STAT{$Comp}{"interface_problems_low"}+$STAT{$Comp}{"type_problems_low"}+$STAT{$Comp}{"changed_constants"}) {
-            $PSUMMARY .= "<td>Low</td><td class='warning'>$Low</td>\n";
-        }
-        else {
-            $PSUMMARY .= "<td>Low</td><td>0</td>\n";
-        }
-        $PSUMMARY .= "</tr>";
-        $PSUMMARY .= "</table>\n";
-        
-        $SYS_REPORT .= $PSUMMARY;
-    }
-    
-    # added/removed libraries
-    my $LIB_PROBLEMS = "<h2>Added/Removed Libraries</h2><hr/>\n";
-    $LIB_PROBLEMS .= "<table class='summary'>\n";
-    $LIB_PROBLEMS .= "<tr><th></th><th style='text-align:center;font-weight:bold;'>Severity</th><th style='text-align:center;font-weight:bold;'>Count</th></tr>\n";
-    if(my $Added = keys(%Added)) {
-        $LIB_PROBLEMS .= "<tr><th>Added</th><td>-</td><td class='new'>$Added</td></tr>\n";
-    }
-    else {
-        $LIB_PROBLEMS .= "<tr><th>Added</th><td>-</td><td>0</td></tr>\n";
-    }
-    if(my $Removed = keys(%Removed)) {
-        $LIB_PROBLEMS .= "<tr><th>Removed</th><td>High</td><td class='failed'>$Removed</td></tr>\n";
-    }
-    else {
-        $LIB_PROBLEMS .= "<tr><th>Removed</th><td>High</td><td>0</td></tr>\n";
-    }
-    $LIB_PROBLEMS .= "</table>\n";
-    $SYS_REPORT .= $LIB_PROBLEMS;
-    
-    # report table
-    $SYS_REPORT .= "<a name='Report'></a>\n";
-    $SYS_REPORT .= "<h2>Report</h2><hr/>\n";
-    
-    # $SYS_REPORT .= "<br/>";
-    
-    $SYS_REPORT .= "<table class='wikitable'>";
-    
-    $SYS_REPORT .= "<tr>";
-    $SYS_REPORT .= "<th rowspan='2'>$SONAME_Title<sup>$Total</sup></th>";
-    if(not $GroupByHeaders) {
-        $SYS_REPORT .= "<th colspan='2'>Version</th>";
-    }
-    if($BinaryOnly and $SourceOnly) {
-        $SYS_REPORT .= "<th colspan='2'>Compatible</th>";
-    }
-    else {
-        $SYS_REPORT .= "<th rowspan='2'>Compatible</th>";
-    }
-    $SYS_REPORT .= "<th rowspan='2'>Added<br/>Symbols</th><th rowspan='2'>Removed<br/>Symbols</th>";
-    if($BinaryOnly and $SourceOnly)
-    {
-        $SYS_REPORT .= "<th colspan='3' style='white-space:nowrap;'>API Changes / Binary Compatibility</th>";
-        $SYS_REPORT .= "<th colspan='3' style='white-space:nowrap;'>API Changes / Source Compatibility</th>";
-    }
-    else {
-        $SYS_REPORT .= "<th colspan='3' style='white-space:nowrap;'>API Changes / Compatibility</th>";
-    }
-    $SYS_REPORT .= "</tr>";
-    
-    $SYS_REPORT .= "<tr>";
-    if(not $GroupByHeaders) {
-        $SYS_REPORT .= "<th>$SystemName1</th><th>$SystemName2</th>";
-    }
-    if($BinaryOnly and $SourceOnly) {
-        $SYS_REPORT .= "<th>Binary</th><th>Source</th>";
-    }
-    $SYS_REPORT .= "<th class='severity'>High</th><th class='severity'>Medium</th><th class='severity'>Low</th>\n" if($BinaryOnly);
-    $SYS_REPORT .= "<th class='severity'>High</th><th class='severity'>Medium</th><th class='severity'>Low</th>\n" if($SourceOnly);
-    $SYS_REPORT .= "</tr>";
-    my %RegisteredPairs = ();
+    $SYS_REPORT .= "<br/>\n";
     
     my $Columns = 2;
-    if($BinaryOnly) {
-        $Columns += 3;
+    
+    my $Total = (keys(%TestResults) + keys(%Added) + keys(%Removed) - keys(%SONAME_Changed));
+    my $HDiff = $SYS_REPORT_PATH."/headers_diff";
+    
+    $SYS_REPORT .= "<table class='summary'>\n";
+    $SYS_REPORT .= "<tr>\n";
+    $SYS_REPORT .= "<th rowspan='2'>$SONAME_Title<sup>$Total</sup></th>\n";
+    if(not $GroupByHeaders) {
+        $SYS_REPORT .= "<th colspan='2'>Version</th>\n";
     }
-    if($SourceOnly) {
-        $Columns += 3;
+    if($BinaryOnly and $SourceOnly) {
+        $SYS_REPORT .= "<th colspan='2'>Compatibility</th>\n";
     }
+    else {
+        $SYS_REPORT .= "<th rowspan='2'>Compatibility</th>\n";
+    }
+    $SYS_REPORT .= "<th rowspan='2'>Added<br/>Symbols</th>\n";
+    $SYS_REPORT .= "<th rowspan='2'>Removed<br/>Symbols</th>\n";
+    if(-d $HDiff)
+    {
+        $SYS_REPORT .= "<th rowspan='2'>Headers<br/>Diff</th>\n";
+        $Columns += 1;
+    }
+    $SYS_REPORT .= "</tr>\n";
+    
+    $SYS_REPORT .= "<tr>\n";
+    if(not $GroupByHeaders) {
+        $SYS_REPORT .= "<th>$SystemName1</th><th>$SystemName2</th>\n";
+    }
+    if($BinaryOnly and $SourceOnly) {
+        $SYS_REPORT .= "<th>Binary</th><th>Source</th>\n";
+    }
+    $SYS_REPORT .= "</tr>\n";
+    my %RegisteredPairs = ();
     
     foreach my $LName (sort {lc($a) cmp lc($b)} (keys(%TestResults), keys(%Added), keys(%Removed)))
     {
@@ -700,18 +663,20 @@ sub cmpSystems($$$)
         my $Anchor = $LName;
         $Anchor=~s/\+/p/g; # anchor for libFLAC++ is libFLACpp
         $Anchor=~s/\~/-/g; # libqttracker.so.1~6
-        $SYS_REPORT .= "<tr>\n<td class='left'>$LName<a name=\'$Anchor\'></a></td>\n";
+        
+        $SYS_REPORT .= "<tr>\n";
+        $SYS_REPORT .= "<td class='object'>$LName<a name=\'$Anchor\'></a></td>\n";
         if(defined $Removed{$LName}) {
-            $SYS_REPORT .= "<td class='failed'>".printVer($Removed{$LName}{"version"})."</td>\n";
+            $SYS_REPORT .= "<td class='failed ver'>".printVer($Removed{$LName}{"version"})."</td>\n";
         }
         elsif(defined $Added{$LName}) {
             $SYS_REPORT .= "<td class='new'><a href='".$Added{$LName}{"list"}."'>added</a></td>\n";
         }
         elsif(not $GroupByHeaders)
         {
-            $SYS_REPORT .= "<td>".printVer($TestResults{$LName}{"v1"})."</td>\n";
+            $SYS_REPORT .= "<td class='ver'>".printVer($TestResults{$LName}{"v1"})."</td>\n";
         }
-        my $SONAME_report = "<td colspan=\'$Columns\' rowspan='2'>";
+        my $SONAME_report = "<td colspan=\'$Columns\' rowspan='2'>\n";
         if($BinaryOnly and $SourceOnly) {
             $SONAME_report .= "SONAME has been changed (see <a href='".$TestResults{$LName_Short}{"Binary"}{"path"}."'>binary</a> and <a href='".$TestResults{$LName_Short}{"Source"}{"path"}."'>source</a> compatibility reports)\n";
         }
@@ -721,11 +686,11 @@ sub cmpSystems($$$)
         elsif($SourceOnly) {
             $SONAME_report .= "SONAME has been <a href='".$TestResults{$LName_Short}{"Source"}{"path"}."'>changed</a>\n";
         }
-        $SONAME_report .= "</td>";
+        $SONAME_report .= "</td>\n";
         
         if(defined $Added{$LName})
         { # added library
-            $SYS_REPORT .= "<td class='new'>".printVer($Added{$LName}{"version"})."</td>\n";
+            $SYS_REPORT .= "<td class='new ver'>".printVer($Added{$LName}{"version"})."</td>\n";
             $SYS_REPORT .= "<td class='passed'>100%</td>\n" if($BinaryOnly);
             $SYS_REPORT .= "<td class='passed'>100%</td>\n" if($SourceOnly);
             if($RegisteredPairs{$LName}) {
@@ -739,7 +704,7 @@ sub cmpSystems($$$)
             else
             {
                 foreach (1 .. $Columns) {
-                    $SYS_REPORT .= "<td>n/a</td>\n"; # colspan='5'
+                    $SYS_REPORT .= "<td>N/A</td>\n"; # colspan='5'
                 }
             }
             $SYS_REPORT .= "</tr>\n";
@@ -761,7 +726,7 @@ sub cmpSystems($$$)
             else
             {
                 foreach (1 .. $Columns) {
-                    $SYS_REPORT .= "<td>n/a</td>\n"; # colspan='5'
+                    $SYS_REPORT .= "<td>N/A</td>\n"; # colspan='5'
                 }
             }
             $SYS_REPORT .= "</tr>\n";
@@ -769,7 +734,7 @@ sub cmpSystems($$$)
         }
         elsif(defined $ChangedSoname{$LName})
         { # added library
-            $SYS_REPORT .= "<td>".printVer($TestResults{$LName}{"v2"})."</td>\n";
+            $SYS_REPORT .= "<td class='ver'>".printVer($TestResults{$LName}{"v2"})."</td>\n";
             $SYS_REPORT .= "<td class='passed'>100%</td>\n" if($BinaryOnly);
             $SYS_REPORT .= "<td class='passed'>100%</td>\n" if($SourceOnly);
             if($RegisteredPairs{$LName}) {
@@ -783,7 +748,7 @@ sub cmpSystems($$$)
             else
             {
                 foreach (1 .. $Columns) {
-                    $SYS_REPORT .= "<td>n/a</td>\n"; # colspan='5'
+                    $SYS_REPORT .= "<td>N/A</td>\n"; # colspan='5'
                 }
             }
             $SYS_REPORT .= "</tr>\n";
@@ -791,7 +756,7 @@ sub cmpSystems($$$)
         }
         elsif(not $GroupByHeaders)
         {
-            $SYS_REPORT .= "<td>".printVer($TestResults{$LName}{"v2"})."</td>\n";
+            $SYS_REPORT .= "<td class='ver'>".printVer($TestResults{$LName}{"v2"})."</td>\n";
         }
         
         my $BinCompatReport = $TestResults{$LName}{"Binary"}{"path"};
@@ -799,24 +764,48 @@ sub cmpSystems($$$)
         
         if($BinaryOnly)
         {
-            if($TestResults{$LName}{"Binary"}{"verdict"} eq "compatible") {
-                $SYS_REPORT .= "<td class='passed'><a href=\'$BinCompatReport\'>100%</a></td>\n";
+            if($TestResults{$LName}{"Binary"}{"verdict"} eq "compatible")
+            {
+                my $Cl = "passed";
+                if($TOTAL{$LName}{"Binary"}) {
+                    $Cl = "warning";
+                }
+                $SYS_REPORT .= "<td class=\'$Cl\'><a href=\'$BinCompatReport\'>100%</a></td>\n";
             }
             else
             {
                 my $Compatible = 100 - $TestResults{$LName}{"Binary"}{"affected"};
-                $SYS_REPORT .= "<td class='failed'><a href=\'$BinCompatReport\'>$Compatible%</a></td>\n";
+                my $Cl = "incompatible";
+                if($Compatible>=90) {
+                    $Cl = "warning";
+                }
+                elsif($Compatible>=80) {
+                    $Cl = "almost_compatible";
+                }
+                $SYS_REPORT .= "<td class=\'$Cl\'><a href=\'$BinCompatReport\'>$Compatible%</a></td>\n";
             }
         }
         if($SourceOnly)
         {
-            if($TestResults{$LName}{"Source"}{"verdict"} eq "compatible") {
-                $SYS_REPORT .= "<td class='passed'><a href=\'$SrcCompatReport\'>100%</a></td>\n";
+            if($TestResults{$LName}{"Source"}{"verdict"} eq "compatible")
+            {
+                my $Cl = "passed";
+                if($TOTAL{$LName}{"Source"}) {
+                    $Cl = "warning";
+                }
+                $SYS_REPORT .= "<td class=\'$Cl\'><a href=\'$SrcCompatReport\'>100%</a></td>\n";
             }
             else
             {
                 my $Compatible = 100 - $TestResults{$LName}{"Source"}{"affected"};
-                $SYS_REPORT .= "<td class='failed'><a href=\'$SrcCompatReport\'>$Compatible%</a></td>\n";
+                my $Cl = "incompatible";
+                if($Compatible>=90) {
+                    $Cl = "warning";
+                }
+                elsif($Compatible>=80) {
+                    $Cl = "almost_compatible";
+                }
+                $SYS_REPORT .= "<td class=\'$Cl\'><a href=\'$SrcCompatReport\'>$Compatible%</a></td>\n";
             }
         }
         if($BinaryOnly)
@@ -827,20 +816,20 @@ sub cmpSystems($$$)
                 $AddedSym="<a href='$BinCompatReport\#Added'>$Count new</a>";
             }
             if($AddedSym) {
-                $SYS_REPORT.="<td class='new'>$AddedSym</td>";
+                $SYS_REPORT.="<td class='new'>$AddedSym</td>\n";
             }
             else {
-                $SYS_REPORT.="<td class='passed'>0</td>";
+                $SYS_REPORT.="<td class='passed'>0</td>\n";
             }
             my $RemovedSym="";
             if(my $Count = $TestResults{$LName}{"Binary"}{"removed"}) {
                 $RemovedSym="<a href='$BinCompatReport\#Removed'>$Count removed</a>";
             }
             if($RemovedSym) {
-                $SYS_REPORT.="<td class='failed'>$RemovedSym</td>";
+                $SYS_REPORT.="<td class='failed'>$RemovedSym</td>\n";
             }
             else {
-                $SYS_REPORT.="<td class='passed'>0</td>";
+                $SYS_REPORT.="<td class='passed'>0</td>\n";
             }
         }
         elsif($SourceOnly)
@@ -850,137 +839,42 @@ sub cmpSystems($$$)
                 $AddedSym="<a href='$SrcCompatReport\#Added'>$Count new</a>";
             }
             if($AddedSym) {
-                $SYS_REPORT.="<td class='new'>$AddedSym</td>";
+                $SYS_REPORT.="<td class='new'>$AddedSym</td>\n";
             }
             else {
-                $SYS_REPORT.="<td class='passed'>0</td>";
+                $SYS_REPORT.="<td class='passed'>0</td>\n";
             }
             my $RemovedSym="";
             if(my $Count = $TestResults{$LName}{"Source"}{"removed"}) {
                 $RemovedSym="<a href='$SrcCompatReport\#Removed'>$Count removed</a>";
             }
             if($RemovedSym) {
-                $SYS_REPORT.="<td class='failed'>$RemovedSym</td>";
+                $SYS_REPORT.="<td class='failed'>$RemovedSym</td>\n";
             }
             else {
-                $SYS_REPORT.="<td class='passed'>0</td>";
+                $SYS_REPORT.="<td class='passed'>0</td>\n";
             }
         }
         
-        if($BinaryOnly)
-        {
-            my $High="";
-            if(my $Count = $TestResults{$LName}{"Binary"}{"type_problems_high"}+$TestResults{$LName}{"Binary"}{"interface_problems_high"}) {
-                $High="<a href='$BinCompatReport\#High_Risk_Problems'>".problem_title($Count)."</a>";
-            }
-            if($High) {
-                $SYS_REPORT.="<td class='failed'>$High</td>";
-            }
-            else {
-                $SYS_REPORT.="<td class='passed'>0</td>";
-            }
-            my $Medium="";
-            if(my $Count = $TestResults{$LName}{"Binary"}{"type_problems_medium"}+$TestResults{$LName}{"Binary"}{"interface_problems_medium"}) {
-                $Medium="<a href='$BinCompatReport\#Medium_Risk_Problems'>".problem_title($Count)."</a>";
-            }
-            if($Medium) {
-                $SYS_REPORT.="<td class='failed'>$Medium</td>";
-            }
-            else {
-                $SYS_REPORT.="<td class='passed'>0</td>";
-            }
-            my $Low="";
-            if(my $Count = $TestResults{$LName}{"Binary"}{"type_problems_low"}+$TestResults{$LName}{"Binary"}{"interface_problems_low"}+$TestResults{$LName}{"Binary"}{"changed_constants"}) {
-                $Low="<a href='$BinCompatReport\#Low_Risk_Problems'>".warning_title($Count)."</a>";
-            }
-            if($Low) {
-                $SYS_REPORT.="<td class='warning'>$Low</td>";
-            }
-            else {
-                $SYS_REPORT.="<td class='passed'>0</td>";
-            }
+        if(-d $HDiff."/".$LName) {
+            $SYS_REPORT .= "<td><a href=\'headers_diff/$LName/diff.html\'>diff</a></td>\n";
         }
-        
-        if($SourceOnly)
-        {
-            my $High="";
-            if(my $Count = $TestResults{$LName}{"Source"}{"type_problems_high"}+$TestResults{$LName}{"Source"}{"interface_problems_high"}) {
-                $High="<a href='$SrcCompatReport\#High_Risk_Problems'>".problem_title($Count)."</a>";
-            }
-            if($High) {
-                $SYS_REPORT.="<td class='failed'>$High</td>";
-            }
-            else {
-                $SYS_REPORT.="<td class='passed'>0</td>";
-            }
-            my $Medium="";
-            if(my $Count = $TestResults{$LName}{"Source"}{"type_problems_medium"}+$TestResults{$LName}{"Source"}{"interface_problems_medium"}) {
-                $Medium="<a href='$SrcCompatReport\#Medium_Risk_Problems'>".problem_title($Count)."</a>";
-            }
-            if($Medium) {
-                $SYS_REPORT.="<td class='failed'>$Medium</td>";
-            }
-            else {
-                $SYS_REPORT.="<td class='passed'>0</td>";
-            }
-            my $Low="";
-            if(my $Count = $TestResults{$LName}{"Source"}{"type_problems_low"}+$TestResults{$LName}{"Source"}{"interface_problems_low"}+$TestResults{$LName}{"Source"}{"changed_constants"}) {
-                $Low="<a href='$SrcCompatReport\#Low_Risk_Problems'>".warning_title($Count)."</a>";
-            }
-            if($Low) {
-                $SYS_REPORT.="<td class='warning'>$Low</td>";
-            }
-            else {
-                $SYS_REPORT.="<td class='passed'>0</td>";
-            }
+        else {
+            $SYS_REPORT .= "<td>N/A</td>\n";
         }
         
         $SYS_REPORT .= "</tr>\n";
     }
     
-    # bottom header
-    $SYS_REPORT .= "<tr>";
-    $SYS_REPORT .= "<th rowspan='2'>$SONAME_Title</th>";
-    if(not $GroupByHeaders) {
-        $SYS_REPORT .= "<th>$SystemName1</th><th>$SystemName2</th>";
-    }
-    if($BinaryOnly and $SourceOnly) {
-        $SYS_REPORT .= "<th>Binary</th><th>Source</th>";
-    }
-    else {
-        $SYS_REPORT .= "<th rowspan='2'>Compatible</th>";
-    }
-    $SYS_REPORT .= "<th rowspan='2'>Added<br/>Symbols</th><th rowspan='2'>Removed<br/>Symbols</th>";
-    $SYS_REPORT .= "<th class='severity'>High</th><th class='severity'>Medium</th><th class='severity'>Low</th>" if($BinaryOnly);
-    $SYS_REPORT .= "<th class='severity'>High</th><th class='severity'>Medium</th><th class='severity'>Low</th>" if($SourceOnly);
-    $SYS_REPORT .= "</tr>";
-    
-    $SYS_REPORT .= "<tr>";
-    if(not $GroupByHeaders) {
-        $SYS_REPORT .= "<th colspan='2'>Version</th>";
-    }
-    
-    if($BinaryOnly and $SourceOnly) {
-        $SYS_REPORT .= "<th colspan='2'>Compatible</th>";
-    }
-    if($BinaryOnly and $SourceOnly)
-    {
-        $SYS_REPORT .= "<th colspan='3' style='white-space:nowrap;'>API Changes / Binary Compatibility</th>";
-        $SYS_REPORT .= "<th colspan='3' style='white-space:nowrap;'>API Changes / Source Compatibility</th>";
-    }
-    else {
-        $SYS_REPORT .= "<th colspan='3' style='white-space:nowrap;'>API Changes / Compatibility</th>";
-    }
-    $SYS_REPORT .= "</tr>";
     $SYS_REPORT .= "</table>";
     
-    my $Title = "$SystemName1 to $SystemName2 compatibility report";
+    my $Title = "$SystemName1 vs $SystemName2 compatibility report";
     my $Keywords = "compatibility, $SystemName1, $SystemName2, API, changes";
     my $Description = "API compatibility report between $SystemName1 and $SystemName2 on ".showArch($ArchName);
     my $Styles = readModule("Styles", "CmpSystems.css");
     
     $SYS_REPORT = composeHTML_Head($Title, $Keywords, $Description, $Styles, "")."\n<body>\n<div>".$SYS_REPORT."</div>\n";
-    $SYS_REPORT .= "<br/><br/><br/>\n";
+    $SYS_REPORT .= "<br/><br/>\n";
     $SYS_REPORT .= getReportFooter();
     $SYS_REPORT .= "</body></html>\n";
     
@@ -1001,7 +895,7 @@ sub cmpSystems($$$)
         $REPORT_PATH .= "src_compat_report.html";
     }
     writeFile($REPORT_PATH, $SYS_REPORT);
-    printMsg("INFO", "see detailed report:\n  $REPORT_PATH");
+    printMsg("INFO", "\nSee detailed report:\n  $REPORT_PATH");
 }
 
 sub printVer($)
@@ -1143,7 +1037,8 @@ sub initModule($)
     $CrossGcc = $S->{"CrossGcc"};
     $UseStaticLibs = $S->{"UseStaticLibs"};
     $NoStdInc = $S->{"NoStdInc"};
-    $CppCompat = $S->{"CppCompat"};
+    $CxxIncompat = $S->{"CxxIncompat"};
+    $SkipUnidentified = $S->{"SkipUnidentified"};
     
     $BinaryOnly = $S->{"BinaryOnly"};
     $SourceOnly = $S->{"SourceOnly"};
@@ -1215,7 +1110,8 @@ sub readSysDescriptor($)
         "skip_types" => "m",
         "ignore_symbols" => "h",
         "non_prefix" => "h",
-        "defines" => "s"
+        "defines" => "s",
+        "cxx_incompatible" => "s"
     );
     my %DInfo = ();
     foreach my $Tag (keys(%Tags))
@@ -2237,6 +2133,7 @@ sub dumpSystem($)
     }
     printMsg("INFO", "Generating XML descriptors ...");
     my %Generated = ();
+    my %CxxIncompat_L = ();
     foreach my $LRelPath (keys(%SysLib_SysHeaders))
     {
         my $LName = get_filename($LRelPath);
@@ -2456,6 +2353,9 @@ sub dumpSystem($)
                 if(my $List = $SysInfo->{$_}{"defines"}) {
                     push(@Defines, $List);
                 }
+                if($SysInfo->{$_}{"cxx_incompatible"}) {
+                    $CxxIncompat_L{$LName} = 1;
+                }
             }
             
             # common other
@@ -2500,7 +2400,18 @@ sub dumpSystem($)
             }
             
             writeFile($DPath, join("\n\n", @Content));
-            $Generated{$LRelPath}=1;
+            $Generated{$LRelPath} = 1;
+            
+            # save header files to create visual diff later
+            my $HSDir = $SYS_DUMP_PATH."/headers/".$LName;
+            rmtree($HSDir);
+            mkpath($HSDir);
+            foreach my $H_P (@IncHeaders)
+            {
+                if(-f $H_P) {
+                    copy($H_P, $HSDir);
+                }
+            }
         }
     }
     printMsg("INFO", "Created descriptors:     ".keys(%Generated)." ($SYS_DUMP_PATH/descriptors/)\n");
@@ -2567,8 +2478,11 @@ sub dumpSystem($)
           # 3. symbian/GCC
             $ACC_dump .= " -nostdinc";
         }
-        if($CppCompat) {
-            $ACC_dump .= " -cpp-compatible";
+        if($CxxIncompat or $CxxIncompat_L{$LName}) {
+            $ACC_dump .= " -cxx-incompatible";
+        }
+        if($SkipUnidentified) {
+            $ACC_dump .= " -skip-unidentified";
         }
         if($Quiet)
         { # quiet mode

@@ -71,3 +71,9 @@ span.param {
 span.nowrap {
     white-space:nowrap;
 }
+.top_ref {
+    font-size:0.69em;
+}
+.footer {
+    font-size:0.75em;
+}

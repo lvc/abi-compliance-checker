@@ -85,14 +85,14 @@ $AppPath, $StrictCompat, $DumpVersion, $ParamNamesPath,
 $OutputReportPath, $OutputDumpPath, $ShowRetVal, $SystemRoot_Opt, $DumpSystem,
 $CmpSystems, $TargetLibsPath, $Debug, $CrossPrefix, $UseStaticLibs, $NoStdInc,
 $TargetComponent_Opt, $TargetSysInfo, $TargetHeader, $ExtendedCheck, $Quiet,
-$SkipHeadersPath, $CppCompat, $LogMode, $StdOut, $ListAffected, $ReportFormat,
+$SkipHeadersPath, $CxxCompat, $LogMode, $StdOut, $ListAffected, $ReportFormat,
 $UserLang, $TargetHeadersPath, $BinaryOnly, $SourceOnly, $BinaryReportPath,
 $SourceReportPath, $UseXML, $SortDump, $DumpFormat,
 $ExtraInfo, $ExtraDump, $Force, $Tolerance, $Tolerant, $SkipSymbolsListPath,
-$CheckInfo, $Quick, $AffectLimit, $AllAffected, $CppIncompat,
+$CheckInfo, $Quick, $AffectLimit, $AllAffected, $CxxIncompat,
 $SkipInternalSymbols, $SkipInternalTypes, $TargetArch, $GccOptions,
 $TypesListPath, $SkipTypesListPath, $CheckPrivateABI, $CountSymbols, $OldStyle,
-$DisableQuickEmptyReport, $SkipTypedefUncover);
+$DisableQuickEmptyReport, $SkipTypedefUncover, $MinGWCompat, $SkipUnidentified);
 
 my $CmdName = get_filename($0);
 my %OS_LibExt = (
@@ -228,8 +228,9 @@ GetOptions("h|help!" => \$Help,
   "test!" => \$TestTool,
   "test-dump!" => \$TestDump,
   "debug!" => \$Debug,
-  "cpp-compatible!" => \$CppCompat,
-  "cpp-incompatible!" => \$CppIncompat,
+  "cpp-compatible!" => \$CxxCompat,
+  "cxx-incompatible|cpp-incompatible!" => \$CxxIncompat,
+  "mingw-compatible!" => \$MinGWCompat,
   "p|params=s" => \$ParamNamesPath,
   "relpath1|relpath=s" => \$RelativeDirectory{1},
   "relpath2=s" => \$RelativeDirectory{2},
@@ -250,6 +251,7 @@ GetOptions("h|help!" => \$Help,
   "force!" => \$Force,
   "tolerance=s" => \$Tolerance,
   "tolerant!" => \$Tolerant,
+  "skip-unidentified!" => \$SkipUnidentified,
   "check!" => \$CheckInfo,
   "quick!" => \$Quick,
   "disable-quick-empty-report!" => \$DisableQuickEmptyReport,
@@ -550,9 +552,11 @@ EXTRA OPTIONS:
       ABI of operating systems and configure the dumping process.
 
   -cmp-systems -d1 sys_dumps/NAME1/ARCH -d2 sys_dumps/NAME2/ARCH
-      Compare two system ABI dumps. Create compatibility reports for each
-      library and the common HTML report including the summary of test
-      results for all checked libraries. Report will be generated to:
+      Compare two ABI dumps of a system. Create compatibility reports for
+      each system library and the common HTML report including the summary
+      of test results for all checked libraries.
+      
+      Summary report will be generated to:
           sys_compat_reports/NAME1_to_NAME2/ARCH
 
   -libs-list PATH
@@ -631,7 +635,7 @@ OTHER OPTIONS:
 
   -test-dump
       Test ability to create, read and compare ABI dumps.
-      
+
   -debug
       Debugging mode. Print debug info on the screen. Save intermediate
       analysis stages in the debug directory:
@@ -640,12 +644,16 @@ OTHER OPTIONS:
       Also consider using --dump option for debugging the tool.
 
   -cpp-compatible
-      If your header files are written in C language and can be compiled
-      by the G++ compiler (i.e. don't use C++ keywords), then you can tell
-      the tool about this and speedup the analysis.
-      
-  -cpp-incompatible
-      Set this option if input C header files use C++ keywords.
+      Do nothing.
+
+  -cxx-incompatible
+      Set this option if input C header files use C++ keywords. The tool
+      will try to replace such keywords at preprocessor stage and replace
+      them back in the final TU dump.
+  
+  -mingw-compatible
+      If input header files are compatible with the MinGW GCC compiler,
+      then you can tell the tool about this and speedup the analysis .
 
   -p|-params PATH
       Path to file with the function parameter names. It can be used
@@ -659,7 +667,7 @@ OTHER OPTIONS:
   -relpath PATH
       Replace {RELPATH} macros to PATH in the XML-descriptor used
       for dumping the library ABI (see -dump option).
-  
+
   -relpath1 PATH
       Replace {RELPATH} macros to PATH in the 1st XML-descriptor (-d1).
 
@@ -737,7 +745,8 @@ OTHER OPTIONS:
       from the translation unit.
       
   -force
-      Try to use this option if the tool doesn't work.
+      Try to enable this option if the tool checked zero
+      types and symbols in header files.
       
   -tolerance LEVEL
       Apply a set of heuristics to successfully compile input
@@ -751,7 +760,12 @@ OTHER OPTIONS:
           
   -tolerant
       Enable highest tolerance level [1234].
-      
+  
+  -skip-unidentified
+      Skip header files in 'headers' and 'include_preamble' sections
+      of the XML descriptor that cannot be found. This is useful if
+      you are trying to use the same descriptor for different targets.
+  
   -check
       Check completeness of the ABI dump.
       
@@ -1372,6 +1386,7 @@ my %WeakSymbols;
 my %Library_Needed= (
   "1"=>{},
   "2"=>{} );
+my $DisabledMSVCUnmangling = undef;
 
 # Extra Info
 my %UndefinedSymbols;
@@ -6492,7 +6507,7 @@ sub searchForHeaders($)
                 $Registered_Headers{$LibVersion}{$Path}{"Pos"} = $Position++;
             }
         }
-        else {
+        elsif(not defined $SkipUnidentified) {
             exitStatus("Access_Error", "can't identify \'$Dest\' as a header file");
         }
     }
@@ -6520,7 +6535,7 @@ sub searchForHeaders($)
                 next if(skipHeader($Header_Path, $LibVersion));
                 push_U($Include_Preamble{$LibVersion}, $Header_Path);
             }
-            else {
+            elsif($SkipUnidentified) {
                 exitStatus("Access_Error", "can't identify \'$Header\' as a header file");
             }
         }
@@ -7343,9 +7358,21 @@ sub unmangleArray(@)
 {
     if($_[0]=~/\A\?/)
     { # MSVC mangling
+        if(defined $DisabledMSVCUnmangling) {
+            return @_;
+        }
         my $UndNameCmd = get_CmdPath("undname");
-        if(not $UndNameCmd) {
-            exitStatus("Not_Found", "can't find \"undname\"");
+        if(not $UndNameCmd)
+        {
+            if($OSgroup eq "windows") {
+                exitStatus("Not_Found", "can't find \"undname\"");
+            }
+            elsif(not defined $DisabledMSVCUnmangling)
+            {
+                printMsg("WARNING", "can't find \"undname\", disable MSVC unmangling");
+                $DisabledMSVCUnmangling = 1;
+                return @_;
+            }
         }
         writeFile("$TMP_DIR/unmangle", join("\n", @_));
         return split(/\n/, `$UndNameCmd 0x8386 \"$TMP_DIR/unmangle\"`);
@@ -7887,6 +7914,7 @@ sub platformSpecs($)
             "-D__possibly_notnullterminated=\" \"",
             "-D__nullterminated=\" \"",
             "-D__nullnullterminated=\" \"",
+            "-D__assume=\" \"",
             "-D__w64=\" \"",
             "-D__ptr32=\" \"",
             "-D__ptr64=\" \"",
@@ -7918,17 +7946,21 @@ sub platformSpecs($)
             "-DSORTPP_PASS");
         if($Arch eq "x86")
         {
+            $MinGW_Opts{"-D_X86_=300"}=1;
             $MinGW_Opts{"-D_M_IX86=300"}=1;
         }
         elsif($Arch eq "x86_64")
         {
+            $MinGW_Opts{"-D_AMD64_=300"}=1;
             $MinGW_Opts{"-D_M_AMD64=300"}=1;
             $MinGW_Opts{"-D_M_X64=300"}=1;
         }
-        elsif($Arch eq "ia64") {
+        elsif($Arch eq "ia64")
+        {
+            $MinGW_Opts{"-D_IA64_=300"}=1;
             $MinGW_Opts{"-D_M_IA64=300"}=1;
         }
-        return join(" ", keys(%MinGW_Opts));
+        return join(" ", sort keys(%MinGW_Opts));
     }
     return "";
 }
@@ -8189,7 +8221,7 @@ sub preChange($$)
     my $PreprocessCmd = getCompileCmd($HeaderPath, "-E", $IncStr);
     my $Content = undef;
     
-    if($OStarget eq "windows"
+    if(not defined $MinGWCompat and $OStarget eq "windows"
     and get_dumpmachine($GCC_PATH)=~/mingw/i
     and $MinGWMode{$Version}!=-1)
     { # modify headers to compile by MinGW
@@ -8215,29 +8247,48 @@ sub preChange($$)
         }
     }
     
-    if(($COMMON_LANGUAGE{$Version} eq "C" or $CheckHeadersOnly)
-    and $CppMode{$Version}!=-1 and not $CppCompat and not $CPP_HEADERS)
+    if(defined $CxxIncompat and ($COMMON_LANGUAGE{$Version} eq "C" or $CheckHeadersOnly)
+    and $CppMode{$Version}!=-1 and not $CPP_HEADERS)
     { # rename C++ keywords in C code
-      # disable this code by -cpp-compatible option
+        printMsg("INFO", "Checking the code for C++ keywords");
         if(not $Content)
         { # preprocessing
             $Content = `$PreprocessCmd 2>\"$TMP_DIR/null\"`;
         }
+        
         my $RegExp_C = join("|", keys(%CppKeywords_C));
         my $RegExp_F = join("|", keys(%CppKeywords_F));
         my $RegExp_O = join("|", keys(%CppKeywords_O));
         
         my $Detected = undef;
+        my $Sentence_O = undef;
+        my $Sentence_N = undef;
+        my $Regex = undef;
         
-        while($Content=~s/(\A|\n[^\#\/\n][^\n]*?|\n)(\*\s*|\s+|\@|\,|\()($RegExp_C|$RegExp_F)(\s*([\,\)\;\.\[]|\-\>|\:\s*\d))/$1$2c99_$3$4/g)
+        $Regex = qr/(\A|\n[^\#\/\n][^\n]*?|\n)(\*\s*|\s+|\@|\,|\()($RegExp_C|$RegExp_F)(\s*([\,\)\;\.\[]|\-\>|\:\s*\d))/;
+        while($Content=~/$Regex/)
         { # MATCH:
           # int foo(int new, int class, int (*new)(int));
           # int foo(char template[], char*);
           # unsigned private: 8;
           # DO NOT MATCH:
           # #pragma GCC visibility push(default)
-            $CppMode{$Version} = 1;
-            $Detected = "$1$2$3$4" if(not defined $Detected);
+            $Sentence_O = "$1$2$3$4";
+            $Sentence_N = "$1$2c99_$3$4";
+            
+            if($Sentence_O=~/\s+decltype\(/)
+            { # C++
+              # decltype(nullptr)
+                last;
+            }
+            else
+            {
+                $Content=~s/$Regex/$Sentence_N/g;
+                $CppMode{$Version} = 1;
+                if(not defined $Detected) {
+                    $Detected = $Sentence_O;
+                }
+            }
         }
         if($Content=~s/([^\w\s]|\w\s+)(?<!operator )(delete)(\s*\()/$1c99_$2$3/g)
         { # MATCH:
@@ -8330,6 +8381,9 @@ sub preChange($$)
         
         if($CppMode{$Version}==1) {
             printMsg("INFO", "Using C++ compatibility mode");
+        }
+        else {
+            printMsg("INFO", "C++ keywords in the C code are not found");
         }
     }
         
@@ -8546,24 +8600,8 @@ sub getDump()
     { # failed to compile, but the TU dump still can be created
         if($Errors = readFile($TMP_DIR."/tu_errors"))
         { # try to recompile
-          # FIXME: handle other errors and try to recompile
-            if($CppMode{$Version}==1
-            and index($Errors, "c99_")!=-1
-            and not defined $CppIncompat)
-            { # disable c99 mode and try again
-                $CppMode{$Version}=-1;
-                
-                if($Debug)
-                {
-                    # printMsg("INFO", $Errors);
-                }
-                
-                printMsg("INFO", "Disabling C++ compatibility mode");
-                resetLogging($Version);
-                $TMP_DIR = tempdir(CLEANUP=>1);
-                return getDump();
-            }
-            elsif($AutoPreambleMode{$Version}!=-1
+          # FIXME: handle errors and try to recompile
+            if($AutoPreambleMode{$Version}!=-1
             and my $AddHeaders = detectPreamble($Errors, $Version))
             { # add auto preamble headers and try again
                 $AutoPreambleMode{$Version}=-1;
@@ -8595,17 +8633,17 @@ sub getDump()
                     return getDump();
                 }
                 else {
-                    printMsg("WARNING", "Probably c++0x construction detected");
+                    printMsg("WARNING", "Probably c++0x element detected");
                 }
                 
             }
-            elsif($MinGWMode{$Version}==1)
-            { # disable MinGW mode and try again
-                $MinGWMode{$Version}=-1;
-                resetLogging($Version);
-                $TMP_DIR = tempdir(CLEANUP=>1);
-                return getDump();
-            }
+            #elsif($MinGWMode{$Version}==1)
+            #{ # disable MinGW mode and try again
+            #    $MinGWMode{$Version}=-1;
+            #    resetLogging($Version);
+            #    $TMP_DIR = tempdir(CLEANUP=>1);
+            #    return getDump();
+            #}
             writeLog($Version, $Errors);
         }
         else {
@@ -22825,7 +22863,8 @@ sub getSysOpts()
     "CrossGcc"=>$CrossGcc,
     "UseStaticLibs"=>$UseStaticLibs,
     "NoStdInc"=>$NoStdInc,
-    "CppCompat"=>$CppCompat,
+    "CxxIncompat"=>$CxxIncompat,
+    "SkipUnidentified"=>$SkipUnidentified,
     
     "BinaryOnly" => $BinaryOnly,
     "SourceOnly" => $SourceOnly

@@ -1,5 +1,5 @@
 body {
-    font-family:Arial, sans-serif;
+    font-family:Arial;
     background-color:White;
     color:Black;
 }
@@ -14,47 +14,40 @@ h1 {
     padding-bottom:0px;
     font-size:1.625em;
 }
-h2 {
-    margin-bottom:0px;
-    padding-bottom:0px;
-    font-size:1.25em;
-    white-space:nowrap;
-}
-table.summary, table.wikitable {
+table.summary, table.legend {
+    font-family:"DejaVu Sans Mono", "Monaco", monospace;
+    font-size:0.94em;
     border-collapse:collapse;
-    border:1px outset black;
+    table-layout:fixed;
 }
-table.summary td, table.summary th {
-    border:1px inset gray;
-    padding: 3px 5px 3px 5px;
-    white-space:nowrap;
+table.summary tr, table.summary td, table.summary th, table.legend td
+{
+    border:1px solid #777777;
+    border-collapse:collapse;
+    padding:0.2em;
+    padding-left:7px;
+    padding-right:7px;
+    text-align:center;
 }
 table.summary th {
-    background-color:#EEEEEE;
-    font-weight:100;
-    text-align:left;
-    padding: 3px;
-    font-size:0.94em;
-}
-table.summary td {
-    text-align:right;
-    padding-left:10px;
-    padding: 3px 5px 3px 10px;
-}
-table.wikitable td, table.wikitable th {
-    border:1px inset gray;
-    text-align:center;
-    padding: 3px;
+    background:#f2f2f2;
     white-space:nowrap;
 }
-table.wikitable th {
-    background-color:#EEEEEE;
-    font-size:0.94em;
+table.summary td {
+    padding-top:20px;
+    padding-bottom:20px;
+    white-space:nowrap;
 }
-table.wikitable td.left {
+table.summary td.object {
     text-align:left;
-    padding-left:5px;
-    background-color:#F9F9F9;
+    max-width:10em;
+    white-space:normal;
+    word-wrap:break-word;
+}
+table.summary td.ver {
+    max-width:10em;
+    white-space:normal;
+    word-wrap:break-word;
 }
 td.passed {
     background-color:#CCFFCC;
@@ -68,6 +61,15 @@ td.failed {
 td.new {
     background-color:#C6DEFF;
 }
+.compatible {
+    background-color:#CCFFCC;
+}
+.almost_compatible {
+    background-color:#FFDAA3;
+}
+.incompatible {
+    background-color:#FFCCCC;
+}
 a.default {
     color:#336699;
 }
@@ -76,4 +78,7 @@ th.severity {
 }
 sup {
     font-size:0.625em;
+}
+.footer {
+    font-size:0.75em;
 }
