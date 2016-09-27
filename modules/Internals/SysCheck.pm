@@ -4,7 +4,7 @@
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
 # Copyright (C) 2011-2012 ROSA Laboratory
-# Copyright (C) 2012-2015 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2012-2016 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -28,7 +28,8 @@ use Fcntl;
 
 my ($Debug, $Quiet, $LogMode, $CheckHeadersOnly, $SystemRoot, $GCC_PATH,
 $CrossPrefix, $TargetSysInfo, $TargetLibraryName, $CrossGcc, $UseStaticLibs,
-$NoStdInc, $CxxIncompat, $SkipUnidentified, $OStarget, $BinaryOnly, $SourceOnly);
+$NoStdInc, $CxxIncompat, $SkipUnidentified, $OStarget, $BinaryOnly,
+$SourceOnly, $DisableConstantsCheck);
 
 my $OSgroup = get_OSgroup();
 my $TMP_DIR = tempdir(CLEANUP=>1);
@@ -65,6 +66,13 @@ sub cmpSystems($$$)
     # sys_dumps/<System>/<Arch>/...
     my $SystemName1 = get_filename(get_dirname($SPath1));
     my $SystemName2 = get_filename(get_dirname($SPath2));
+    
+    my $SystemName1_P = $SystemName1;
+    my $SystemName2_P = $SystemName2;
+    
+    $SystemName1=~s/_/ /g;
+    $SystemName2=~s/_/ /g;
+    
     # sys_dumps/<System>/<Arch>/...
     my $ArchName = get_filename($SPath1);
     if($ArchName ne get_filename($SPath2)) {
@@ -87,7 +95,7 @@ sub cmpSystems($$$)
             $GroupByHeaders = 1;
         }
     }
-    my $SYS_REPORT_PATH = "sys_compat_reports/".$SystemName1."_to_".$SystemName2."/$ArchName";
+    my $SYS_REPORT_PATH = "sys_compat_reports/".$SystemName1_P."_to_".$SystemName2_P."/$ArchName";
     rmtree($SYS_REPORT_PATH);
     my (%LibSoname1, %LibSoname2) = ();
     foreach (split(/\n/, readFile($SPath1."/sonames.txt")))
@@ -364,6 +372,14 @@ sub cmpSystems($$$)
         if($GroupByHeaders) {
             $ACC_compare .= " -component header";
         }
+        
+        if($DisableConstantsCheck) {
+            $ACC_compare .= " -disable-constants-check";
+        }
+        
+        $ACC_compare .= " -skip-added-constants";
+        $ACC_compare .= " -skip-removed-constants";
+        
         if($Quiet)
         { # quiet mode
             $ACC_compare .= " -quiet";
@@ -450,7 +466,7 @@ sub cmpSystems($$$)
                     unlink($DiffOut);
                 }
                 
-                my $Cmd_R = $RfcDiff." --width 75 --stdout \"$Path1\" \"$Path2\" >$DiffOut 2>/dev/null";
+                my $Cmd_R = $RfcDiff." --width 80 --stdout \"$Path1\" \"$Path2\" >$DiffOut 2>/dev/null";
                 qx/$Cmd_R/; # execute
                 
                 if(-s $DiffOut)
@@ -465,6 +481,11 @@ sub cmpSystems($$$)
                     $Content=~s/(<td colspan=\"5\"[^>]*>)(.+)(<\/td>)/$1$3/;
                     $Content=~s/(<table) /$1 class='diff_tbl' /g;
                     
+                    $Content=~s&<td class="lineno" valign="top"></td>&&g;
+                    $Content=~s&<td class="lineno"></td>&&g;
+                    $Content=~s&<th></th>&&g;
+                    $Content=~s&<td></td>&&g;
+                    
                     $Content=~s/(\Q$N\E)(&nbsp;)/$1 ($LV1-$SystemName1)$2/;
                     $Content=~s/(\Q$N\E)(&nbsp;)/$1 ($LV2-$SystemName2)$2/;
                     
@@ -475,24 +496,27 @@ sub cmpSystems($$$)
                 }
             }
             
-            my $Title = $LName.": headers diff between $LV1-$SystemName1 and $LV2-$SystemName2 versions";
-            my $Keywords = $LName.", header, diff";
-            my $Description = "Diff for header files between $LV1-$SystemName1 and $LV2-$SystemName2 versions of $LName";
-            my $Styles = readModule("Styles", "HeadersDiff.css");
-            
-            my $Link = "This html diff was produced by <a href='http://tools.ietf.org/tools/rfcdiff/'>rfcdiff</a> 1.41.";
-            
-            $Diff .= "<br/>";
-            $Diff .= "<div style='width:100%;' align='left'>$Link</div>\n";
-            
-            $Diff = "<h1>Headers diff for <span style='color:Blue;'>$LName</span> between <span style='color:Red;'>$LV1-$SystemName1</span> and <span style='color:Red;'>$LV2-$SystemName2</span> versions</h1><br/><br/>".$Diff;
-            
-            $Diff = "<table width='100%' cellpadding='0' cellspacing='0'><tr><td>$Diff</td></tr></table>";
-            
-            $Diff = composeHTML_Head($Title, $Keywords, $Description, $Styles, "")."\n<body>\n$Diff\n</body>\n</html>\n";
-            
-            my $Output = $SYS_REPORT_PATH."/headers_diff/$LName";
-            writeFile($Output."/diff.html", $Diff);
+            if($Diff)
+            {
+                my $Title = $LName.": headers diff between $LV1-$SystemName1 and $LV2-$SystemName2 versions";
+                my $Keywords = $LName.", header, diff";
+                my $Description = "Diff for header files between $LV1-$SystemName1 and $LV2-$SystemName2 versions of $LName";
+                my $Styles = readModule("Styles", "HeadersDiff.css");
+                
+                my $Link = "This html diff was produced by <a href='http://tools.ietf.org/tools/rfcdiff/'>rfcdiff</a> 1.41.";
+                
+                $Diff .= "<br/>";
+                $Diff .= "<div style='width:100%;' align='left'>$Link</div>\n";
+                
+                $Diff = "<h1>Headers diff for <span style='color:Blue;'>$LName</span> between <span style='color:Red;'>$LV1-$SystemName1</span> and <span style='color:Red;'>$LV2-$SystemName2</span> versions</h1><br/><br/>".$Diff;
+                
+                $Diff = "<table width='100%' cellpadding='0' cellspacing='0'><tr><td>$Diff</td></tr></table>";
+                
+                $Diff = composeHTML_Head($Title, $Keywords, $Description, $Styles, "")."\n<body>\n$Diff\n</body>\n</html>\n";
+                
+                my $Output = $SYS_REPORT_PATH."/headers_diff/$LName";
+                writeFile($Output."/diff.html", $Diff);
+            }
         }
     }
     
@@ -648,7 +672,7 @@ sub cmpSystems($$$)
     
     $SYS_REPORT .= "<tr>\n";
     if(not $GroupByHeaders) {
-        $SYS_REPORT .= "<th>$SystemName1</th><th>$SystemName2</th>\n";
+        $SYS_REPORT .= "<th class='ver'>$SystemName1</th><th class='ver'>$SystemName2</th>\n";
     }
     if($BinaryOnly and $SourceOnly) {
         $SYS_REPORT .= "<th>Binary</th><th>Source</th>\n";
@@ -856,11 +880,17 @@ sub cmpSystems($$$)
             }
         }
         
-        if(-d $HDiff."/".$LName) {
-            $SYS_REPORT .= "<td><a href=\'headers_diff/$LName/diff.html\'>diff</a></td>\n";
-        }
-        else {
-            $SYS_REPORT .= "<td>N/A</td>\n";
+        if(-d $HDiff)
+        {
+            if(-d $HDiff."/".$LName) {
+                $SYS_REPORT .= "<td><a href=\'headers_diff/$LName/diff.html\'>diff</a></td>\n";
+            }
+            elsif(defined $Added{$LName} or defined $Removed{$LName}) {
+                $SYS_REPORT .= "<td>N/A</td>\n";
+            }
+            else {
+                $SYS_REPORT .= "<td>Empty</td>\n";
+            }
         }
         
         $SYS_REPORT .= "</tr>\n";
@@ -1039,6 +1069,7 @@ sub initModule($)
     $NoStdInc = $S->{"NoStdInc"};
     $CxxIncompat = $S->{"CxxIncompat"};
     $SkipUnidentified = $S->{"SkipUnidentified"};
+    $DisableConstantsCheck = $S->{"DisableConstantsCheck"};
     
     $BinaryOnly = $S->{"BinaryOnly"};
     $SourceOnly = $S->{"SourceOnly"};
@@ -1231,6 +1262,11 @@ sub get_binversion($)
         my $VInfo = `$SigcheckCmd -nobanner -n $Path 2>$TMP_DIR/null`;
         $VInfo=~s/\s*\(.*\)\s*//;
         chomp($VInfo);
+        
+        if($VInfo eq "n/a") {
+            $VInfo = uc($VInfo);
+        }
+        
         return $VInfo;
     }
     return "";
@@ -1250,7 +1286,11 @@ sub dumpSystem($)
   # should be used with -sysroot and -cross-gcc options
     my $Opts = $_[0];
     initModule($Opts);
-    my $SYS_DUMP_PATH = "sys_dumps/".$SysDescriptor{"Name"}."/".getArch(1);
+    
+    my $SysName_P = $SysDescriptor{"Name"};
+    $SysName_P=~s/ /_/g;
+    
+    my $SYS_DUMP_PATH = "sys_dumps/".$SysName_P."/".getArch(1);
     if(not $TargetLibraryName) {
         rmtree($SYS_DUMP_PATH);
     }

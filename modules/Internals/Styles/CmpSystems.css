@@ -44,7 +44,7 @@ table.summary td.object {
     white-space:normal;
     word-wrap:break-word;
 }
-table.summary td.ver {
+table.summary td.ver, table.summary th.ver {
     max-width:10em;
     white-space:normal;
     word-wrap:break-word;

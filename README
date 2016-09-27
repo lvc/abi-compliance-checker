@@ -5,7 +5,7 @@ NAME:
   
   The tool is intended for developers of software libraries and Linux maintainers who are interested in ensuring backward compatibility, i.e. allow old applications to run or to be recompiled with newer library versions.
   
-  The tool is developed by Andrey Ponomarenko. You can order additional reports for visualization of the ABI structure and high detailed binary compatibility analysis here: http://abi-laboratory.pro/
+  The tool is developed by Andrey Ponomarenko. You can order additional reports for visualization of the ABI structure and high detailed binary compatibility analysis here: https://abi-laboratory.pro/
 
 INSTALL:
   sudo make install prefix=/usr

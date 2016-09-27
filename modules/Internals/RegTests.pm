@@ -4,7 +4,7 @@
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
 # Copyright (C) 2011-2012 ROSA Laboratory
-# Copyright (C) 2012-2015 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2012-2016 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -2972,6 +2972,26 @@ sub testC()
     my ($HEADER1, $SOURCE1, $HEADER2, $SOURCE2) = ();
     my $DECL_SPEC = ($OSgroup eq "windows")?"__declspec( dllexport )":"";
     my $EXTERN = ($OSgroup eq "windows")?"extern ":""; # add "extern" for CL compiler
+    
+    # Struct to union
+    $HEADER1 .= "
+        typedef struct StructToUnion {
+            unsigned char A[64];
+        } StructToUnion;
+        
+        $DECL_SPEC int structToUnion(StructToUnion *p);";
+    $SOURCE1 .= "
+        int structToUnion(StructToUnion *p) { return 0; }";
+    
+    $HEADER2 .= "
+        typedef union StructToUnion {
+            unsigned char A[64];
+            void *p;
+        } StructToUnion;
+        
+        $DECL_SPEC int structToUnion(StructToUnion *p);";
+    $SOURCE2 .= "
+        int structToUnion(StructToUnion *p) { return 0; }";
     
     # Typedef to function
     $HEADER1 .= "
