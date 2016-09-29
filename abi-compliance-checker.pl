@@ -816,7 +816,7 @@ EXIT CODES:
 
 MORE INFORMATION:
     ".$HomePage{"Wiki"}."
-    ".$HomePage{"Dev"}."\n\n";
+    ".$HomePage{"Dev"}."\n\n");
 }
 
 my %Operator_Indication = (
