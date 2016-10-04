@@ -44,6 +44,63 @@
 <p/>
 <br/>
 
+<b>Version 1.99.24 (October 04, 2016)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Support for Clang
+    </li>
+    <li>
+        Improved a module to compare operating systems
+    </li>
+    <li>
+        Improved support for C++ keywords in C code
+    </li>
+    <li>
+        Improved support for Windows
+    </li>
+    <li>
+        Improved support for MinGW
+    </li>
+</ul>
+<b>New Options</b>
+<ul>
+    <li>
+        -skip-typedef-uncover: do not report a problem if type is covered or uncovered by typedef (useful for broken debug info)
+    </li>
+    <li>
+        -mingw-compatible: if input header files are compatible with the MinGW GCC compiler, then you can tell the tool about this and speedup the analysis
+    </li>
+    <li>
+        -skip-unidentified: skip header files in 'headers' and 'include_preamble' sections of the XML descriptor that cannot be found
+    </li>
+    <li>
+        -disable-constants-check: do not check for changes in constants
+    </li>
+    <li>
+        -skip-added-constants: do not detect added constants
+    </li>
+    <li>
+        -skip-removed-constants: do not detect removed constants
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Do not show GCC version in the source compatibility report
+    </li>
+    <li>
+        Renamed CPU Type column to Arch in the report
+    </li>
+    <li>
+        Support for ABI dumps v3.3
+    </li>
+    <li>
+        The -cpp-compatible option is now enabled by default
+    </li>
+</ul>
+<br/>
+
 <b>Version 1.99.23 (August 15, 2016)</b><br/>
 <b>Improvements</b>
 <ul>

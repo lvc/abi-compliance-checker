@@ -9,8 +9,8 @@ All rights reserved.
 RELEASE INFORMATION
 
 Project:           ABI Compliance Checker (ABICC)
-Version:           1.99.23
-Date:              2016-08-15
+Version:           1.99.24
+Date:              2016-10-04
 
 
 This file explains how to install and setup environment
@@ -42,7 +42,8 @@ Content:
 ============================
 
    1. Xcode (g++, c++filt, otool, nm)
-   2. Ctags (5.8 or newer)
+   2. Perl 5
+   3. Ctags
 
 2.1 Setup environment
 
@@ -67,12 +68,12 @@ Content:
    3. Active Perl 5 (5.8 or newer)
    4. Sigcheck v1.71 or newer
    5. Info-ZIP 3.0 (zip, unzip)
-   6. Ctags (5.8 or newer)
+   6. Ctags
 
 3.1 Setup environment
 
    1. Add tool locations to the PATH environment variable
-   2. Run vsvars32.bat script (C:\Microsoft Visual Studio 9.0\Common7\Tools\)
+   2. Run vcvars64.bat script (C:\Microsoft Visual Studio 9.0\VC\bin\)
 
 
 

@@ -19,13 +19,13 @@
 #  Linux
 #    - G++ (3.0-4.7, 4.8.3, 4.9 or newer)
 #    - GNU Binutils (readelf, c++filt, objdump)
-#    - Perl 5 (5.8 or newer)
-#    - Ctags (5.8 or newer)
-#    - ABI Dumper (0.99.15 or newer)
+#    - Perl 5
+#    - Ctags
+#    - ABI Dumper >= 0.99.15
 #
 #  Mac OS X
 #    - Xcode (g++, c++filt, otool, nm)
-#    - Ctags (5.8 or newer)
+#    - Ctags
 #
 #  MS Windows
 #    - MinGW (3.0-4.7, 4.8.3, 4.9 or newer)
@@ -33,7 +33,7 @@
 #    - Active Perl 5 (5.8 or newer)
 #    - Sigcheck v2.52 or newer
 #    - GnuWin Zip and UnZip
-#    - Exuberant Ctags (5.8 or newer)
+#    - Ctags (Exuberant or Universal)
 #    - Add tool locations to the PATH environment variable
 #    - Run vcvars64.bat (C:\Microsoft Visual Studio 9.0\VC\bin\)
 #
@@ -480,7 +480,13 @@ EXTRA OPTIONS:
 
   -disable-constants-check
       Do not check for changes in constants.
-      
+  
+  -skip-added-constants
+      Do not detect added constants.
+  
+  -skip-removed-constants
+      Do not detect removed constants.
+  
   -headers-list PATH
       The file with a list of headers, that should be checked/dumped.
       
@@ -663,7 +669,7 @@ OTHER OPTIONS:
   
   -mingw-compatible
       If input header files are compatible with the MinGW GCC compiler,
-      then you can tell the tool about this and speedup the analysis .
+      then you can tell the tool about this and speedup the analysis.
 
   -p|-params PATH
       Path to file with the function parameter names. It can be used
@@ -8172,7 +8178,7 @@ sub checkCTags($)
     if($OSgroup ne "linux")
     { # macos, freebsd, etc.
         my $Info = `$CTags --version 2>\"$TMP_DIR/null\"`;
-        if($Info!~/exuberant/i)
+        if($Info!~/universal|exuberant/i)
         {
             printMsg("WARNING", "incompatible version of \'ctags\' program");
             return;
@@ -16191,7 +16197,7 @@ sub get_Summary($)
             if($Level eq "Binary") {
                 $TestInfo .= "<tr><th>Subject</th><td width='150px'>Binary Compatibility</td></tr>\n"; # Run-time
             }
-            if($Level eq "Source") {
+            elsif($Level eq "Source") {
                 $TestInfo .= "<tr><th>Subject</th><td width='150px'>Source Compatibility</td></tr>\n"; # Build-time
             }
         }
