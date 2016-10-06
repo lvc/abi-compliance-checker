@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 1.99.24
+# ABI Compliance Checker (ABICC) 1.99.25
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -60,7 +60,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.24";
+my $TOOL_VERSION = "1.99.25";
 my $ABI_DUMP_VERSION = "3.3";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -93,7 +93,7 @@ $CheckInfo, $Quick, $AffectLimit, $AllAffected, $CxxIncompat,
 $SkipInternalSymbols, $SkipInternalTypes, $TargetArch, $GccOptions,
 $TypesListPath, $SkipTypesListPath, $CheckPrivateABI, $CountSymbols, $OldStyle,
 $DisableQuickEmptyReport, $SkipTypedefUncover, $MinGWCompat, $SkipUnidentified,
-$DisableConstantsCheck, $SkipAddedConstants, $SkipRemovedConstants);
+$DisableConstantsCheck, $SkipAddedConstants, $SkipRemovedConstants, $TestABIDumper);
 
 my $CmdName = get_filename($0);
 my %OS_LibExt = (
@@ -234,6 +234,7 @@ GetOptions("h|help!" => \$Help,
 # other options
   "test!" => \$TestTool,
   "test-dump!" => \$TestDump,
+  "test-abi-dumper!" => \$TestABIDumper,
   "debug!" => \$Debug,
   "cpp-compatible!" => \$CxxCompat,
   "cxx-incompatible|cpp-incompatible!" => \$CxxIncompat,
@@ -652,12 +653,15 @@ OTHER OPTIONS:
   -test-dump
       Test ability to create, read and compare ABI dumps.
 
+  -test-abi-dumper
+      Compare ABI dumps created by the ABI Dumper tool.
+  
   -debug
       Debugging mode. Print debug info on the screen. Save intermediate
       analysis stages in the debug directory:
           debug/LIB_NAME/VERSION/
 
-      Also consider using --dump option for debugging the tool.
+      Also consider using -dump option for debugging the tool.
 
   -cpp-compatible
       Do nothing.
@@ -12982,6 +12986,15 @@ sub detectRemoved_H($)
         if(not defined $CompleteSignature{2}{$Symbol}
         or not $CompleteSignature{2}{$Symbol}{"MnglName"})
         {
+            if(defined $UsedDump{1}{"DWARF"}
+            and $Level eq "Source")
+            {
+                if(link_symbol($Symbol, 2, "-Deps"))
+                { # not present in debug-info,
+                  # but present as ELF symbol
+                    next;
+                }
+            }
             if($UsedDump{1}{"SrcBin"})
             {
                 if($UsedDump{2}{"BinOnly"} or not checkDump(2, "2.11"))
@@ -23094,13 +23107,20 @@ sub scenario()
         $TargetHeaders{1}{get_filename($TargetHeader)} = 1;
         $TargetHeaders{2}{get_filename($TargetHeader)} = 1;
     }
+    if($TestABIDumper)
+    {
+        if($OSgroup ne "linux") {
+            exitStatus("Error", "-test-abi-dumper option is available on Linux only");
+        }
+    }
     if($TestTool
-    or $TestDump)
+    or $TestDump
+    or $TestABIDumper)
     { # --test, --test-dump
         detect_default_paths("bin|gcc"); # to compile libs
         loadModule("RegTests");
         testTool($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode, $ReportFormat, $DumpFormat,
-        $LIB_EXT, $GCC_PATH, $SortDump, $CheckHeadersOnly, $OldStyle);
+        $LIB_EXT, $GCC_PATH, $SortDump, $CheckHeadersOnly, $OldStyle, $TestABIDumper);
         exit(0);
     }
     if($DumpSystem)

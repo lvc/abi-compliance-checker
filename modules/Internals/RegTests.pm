@@ -25,14 +25,14 @@ use strict;
 
 my ($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode, $ReportFormat,
 $DumpFormat, $LIB_EXT, $GCC_PATH, $SortDump, $CheckHeadersOnly,
-$OldStyle);
+$OldStyle, $TestABIDumper);
 my $OSgroup = get_OSgroup();
 
 sub testTool($$$$$$$$$$$)
 {
     ($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode, $ReportFormat,
     $DumpFormat, $LIB_EXT, $GCC_PATH, $SortDump, $CheckHeadersOnly,
-    $OldStyle) = @_;
+    $OldStyle, $TestABIDumper) = @_;
     
     testC();
     testCpp();
@@ -4677,15 +4677,19 @@ sub testC()
 sub runTests($$$$$$$$)
 {
     my ($LibName, $Lang, $HEADER1, $SOURCE1, $HEADER2, $SOURCE2, $Opaque, $Private) = @_;
-    my $Ext = ($Lang eq "C++")?"cpp":"c";
+    
+    my $SrcE = ($Lang eq "C++")?"cpp":"c";
     rmtree($LibName);
+    
+    my $ObjName = "libsample";
+    
     # creating test suite
-    my $Path_v1 = "$LibName/libsample.v1";
-    my $Path_v2 = "$LibName/libsample.v2";
+    my $Path_v1 = "$LibName/$ObjName.v1";
+    my $Path_v2 = "$LibName/$ObjName.v2";
     mkpath($Path_v1);
     mkpath($Path_v2);
-    writeFile("$Path_v1/libsample.h", $HEADER1."\n");
-    writeFile("$Path_v1/libsample.$Ext", "#include \"libsample.h\"\n".$SOURCE1."\n");
+    writeFile("$Path_v1/$ObjName.h", $HEADER1."\n");
+    writeFile("$Path_v1/$ObjName.$SrcE", "#include \"$ObjName.h\"\n".$SOURCE1."\n");
     writeFile("$LibName/v1.xml", "
         <version>
             1.0
@@ -4710,8 +4714,8 @@ sub runTests($$$$$$$$)
         <include_paths>
             ".get_abs_path($Path_v1)."
         </include_paths>\n");
-    writeFile("$Path_v1/test.$Ext", "
-        #include \"libsample.h\"
+    writeFile("$Path_v1/test.$SrcE", "
+        #include \"$ObjName.h\"
         #include <stdio.h>
         ".($Lang eq "C++"?"using namespace TestNS;":"")."
         int main()
@@ -4721,8 +4725,8 @@ sub runTests($$$$$$$$)
             return 0;
         }\n");
     
-    writeFile("$Path_v2/libsample.h", $HEADER2."\n");
-    writeFile("$Path_v2/libsample.$Ext", "#include \"libsample.h\"\n".$SOURCE2."\n");
+    writeFile("$Path_v2/$ObjName.h", $HEADER2."\n");
+    writeFile("$Path_v2/$ObjName.$SrcE", "#include \"$ObjName.h\"\n".$SOURCE2."\n");
     writeFile("$LibName/v2.xml", "
         <version>
             2.0
@@ -4747,8 +4751,8 @@ sub runTests($$$$$$$$)
         <include_paths>
             ".get_abs_path($Path_v2)."
         </include_paths>\n");
-    writeFile("$Path_v2/test.$Ext", "
-        #include \"libsample.h\"
+    writeFile("$Path_v2/test.$SrcE", "
+        #include \"$ObjName.h\"
         #include <stdio.h>
         ".($Lang eq "C++"?"using namespace TestNS;":"")."
         int main()
@@ -4767,8 +4771,8 @@ sub runTests($$$$$$$$)
         if(not $CL) {
             exitStatus("Not_Found", "can't find \"cl\" compiler");
         }
-        $BuildCmd = "$CL /LD libsample.$Ext >build_log.txt 2>&1";
-        $BuildCmd_Test = "$CL test.$Ext libsample.$LIB_EXT";
+        $BuildCmd = "$CL /LD $ObjName.$SrcE >build_log.txt 2>&1";
+        $BuildCmd_Test = "$CL test.$SrcE $ObjName.$LIB_EXT";
     }
     elsif($OSgroup eq "linux")
     {
@@ -4798,13 +4802,13 @@ sub runTests($$$$$$$$)
                     changedDefaultVersion;
                 };
             ");
-            $BuildCmd = $GCC_PATH." -Wl,--version-script version -shared libsample.$Ext -o libsample.$LIB_EXT -g -Og";
-            $BuildCmd_Test = $GCC_PATH." -Wl,--version-script version test.$Ext -Wl,libsample.$LIB_EXT -o test";
+            $BuildCmd = $GCC_PATH." -Wl,--version-script version -shared $ObjName.$SrcE -o $ObjName.$LIB_EXT -g -Og";
+            $BuildCmd_Test = $GCC_PATH." -Wl,--version-script version test.$SrcE -Wl,$ObjName.$LIB_EXT -o test";
         }
         else
         {
-            $BuildCmd = $GCC_PATH." -shared -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT -g -Og";
-            $BuildCmd_Test = $GCC_PATH." -x c++ test.$Ext -lstdc++ -Wl,libsample.$LIB_EXT -o test";
+            $BuildCmd = $GCC_PATH." -shared -x c++ $ObjName.$SrcE -lstdc++ -o $ObjName.$LIB_EXT -g -Og";
+            $BuildCmd_Test = $GCC_PATH." -x c++ test.$SrcE -lstdc++ -Wl,$ObjName.$LIB_EXT -o test";
         }
         if(getArch_GCC(1)=~/\A(arm|x86_64)\Z/i)
         { # relocation R_ARM_MOVW_ABS_NC against `a local symbol' can not be used when making a shared object; recompile with -fPIC
@@ -4816,13 +4820,13 @@ sub runTests($$$$$$$$)
     { # using GCC -dynamiclib
         if($Lang eq "C")
         {
-            $BuildCmd = $GCC_PATH." -dynamiclib libsample.$Ext -o libsample.$LIB_EXT";
-            $BuildCmd_Test = $GCC_PATH." test.$Ext libsample.$LIB_EXT -o test";
+            $BuildCmd = $GCC_PATH." -dynamiclib $ObjName.$SrcE -o $ObjName.$LIB_EXT";
+            $BuildCmd_Test = $GCC_PATH." test.$SrcE $ObjName.$LIB_EXT -o test";
         }
         else
         { # C++
-            $BuildCmd = $GCC_PATH." -dynamiclib -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT";
-            $BuildCmd_Test = $GCC_PATH." -x c++ test.$Ext libsample.$LIB_EXT -o test";
+            $BuildCmd = $GCC_PATH." -dynamiclib -x c++ $ObjName.$SrcE -lstdc++ -o $ObjName.$LIB_EXT";
+            $BuildCmd_Test = $GCC_PATH." -x c++ test.$SrcE $ObjName.$LIB_EXT -o test";
         }
     }
     else
@@ -4830,13 +4834,13 @@ sub runTests($$$$$$$$)
       # symbian target
         if($Lang eq "C")
         {
-            $BuildCmd = $GCC_PATH." -shared libsample.$Ext -o libsample.$LIB_EXT -g -Og";
-            $BuildCmd_Test = $GCC_PATH." test.$Ext -Wl,libsample.$LIB_EXT -o test";
+            $BuildCmd = $GCC_PATH." -shared $ObjName.$SrcE -o $ObjName.$LIB_EXT -g -Og";
+            $BuildCmd_Test = $GCC_PATH." test.$SrcE -Wl,$ObjName.$LIB_EXT -o test";
         }
         else
         { # C++
-            $BuildCmd = $GCC_PATH." -shared -x c++ libsample.$Ext -lstdc++ -o libsample.$LIB_EXT -g -Og";
-            $BuildCmd_Test = $GCC_PATH." -x c++ test.$Ext -Wl,libsample.$LIB_EXT -o test";
+            $BuildCmd = $GCC_PATH." -shared -x c++ $ObjName.$SrcE -lstdc++ -o $ObjName.$LIB_EXT -g -Og";
+            $BuildCmd_Test = $GCC_PATH." -x c++ test.$SrcE -Wl,$ObjName.$LIB_EXT -o test";
         }
     }
     
@@ -4848,10 +4852,10 @@ sub runTests($$$$$$$$)
     
     my $MkContent = "all:\n\t$BuildCmd\ntest:\n\t$BuildCmd_Test\n";
     if($OSgroup eq "windows") {
-        $MkContent .= "clean:\n\tdel test libsample.so\n";
+        $MkContent .= "clean:\n\tdel test $ObjName.so\n";
     }
     else {
-        $MkContent .= "clean:\n\trm test libsample.so\n";
+        $MkContent .= "clean:\n\trm test $ObjName.so\n";
     }
     writeFile("$Path_v1/Makefile", $MkContent);
     writeFile("$Path_v2/Makefile", $MkContent);
@@ -4868,8 +4872,35 @@ sub runTests($$$$$$$$)
     if($?) {
         exitStatus("Error", "can't compile $LibName v.2: \'$Path_v2/build-log.txt\'");
     }
-    # running the tool
-    my @Cmd = ("perl", $0, "-l", $LibName, "-d1", "$LibName/v1.xml", "-d2", "$LibName/v2.xml");
+    # executing the tool
+    my @Cmd = ("perl", $0, "-l", $LibName);
+    
+    if($TestABIDumper and $OSgroup eq "linux")
+    {
+        my @Cmd_d1 = ("abi-dumper", $Path_v1."/".$ObjName.".".$LIB_EXT, "-o", $LibName."/ABIv1.dump");
+        @Cmd_d1 = (@Cmd_d1, "-public-headers", $Path_v1, "-lver", "1.0");
+        if($Debug)
+        { # debug mode
+            printMsg("INFO", "executing @Cmd_d1");
+        }
+        system(@Cmd_d1);
+        printMsg("INFO", "");
+        
+        my @Cmd_d2 = ("abi-dumper", $Path_v2."/".$ObjName.".".$LIB_EXT, "-o", $LibName."/ABIv2.dump");
+        @Cmd_d2 = (@Cmd_d2, "-public-headers", $Path_v2, "-lver", "2.0");
+        if($Debug)
+        { # debug mode
+            printMsg("INFO", "executing @Cmd_d2");
+        }
+        system(@Cmd_d2);
+        printMsg("INFO", "");
+        
+        @Cmd = (@Cmd, "-old", $LibName."/ABIv1.dump", "-new", $LibName."/ABIv2.dump");
+    }
+    else
+    {
+        @Cmd = (@Cmd, "-old", "$LibName/v1.xml", "-new", "$LibName/v2.xml");
+    }
     
     if($Lang eq "C") {
         @Cmd = (@Cmd, "-cxx-incompatible");
@@ -4918,7 +4949,7 @@ sub runTests($$$$$$$$)
     if($Debug)
     { # debug mode
         @Cmd = (@Cmd, "-debug");
-        printMsg("INFO", "running @Cmd");
+        printMsg("INFO", "executing @Cmd");
     }
     system(@Cmd);
     
