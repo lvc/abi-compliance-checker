@@ -12987,6 +12987,7 @@ sub detectRemoved_H($)
         or not $CompleteSignature{2}{$Symbol}{"MnglName"})
         {
             if(defined $UsedDump{1}{"DWARF"}
+            and defined $UsedDump{2}{"DWARF"}
             and $Level eq "Source")
             {
                 if(link_symbol($Symbol, 2, "-Deps"))
