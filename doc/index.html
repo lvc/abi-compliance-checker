@@ -62,7 +62,10 @@
       
       <p/>
       The tool is developed by Andrey Ponomarenko. You can order additional reports for visualization of the ABI structure and high detailed binary compatibility analysis here: <a href='https://abi-laboratory.pro/'>https://abi-laboratory.pro/</a>
-
+      
+      <p/>
+      The tool is a core of the <a href='https://abi-laboratory.pro/tracker/'>ABI Tracker</a> and Upstream Tracker projects.
+      
 <table class='summary'><tr><td>
 <div>Table of Contents</div>
 <ul>
@@ -77,6 +80,7 @@
 <li><a href="#Examples">Examples</a></li>
 <li><a href="#BinaryProblems">Detectable Binary-Compatibility Problems</a></li>
 <li><a href="#SourceProblems">Detectable Source-Compatibility Problems</a></li>
+<li><a href="#TestSuite">Test Suite</a></li>
 <li><a href="#Dump">Create ABI Dumps</a></li>
 <li><a href="#Report">Report Format</a></li>
 <li><a href="#Verdict">Verdict on Compatibility</a></li>
@@ -431,6 +435,13 @@ See <a href='https://community.kde.org/Policies/Binary_Compatibility_Issues_With
 
 </ul>
 
+<a name="TestSuite"></a>
+<h2>Test Suite</h2>
+The tool is tested properly in the <a href='https://abi-laboratory.pro/tracker/'>ABI Tracker</a> and Upstream Tracker projects, by the community and by the internal test suite:
+<p/>
+<code class='code'>abi-compliance-checker -test</code>
+<p/>
+There are about 100 basic tests for C and about 200 basic tests for C++ API/ABI breaks.
 <a name="Dump"></a>
 <h2>Create ABI Dumps</h2>
 The library ABI is a representation of the library API at the binary level. The ABI dump is a dump of the model of the ABI used in the tool.

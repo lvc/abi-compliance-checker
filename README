@@ -6,6 +6,8 @@ NAME:
   The tool is intended for developers of software libraries and Linux maintainers who are interested in ensuring backward compatibility, i.e. allow old applications to run or to be recompiled with newer library versions.
   
   The tool is developed by Andrey Ponomarenko. You can order additional reports for visualization of the ABI structure and high detailed binary compatibility analysis here: https://abi-laboratory.pro/
+  
+  The tool is a core of the ABI Tracker and Upstream Tracker projects: https://abi-laboratory.pro/tracker/
 
 INSTALL:
   sudo make install prefix=/usr
@@ -54,3 +56,11 @@ USAGE (ORIGINAL):
 
 ADV. USAGE:
   For advanced usage, see doc/index.html or output of -help option.
+
+TEST SUITE:
+  The tool is tested properly in the ABI Tracker and Upstream Tracker
+  projects, by the community and by the internal test suite:
+  
+    abi-compliance-checker -test
+
+  There are about 100 basic tests for C and about 200 basic tests for C++ API/ABI breaks.
