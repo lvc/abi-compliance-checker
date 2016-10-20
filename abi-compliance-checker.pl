@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 1.99.25
+# ABI Compliance Checker (ABICC) 1.99.26
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -60,7 +60,7 @@ use Storable qw(dclone);
 use Data::Dumper;
 use Config;
 
-my $TOOL_VERSION = "1.99.25";
+my $TOOL_VERSION = "1.99.26";
 my $ABI_DUMP_VERSION = "3.3";
 my $XML_REPORT_VERSION = "1.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
@@ -765,7 +765,7 @@ OTHER OPTIONS:
       from the translation unit.
       
   -force
-      Try to enable this option if the tool checked zero
+      Try to enable this option if the tool checked not all
       types and symbols in header files.
       
   -tolerance LEVEL
@@ -1035,7 +1035,7 @@ my $DEFAULT_STD_PARMS = "std::(allocator|less|char_traits|regex_traits|istreambu
 my %DEFAULT_STD_ARGS = map {$_=>1} ("_Alloc", "_Compare", "_Traits", "_Rx_traits", "_InIter", "_OutIter");
 
 my $ADD_TMPL_INSTANCES = 1;
-my $EMERGENCY_MODE_48 = 0;
+my $GCC_MISSED_MNGL = 0;
 
 my %ConstantSuffix = (
     "unsigned int"=>"u",
@@ -4985,10 +4985,10 @@ sub linkSymbol($)
     # try to mangle symbol
     if((not check_gcc($GCC_PATH, "4") and $SymbolInfo{$Version}{$InfoId}{"Class"})
     or (check_gcc($GCC_PATH, "4") and not $SymbolInfo{$Version}{$InfoId}{"Class"})
-    or $EMERGENCY_MODE_48)
+    or $GCC_MISSED_MNGL)
     { # GCC 3.x doesn't mangle class methods names in the TU dump (only functions and global data)
       # GCC 4.x doesn't mangle C++ functions in the TU dump (only class methods) except extern "C" functions
-      # GCC 4.8.[012] doesn't mangle anything
+      # GCC 4.8.[012] and 6.[12].0 don't mangle anything
         if(not $CheckHeadersOnly)
         {
             if(my $Mangled = $mangled_name_gcc{modelUnmangled($InfoId, "GCC")}) {
@@ -4997,7 +4997,7 @@ sub linkSymbol($)
         }
         if($CheckHeadersOnly
         or not $BinaryOnly
-        or $EMERGENCY_MODE_48)
+        or $GCC_MISSED_MNGL)
         { # 1. --headers-only mode
           # 2. not mangled src-only symbols
             if(my $Mangled = mangle_symbol($InfoId, $Version, "GCC")) {
@@ -8057,7 +8057,7 @@ sub getCompileCmd($$$)
         $GccCall .= "objective-";
     }
     
-    if($EMERGENCY_MODE_48)
+    if($GCC_MISSED_MNGL)
     { # workaround for GCC 4.8 (C only)
         $GccCall .= "c++";
     }
@@ -12971,11 +12971,14 @@ sub detectRemoved_H($)
     my $Level = $_[0];
     foreach my $Symbol (sort keys(%{$CompleteSignature{1}}))
     {
+        my $ISymbol = $Symbol;
+        
         if($Level eq "Source")
         { # remove symbol version
             my ($SN, $SS, $SV) = separate_symbol($Symbol);
-            $Symbol=$SN;
+            $Symbol = $SN;
         }
+        
         if(not $CompleteSignature{1}{$Symbol}{"Header"}
         or not $CompleteSignature{1}{$Symbol}{"MnglName"}) {
             next;
@@ -12989,11 +12992,38 @@ sub detectRemoved_H($)
             if(defined $UsedDump{1}{"DWARF"}
             and defined $UsedDump{2}{"DWARF"}
             and $Level eq "Source")
-            {
-                if(link_symbol($Symbol, 2, "-Deps"))
-                { # not present in debug-info,
-                  # but present as ELF symbol
+            { # not present in debug-info,
+              # but present in dynsym
+                if(link_symbol($Symbol, 2, "-Deps")) {
                     next;
+                }
+                
+                if($ISymbol ne $Symbol)
+                {
+                    if(link_symbol($ISymbol, 2, "-Deps")) {
+                        next;
+                    }
+                }
+                
+                if(my $SVer = $SymVer{2}{$Symbol})
+                {
+                    if(link_symbol($SVer, 2, "-Deps")) {
+                        next;
+                    }
+                }
+                
+                if(my $Alias = $CompleteSignature{1}{$ISymbol}{"Alias"})
+                {
+                    if(link_symbol($Alias, 2, "-Deps")) {
+                        next;
+                    }
+                    
+                    if(my $SAVer = $SymVer{2}{$Alias})
+                    {
+                        if(link_symbol($SAVer, 2, "-Deps")) {
+                            next;
+                        }
+                    }
                 }
             }
             if($UsedDump{1}{"SrcBin"})
@@ -19847,7 +19877,7 @@ sub registerObject($$)
     
     my $Name = get_filename($Path);
     $RegisteredObjects{$LibVersion}{$Name} = $Path;
-    if($OStarget=~/linux|bsd|gnu/i)
+    if($OStarget=~/linux|bsd|gnu|solaris/i)
     {
         if(my $SONAME = getSONAME($Path)) {
             $RegisteredSONAMEs{$LibVersion}{$SONAME} = $Path;
@@ -19909,8 +19939,25 @@ sub getArch_Object($)
             }
         }
     }
-    elsif($OStarget=~/linux|bsd|gnu/)
+    elsif($OStarget=~/macos/)
     {
+        my $OtoolCmd = get_CmdPath("otool");
+        if(not $OtoolCmd) {
+            exitStatus("Not_Found", "can't find \"otool\"");
+        }
+        
+        my $Cmd = $OtoolCmd." -hv -arch all \"$Path\"";
+        my $Out = qx/$Cmd/;
+        
+        if($Out=~/X86_64/i) {
+            return "x86_64";
+        }
+        elsif($Out=~/X86/i) {
+            return "x86";
+        }
+    }
+    else
+    { # linux, bsd, gnu, solaris, ...
         my $ObjdumpCmd = get_CmdPath("objdump");
         if(not $ObjdumpCmd) {
             exitStatus("Not_Found", "can't find \"objdump\"");
@@ -19953,28 +20000,6 @@ sub getArch_Object($)
             
             return $Arch;
         }
-    }
-    elsif($OStarget=~/macos/)
-    {
-        my $OtoolCmd = get_CmdPath("otool");
-        if(not $OtoolCmd) {
-            exitStatus("Not_Found", "can't find \"otool\"");
-        }
-        
-        my $Cmd = $OtoolCmd." -hv -arch all \"$Path\"";
-        my $Out = qx/$Cmd/;
-        
-        if($Out=~/X86_64/i) {
-            return "x86_64";
-        }
-        elsif($Out=~/X86/i) {
-            return "x86";
-        }
-    }
-    else
-    {
-        exitStatus("Error", "Not implemented yet");
-        # TODO
     }
     
     return undef;
@@ -21304,12 +21329,13 @@ sub detect_default_paths($)
             printMsg("INFO", "Using GCC $GCC_Ver ($GccTarget, target: ".getArch_GCC(1).")");
             
             # check GCC version
-            if($GCC_Ver=~/\A4\.8(|\.[012])\Z/)
-            { # bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=57850
-              # introduced in 4.8 and fixed in 4.8.3
-                printMsg("WARNING", "Not working properly with GCC $GCC_Ver. Please update GCC to 4.8.3 or downgrade it to 4.7. You can use a local GCC installation by --gcc-path=PATH option.");
+            if($GCC_Ver=~/\A4\.8(|\.[012])|6\.[12]\.0\Z/)
+            { # GCC 4.8.[0-2]: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=57850
+              # GCC 6.[1-2].0: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=78040
+              
+                printMsg("ERROR", "Not working properly with GCC $GCC_Ver. Please use other GCC version with the help of --gcc-path=PATH option. Not supported GCC versions: 4.8.0, 4.8.1, 4.8.2, 6.1.0, 6.2.0");
                 
-                $EMERGENCY_MODE_48 = 1;
+                $GCC_MISSED_MNGL = 1;
             }
         }
         else {
@@ -22945,6 +22971,10 @@ sub scenario()
         if($Quiet) {
             $COMMON_LOG_PATH = $LoggingPath;
         }
+    }
+    
+    if($Force) {
+        $GCC_MISSED_MNGL = 1;
     }
     
     if($Quick) {
