@@ -1386,7 +1386,7 @@ sub dumpSystem($)
         if(not is_target_lib($LName)) {
             next;
         }
-        if($OSgroup=~/\A(linux|macos|freebsd)\Z/
+        if($OSgroup=~/\A(linux|macos|freebsd|solaris)\Z/
         and $LName!~/\Alib/) {
             next;
         }
@@ -1488,7 +1488,7 @@ sub dumpSystem($)
         if(not is_target_lib($LName)) {
             next;
         }
-        if($OSgroup=~/\A(linux|macos|freebsd)\Z/
+        if($OSgroup=~/\A(linux|macos|freebsd|solaris)\Z/
         and $LName!~/\Alib/) {
             next;
         }

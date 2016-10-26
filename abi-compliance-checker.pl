@@ -12,7 +12,7 @@
 #
 # PLATFORMS
 # =========
-#  Linux, FreeBSD, Mac OS X, Haiku, MS Windows, Symbian
+#  Linux, FreeBSD, Solaris, Mac OS X, Haiku, MS Windows, Symbian
 #
 # REQUIREMENTS
 # ============
@@ -15610,6 +15610,9 @@ sub get_OSgroup()
     elsif($N=~/win/i) {
         return "windows";
     }
+    elsif($N=~/solaris/i) {
+        return "solaris";
+    }
     else {
         return $N;
     }
@@ -21326,6 +21329,11 @@ sub detect_default_paths($)
             elsif($GccTarget=~/symbian/)
             {
                 $OStarget = "symbian";
+                $LIB_EXT = $OS_LibExt{$LIB_TYPE}{$OStarget};
+            }
+            elsif($GccTarget=~/solaris/)
+            {
+                $OStarget = "solaris";
                 $LIB_EXT = $OS_LibExt{$LIB_TYPE}{$OStarget};
             }
             

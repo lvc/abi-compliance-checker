@@ -4831,7 +4831,6 @@ sub runTests($$$$$$$$)
     }
     else
     { # default unix-like
-      # symbian target
         if($Lang eq "C")
         {
             $BuildCmd = $GCC_PATH." -shared $ObjName.$SrcE -o $ObjName.$LIB_EXT -g -Og";
@@ -4841,6 +4840,12 @@ sub runTests($$$$$$$$)
         { # C++
             $BuildCmd = $GCC_PATH." -shared -x c++ $ObjName.$SrcE -lstdc++ -o $ObjName.$LIB_EXT -g -Og";
             $BuildCmd_Test = $GCC_PATH." -x c++ test.$SrcE -Wl,$ObjName.$LIB_EXT -o test";
+        }
+        
+        if($OSgroup eq "solaris")
+        {
+            $BuildCmd .= " -fPIC -DPIC";
+            $BuildCmd_Test .= " -fPIC -DPIC";
         }
     }
     

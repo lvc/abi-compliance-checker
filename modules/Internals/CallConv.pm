@@ -1,16 +1,15 @@
 ###########################################################################
-# Module for ACC tool to create a model of calling conventions
+# A module to create a model of calling conventions
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-# Copyright (C) 2011-2012 ROSA Laboratory
-# Copyright (C) 2012-2015 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2012-2016 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
 # PLATFORMS
 # =========
-#  Linux, FreeBSD and Mac OS X
+#  Linux, FreeBSD, Solaris and Mac OS X
 #    x86 - System V ABI Intel386 Architecture Processor Supplement
 #    x86_64 - System V ABI AMD64 Architecture Processor Supplement
 #
@@ -55,7 +54,7 @@ sub classifyType($$$$$)
         $Classes{0}{"Class"} = "VOID";
         return %Classes;
     }
-    if($System=~/\A(unix|linux|macos|freebsd)\Z/)
+    if($System=~/\A(unix|linux|macos|freebsd|solaris)\Z/)
     { # GCC
         if($Arch eq "x86")
         {
@@ -292,7 +291,7 @@ sub postMerger($$$)
         my $Class1 = $PreClasses->{$Offset1}{"Class"};
         my $Class2 = $PreClasses->{$Offset2}{"Class"};
         my $ResClass = "";
-        if($System=~/\A(unix|linux|macos|freebsd)\Z/)
+        if($System=~/\A(unix|linux|macos|freebsd|solaris)\Z/)
         { # GCC
             if($Arch eq "x86_64")
             {
@@ -392,7 +391,7 @@ sub callingConvention_R_I_Model($$$$$$)
             next;
         }
         
-        if($System=~/\A(unix|linux|macos|freebsd)\Z/)
+        if($System=~/\A(unix|linux|macos|freebsd|solaris)\Z/)
         { # GCC
             if($Arch eq "x86")
             {
@@ -567,7 +566,7 @@ sub usedBy($$)
 sub useHidden($$$$)
 {
     my ($SInfo, $Arch, $System, $Word) = @_;
-    if($System=~/\A(unix|linux|macos|freebsd)\Z/)
+    if($System=~/\A(unix|linux|macos|freebsd|solaris)\Z/)
     { # GCC
         if($Arch eq "x86") {
             pushStack_R($SInfo, $Word);
@@ -758,7 +757,7 @@ sub callingConvention_P_I_Model($$$$$$$)
             next;
         }
         
-        if($System=~/\A(unix|linux|macos|freebsd)\Z/)
+        if($System=~/\A(unix|linux|macos|freebsd|solaris)\Z/)
         { # GCC
             if($Arch eq "x86")
             {
