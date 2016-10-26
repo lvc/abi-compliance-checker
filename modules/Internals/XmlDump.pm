@@ -64,6 +64,25 @@ sub createXmlDump($)
         $ABI_DUMP .= closeTag("headers");
     }
     
+    if(my @Sources = keys(%{$ABI->{"Sources"}}))
+    {
+        @Sources = sort {$ABI->{"Sources"}{$a}<=>$ABI->{"Sources"}{$b}} @Sources;
+        $ABI_DUMP .= openTag("sources");
+        foreach my $Name (@Sources) {
+            $ABI_DUMP .= addTag("name", $Name);
+        }
+        $ABI_DUMP .= closeTag("sources");
+    }
+    
+    if(my @Libs = keys(%{$ABI->{"Needed"}}))
+    {
+        $ABI_DUMP .= openTag("needed");
+        foreach my $Name (sort {lc($a) cmp lc($b)} @Libs) {
+            $ABI_DUMP .= addTag("library", $Name);
+        }
+        $ABI_DUMP .= closeTag("needed");
+    }
+    
     if(my @NameSpaces = keys(%{$ABI->{"NameSpaces"}}))
     {
         $ABI_DUMP .= openTag("namespaces");
@@ -320,26 +339,35 @@ sub createXmlDump($)
         $ABI_DUMP .= closeTag("symbol_info");
     }
     
-    if(my @Libs = keys(%{$ABI->{"Symbols"}}))
+    foreach my $K ("Symbols", "UndefinedSymbols")
     {
-        $ABI_DUMP .= openTag("symbols");
-        foreach my $Lib (sort {lc($a) cmp lc($b)} @Libs)
+        if($ABI->{$K} and my @Libs = keys(%{$ABI->{$K}}))
         {
-            $ABI_DUMP .= openTag("library", "name", $Lib);
-            foreach my $Symbol (sort {lc($a) cmp lc($b)} keys(%{$ABI->{"Symbols"}{$Lib}}))
-            {
-                if((my $Size = $ABI->{"Symbols"}{$Lib}{$Symbol})<0)
-                { # data
-                    $ABI_DUMP .= addTag("symbol", $Symbol, "size", -$Size);
-                }
-                else
-                { # functions
-                    $ABI_DUMP .= addTag("symbol", $Symbol);
-                }
+            my $SymTag = "symbols";
+            if($K eq "UndefinedSymbols") {
+                $SymTag = "undefined_symbols";
             }
-            $ABI_DUMP .= closeTag("library");
+            
+            $ABI_DUMP .= openTag($SymTag);
+            
+            foreach my $Lib (sort {lc($a) cmp lc($b)} @Libs)
+            {
+                $ABI_DUMP .= openTag("library", "name", $Lib);
+                foreach my $Symbol (sort {lc($a) cmp lc($b)} keys(%{$ABI->{$K}{$Lib}}))
+                {
+                    if((my $Size = $ABI->{$K}{$Lib}{$Symbol})<0)
+                    { # data
+                        $ABI_DUMP .= addTag("symbol", $Symbol, "size", -$Size);
+                    }
+                    else
+                    { # functions
+                        $ABI_DUMP .= addTag("symbol", $Symbol);
+                    }
+                }
+                $ABI_DUMP .= closeTag("library");
+            }
+            $ABI_DUMP .= closeTag($SymTag);
         }
-        $ABI_DUMP .= closeTag("symbols");
     }
     
     if(my @DepLibs = keys(%{$ABI->{"DepSymbols"}}))
@@ -448,6 +476,20 @@ sub readXmlDump($)
     {
         while(my $Name = parseTag(\$Headers, "name")) {
             $ABI{"Headers"}{$Name} = $Pos++;
+        }
+    }
+    
+    if(my $Sources = parseTag(\$ABI_DUMP, "sources"))
+    {
+        while(my $Name = parseTag(\$Sources, "name")) {
+            $ABI{"Sources"}{$Name} = $Pos++;
+        }
+    }
+    
+    if(my $Needed = parseTag(\$ABI_DUMP, "needed"))
+    {
+        while(my $Lib = parseTag(\$Needed, "library")) {
+            $ABI{"Needed"}{$Lib} = 1;
         }
     }
     
@@ -675,23 +717,32 @@ sub readXmlDump($)
         }
     }
     
-    if(my $Symbols = parseTag(\$ABI_DUMP, "symbols"))
+    foreach my $K ("Symbols", "UndefinedSymbols")
     {
-        my %LInfo = ();
-        while(my $LibSymbols = parseTag_E(\$Symbols, "library", \%LInfo))
+        my ($SymTag, $SymVal) = ("symbols", 1);
+        
+        if($K eq "UndefinedSymbols") {
+            ($SymTag, $SymVal) = ("undefined_symbols", 0);
+        }
+        
+        if(my $Symbols = parseTag(\$ABI_DUMP, $SymTag))
         {
-            my %SInfo = ();
-            while(my $Symbol = parseTag_E(\$LibSymbols, "symbol", \%SInfo))
+            my %LInfo = ();
+            while(my $LibSymbols = parseTag_E(\$Symbols, "library", \%LInfo))
             {
-                if(my $Size = $SInfo{"size"}) {
-                    $ABI{"Symbols"}{$LInfo{"name"}}{$Symbol} = -$Size;
+                my %SInfo = ();
+                while(my $Symbol = parseTag_E(\$LibSymbols, "symbol", \%SInfo))
+                {
+                    if(my $Size = $SInfo{"size"}) {
+                        $ABI{$K}{$LInfo{"name"}}{$Symbol} = -$Size;
+                    }
+                    else {
+                        $ABI{$K}{$LInfo{"name"}}{$Symbol} = $SymVal;
+                    }
+                    %SInfo = ();
                 }
-                else {
-                    $ABI{"Symbols"}{$LInfo{"name"}}{$Symbol} = 1;
-                }
-                %SInfo = ();
+                %LInfo = ();
             }
-            %LInfo = ();
         }
     }
     

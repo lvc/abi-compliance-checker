@@ -4906,6 +4906,8 @@ sub runTests($$$$$$$$)
         @Cmd = (@Cmd, "-cxx-incompatible");
     }
     
+    @Cmd = (@Cmd, "-lang", $Lang);
+    
     if($TestDump)
     {
         @Cmd = (@Cmd, "-use-dumps");
@@ -4955,9 +4957,9 @@ sub runTests($$$$$$$$)
     
     my $ECode = $?>>8;
     
-    if($ECode!~/\A[0-1]\Z/)
+    if($ECode!~/\A[016]\Z/)
     { # error
-        exitStatus("Error", "analysis has failed");
+        exitStatus("Error", "analysis has failed (".$ECode.")");
     }
     
     my $RPath = "compat_reports/$LibName/1.0_to_2.0/compat_report.$ReportFormat";

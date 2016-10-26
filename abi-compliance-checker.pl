@@ -18573,34 +18573,32 @@ sub readSymbols($)
                 }
             }
         }
-        if($ExtraInfo)
-        { # extra information for other tools
-            if(my @Paths = sort keys(%UndefinedLibs))
+        
+        if(my @Paths = sort keys(%UndefinedLibs))
+        {
+            my $LibString = "";
+            my %Dirs = ();
+            foreach (@Paths)
             {
-                my $LibString = "";
-                my %Dirs = ();
-                foreach (@Paths)
-                {
-                    $KnownLibs{$_} = 1;
-                    my ($Dir, $Name) = separate_path($_);
-                    
-                    if(not grep {$Dir eq $_} (@{$SystemPaths{"lib"}})) {
-                        $Dirs{esc($Dir)} = 1;
-                    }
-                    
-                    $Name = parse_libname($Name, "name", $OStarget);
-                    $Name=~s/\Alib//;
-                    
-                    $LibString .= " -l$Name";
+                $KnownLibs{$_} = 1;
+                my ($Dir, $Name) = separate_path($_);
+                
+                if(not grep {$Dir eq $_} (@{$SystemPaths{"lib"}})) {
+                    $Dirs{esc($Dir)} = 1;
                 }
                 
-                foreach my $Dir (sort {$b cmp $a} keys(%Dirs))
-                {
-                    $LibString = " -L".esc($Dir).$LibString;
-                }
+                $Name = parse_libname($Name, "name", $OStarget);
+                $Name=~s/\Alib//;
                 
-                writeFile($ExtraInfo."/libs-string", $LibString);
+                $LibString .= " -l$Name";
             }
+            
+            foreach my $Dir (sort {$b cmp $a} keys(%Dirs))
+            {
+                $LibString = " -L".esc($Dir).$LibString;
+            }
+            
+            writeFile($ExtraInfo."/libs-string", $LibString);
         }
     }
     
@@ -19563,7 +19561,9 @@ sub readSymbols_Lib($$$$$$)
     {
         foreach my $DyLib (sort keys(%NeededLib))
         {
-            $Library_Needed{$LibVersion}{$Lib_Name}{get_filename($DyLib)} = 1;
+            if($ExtraDump) {
+                $Library_Needed{$LibVersion}{$Lib_Name}{get_filename($DyLib)} = 1;
+            }
             
             if(my $DepPath = get_LibPath($LibVersion, $DyLib))
             {
@@ -20546,6 +20546,9 @@ sub read_ABI_Dump($$)
         $SkipHeaders{$LibVersion}{$Type}{$CPath} = $ABI->{"SkipHeaders"}{$Path};
     }
     
+    $UndefinedSymbols{$LibVersion} = $ABI->{"UndefinedSymbols"};
+    $Library_Needed{$LibVersion} = $ABI->{"Needed"};
+    
     read_Source_DumpInfo($ABI, $LibVersion);
     read_Libs_DumpInfo($ABI, $LibVersion);
     
@@ -20933,7 +20936,7 @@ sub read_Source_DumpInfo($$)
     foreach my $Name (sort {$ABI->{"Sources"}{$a}<=>$ABI->{"Sources"}{$b}} keys(%{$ABI->{"Sources"}}))
     {
         $Registered_Sources{$LibVersion}{$Name}{"Identity"} = $Name;
-        $Registered_Sources{$LibVersion}{$Name}{"Pos"} = $ABI->{"Headers"}{$Name};
+        $Registered_Sources{$LibVersion}{$Name}{"Pos"} = $ABI->{"Sources"}{$Name};
     }
 }
 
@@ -22152,10 +22155,17 @@ sub create_ABI_Dump()
             }
         }
     }
+    
     my %HeadersInfo = ();
     foreach my $HPath (keys(%{$Registered_Headers{1}})) {
         $HeadersInfo{$Registered_Headers{1}{$HPath}{"Identity"}} = $Registered_Headers{1}{$HPath}{"Pos"};
     }
+    
+    my %SourcesInfo = ();
+    foreach my $SPath (keys(%{$Registered_Sources{1}})) {
+        $SourcesInfo{$Registered_Sources{1}{$SPath}{"Identity"}} = $Registered_Sources{1}{$SPath}{"Pos"};
+    }
+    
     if($ExtraDump)
     { # add unmangled names to the ABI dump
         my @Names = ();
@@ -22232,8 +22242,18 @@ sub create_ABI_Dump()
     if($ExtraDump)
     { # --extra-dump
         $ABI{"Extra"} = 1;
+    }
+    
+    if($ExtraDump or keys(%{$UndefinedSymbols{1}})) {
         $ABI{"UndefinedSymbols"} = $UndefinedSymbols{1};
+    }
+    
+    if($ExtraDump or keys(%{$Library_Needed{1}})) {
         $ABI{"Needed"} = $Library_Needed{1};
+    }
+    
+    if(keys(%SourcesInfo)) {
+        $ABI{"Sources"} = \%SourcesInfo;
     }
     
     my $ABI_DUMP = "";
