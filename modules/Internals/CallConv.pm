@@ -44,17 +44,20 @@ my %IntAlgn = (
     }
 );
 
-sub classifyType($$$$$)
+sub classifyType($$)
 {
-    my ($Tid, $TInfo, $Arch, $System, $Word) = @_;
-    my %Type = get_PureType($Tid, $TInfo);
+    my ($Tid, $LVer) = @_;
+    
+    my %Type = getPureType($Tid, $LVer);
+    my $Arch = $In::ABI{$LVer}{"Arch"};
+    
     my %Classes = ();
     if($Type{"Name"} eq "void")
     {
         $Classes{0}{"Class"} = "VOID";
         return %Classes;
     }
-    if($System=~/\A(unix|linux|macos|freebsd|solaris)\Z/)
+    if($In::Opt{"Target"}=~/\A(unix|linux|macos|freebsd|solaris)\Z/)
     { # GCC
         if($Arch eq "x86")
         {
@@ -111,7 +114,7 @@ sub classifyType($$$$$)
                     $Classes{0}{"Class"} = "MEMORY";
                 }
                 else {
-                    %Classes = classifyAggregate($Tid, $TInfo, $Arch, $System, $Word);
+                    %Classes = classifyAggregate($Tid, $LVer);
                 }
             }
             else {
@@ -122,7 +125,7 @@ sub classifyType($$$$$)
         {
         }
     }
-    elsif($System eq "windows")
+    elsif($In::Opt{"Target"} eq "windows")
     { # MS C++ Compiler
         if($Arch eq "x86")
         {
@@ -162,18 +165,22 @@ sub classifyType($$$$$)
     return %Classes;
 }
 
-sub classifyAggregate($$$$$)
+sub classifyAggregate($$)
 {
-    my ($Tid, $TInfo, $Arch, $System, $Word) = @_;
-    my %Type = get_PureType($Tid, $TInfo);
+    my ($Tid, $LVer) = @_;
+    
+    my %Type = getPureType($Tid, $LVer);
+    my $Word = $In::ABI{$LVer}{"WordSize"};
+    my $Arch = $In::ABI{$LVer}{"Arch"};
+    
     my %Group = ();
     my $GroupID = 0;
     my %Classes = ();
     my %Offsets = ();
     if($Type{"Type"} eq "Array")
     {
-        my %Base = get_OneStep_BaseType($Tid, $TInfo);
-        my %BaseType = get_PureType($Base{"Tid"}, $TInfo);
+        my %Base = getOneStepBaseType($Tid, $LVer);
+        my %BaseType = getPureType($Base{"Tid"}, $LVer);
         my $Pos = 0;
         my $Max = 0;
         if(my $BSize = $BaseType{"Size"}) {
@@ -185,7 +192,7 @@ sub classifyAggregate($$$$$)
             # { # DWARF ABI Dump
             #     $Type{"Memb"}{$Pos}{"offset"} = $Type{"Size"}/($Max+1);
             # }
-            $Type{"Memb"}{$Pos}{"algn"} = getAlignment_Model($BaseType{"Tid"}, $TInfo, $Arch);
+            $Type{"Memb"}{$Pos}{"algn"} = getAlignment_Model($BaseType{"Tid"}, $LVer);
             $Type{"Memb"}{$Pos}{"type"} = $BaseType{"Tid"};
             $Type{"Memb"}{$Pos}{"name"} = "[$Pos]";
         }
@@ -202,21 +209,21 @@ sub classifyAggregate($$$$$)
     { # Struct, Class
         foreach my $Pos (keys(%{$Type{"Memb"}}))
         {
-            my $Offset = getOffset($Pos, \%Type, $TInfo, $Arch, $Word)/$BYTE;
+            my $Offset = getOffset($Pos, \%Type, $LVer)/$BYTE;
             $Offsets{$Pos} = $Offset;
             my $GroupOffset = int($Offset/$Word)*$Word;
             $Group{$GroupOffset}{$Pos} = 1;
         }
     }
-    foreach my $GroupOffset (sort {int($a)<=>int($b)} (keys(%Group)))
+    foreach my $GroupOffset (sort {$a<=>$b} (keys(%Group)))
     {
         my %GroupClasses = ();
-        foreach my $Pos (sort {int($a)<=>int($b)} (keys(%{$Group{$GroupOffset}})))
+        foreach my $Pos (sort {$a<=>$b} (keys(%{$Group{$GroupOffset}})))
         { # split the field into the classes
             my $MTid = $Type{"Memb"}{$Pos}{"type"};
             my $MName = $Type{"Memb"}{$Pos}{"name"};
-            my %SubClasses = classifyType($MTid, $TInfo, $Arch, $System, $Word);
-            foreach my $Offset (sort {int($a)<=>int($b)} keys(%SubClasses))
+            my %SubClasses = classifyType($MTid, $LVer);
+            foreach my $Offset (sort {$a<=>$b} keys(%SubClasses))
             {
                 if(defined $SubClasses{$Offset}{"Elems"})
                 {
@@ -230,7 +237,7 @@ sub classifyAggregate($$$$$)
             }
             
             # add to the group
-            foreach my $Offset (sort {int($a)<=>int($b)} keys(%SubClasses)) { 
+            foreach my $Offset (sort {$a<=>$b} keys(%SubClasses)) { 
                 $GroupClasses{$Offsets{$Pos}+$Offset} = $SubClasses{$Offset};
             }
         }
@@ -238,25 +245,25 @@ sub classifyAggregate($$$$$)
         # merge classes in the group
         my %MergeGroup = ();
         
-        foreach my $Offset (sort {int($a)<=>int($b)} keys(%GroupClasses)) {
+        foreach my $Offset (sort {$a<=>$b} keys(%GroupClasses)) {
             $MergeGroup{int($Offset/$Word)}{$Offset} = $GroupClasses{$Offset};
         }
         
-        foreach my $Offset (sort {int($a)<=>int($b)} keys(%MergeGroup)) {
-            while(postMerger($Arch, $System, $MergeGroup{$Offset})) { };
+        foreach my $Offset (sort {$a<=>$b} keys(%MergeGroup)) {
+            while(postMerger($Arch, $MergeGroup{$Offset})) { };
         }
         
         %GroupClasses = ();
-        foreach my $M_Offset (sort {int($a)<=>int($b)} keys(%MergeGroup))
+        foreach my $M_Offset (sort {$a<=>$b} keys(%MergeGroup))
         {
-            foreach my $Offset (sort {int($a)<=>int($b)} keys(%{$MergeGroup{$M_Offset}}))
+            foreach my $Offset (sort {$a<=>$b} keys(%{$MergeGroup{$M_Offset}}))
             {
                 $GroupClasses{$Offset} = $MergeGroup{$M_Offset}{$Offset};
             }
         }
         
         # add to the result list of classes
-        foreach my $Offset (sort {int($a)<=>int($b)} keys(%GroupClasses))
+        foreach my $Offset (sort {$a<=>$b} keys(%GroupClasses))
         {
             if($Type{"Type"} eq "Union")
             {
@@ -274,10 +281,10 @@ sub classifyAggregate($$$$$)
     return %Classes;
 }
 
-sub postMerger($$$)
+sub postMerger($$)
 {
-    my ($Arch, $System, $PreClasses) = @_;
-    my @Offsets = sort {int($a)<=>int($b)} keys(%{$PreClasses});
+    my ($Arch, $PreClasses) = @_;
+    my @Offsets = sort {$a<=>$b} keys(%{$PreClasses});
     if($#Offsets==0) {
         return 0;
     }
@@ -291,7 +298,8 @@ sub postMerger($$$)
         my $Class1 = $PreClasses->{$Offset1}{"Class"};
         my $Class2 = $PreClasses->{$Offset2}{"Class"};
         my $ResClass = "";
-        if($System=~/\A(unix|linux|macos|freebsd|solaris)\Z/)
+        
+        if($In::Opt{"Target"}=~/\A(unix|linux|macos|freebsd|solaris)\Z/)
         { # GCC
             if($Arch eq "x86_64")
             {
@@ -315,6 +323,7 @@ sub postMerger($$$)
                 }
             }
         }
+        
         if($ResClass)
         { # combine
             $PostClasses{$Offset1}{"Class"} = $ResClass;
@@ -340,10 +349,6 @@ sub postMerger($$$)
     return $Merged;
 }
 
-sub callingConvention_R_Model($$$$$$) {
-    return callingConvention_R_I_Model(@_, 1);
-}
-
 sub joinFields($$)
 {
     my ($F1, $F2) = @_;
@@ -356,12 +361,18 @@ sub joinFields($$)
     }
 }
 
-sub callingConvention_R_I_Model($$$$$$)
+sub callingConvention_R_Model($$$) {
+    return callingConvention_R_I_Model(@_, 1);
+}
+
+sub callingConvention_R_I_Model($$$)
 {
-    my ($SInfo, $TInfo, $Arch, $System, $Word, $Target) = @_;
+    my ($SInfo, $LVer, $Target) = @_;
     my %Conv = ();
     my $RTid = $SInfo->{"Return"};
-    my %Type = get_PureType($RTid, $TInfo);
+    my %Type = getPureType($RTid, $LVer);
+    my $Word = $In::ABI{$LVer}{"WordSize"};
+    my $Arch = $In::ABI{$LVer}{"Arch"};
     
     if($Target) {
         %UsedReg = ();
@@ -369,9 +380,9 @@ sub callingConvention_R_I_Model($$$$$$)
     
     my %UsedReg_Copy = %UsedReg;
     
-    my %Classes = classifyType($RTid, $TInfo, $Arch, $System, $Word);
+    my %Classes = classifyType($RTid, $LVer);
     
-    foreach my $Offset (sort {int($a)<=>int($b)} keys(%Classes))
+    foreach my $Offset (sort {$a<=>$b} keys(%Classes))
     {
         my $Elems = undef;
         if(defined $Classes{$Offset}{"Elems"})
@@ -391,7 +402,7 @@ sub callingConvention_R_I_Model($$$$$$)
             next;
         }
         
-        if($System=~/\A(unix|linux|macos|freebsd|solaris)\Z/)
+        if($In::Opt{"Target"}=~/\A(unix|linux|macos|freebsd|solaris)\Z/)
         { # GCC
             if($Arch eq "x86")
             {
@@ -421,7 +432,7 @@ sub callingConvention_R_I_Model($$$$$$)
                     { # revert registers
                       # pass as MEMORY
                         %UsedReg = %UsedReg_Copy;
-                        useHidden($SInfo, $Arch, $System, $Word);
+                        useHidden($SInfo, $Arch, $Word);
                         $Conv{"Hidden"} = 1;
                         last;
                     }
@@ -435,7 +446,7 @@ sub callingConvention_R_I_Model($$$$$$)
                     else
                     {
                         %UsedReg = %UsedReg_Copy;
-                        useHidden($SInfo, $Arch, $System, $Word);
+                        useHidden($SInfo, $Arch, $Word);
                         $Conv{"Hidden"} = 1;
                         last;
                     }
@@ -449,7 +460,7 @@ sub callingConvention_R_I_Model($$$$$$)
                     else
                     {
                         %UsedReg = %UsedReg_Copy;
-                        useHidden($SInfo, $Arch, $System, $Word);
+                        useHidden($SInfo, $Arch, $Word);
                         $Conv{"Hidden"} = 1;
                         last;
                     }
@@ -469,7 +480,7 @@ sub callingConvention_R_I_Model($$$$$$)
                 }
                 elsif($CName eq "MEMORY")
                 {
-                    useHidden($SInfo, $Arch, $System, $Word);
+                    useHidden($SInfo, $Arch, $Word);
                     $Conv{"Hidden"} = 1;
                     last;
                 }
@@ -478,7 +489,7 @@ sub callingConvention_R_I_Model($$$$$$)
             { # TODO
             }
         }
-        elsif($System eq "windows")
+        elsif($In::Opt{"Target"} eq "windows")
         { # MS C++ Compiler
             if($Arch eq "x86")
             {
@@ -497,7 +508,7 @@ sub callingConvention_R_I_Model($$$$$$)
                 }
                 elsif($CName eq "MEMORY" or $CName eq "M128")
                 {
-                    useHidden($SInfo, $Arch, $System, $Word);
+                    useHidden($SInfo, $Arch, $Word);
                     $Conv{"Hidden"} = 1;
                 }
             }
@@ -513,7 +524,7 @@ sub callingConvention_R_I_Model($$$$$$)
                 }
                 elsif($CName eq "MEMORY")
                 {
-                    useHidden($SInfo, $Arch, $System, $Word);
+                    useHidden($SInfo, $Arch, $Word);
                     $Conv{"Hidden"} = 1;
                 }
             }
@@ -563,10 +574,10 @@ sub usedBy($$)
     return %Regs;
 }
 
-sub useHidden($$$$)
+sub useHidden($$$)
 {
-    my ($SInfo, $Arch, $System, $Word) = @_;
-    if($System=~/\A(unix|linux|macos|freebsd|solaris)\Z/)
+    my ($SInfo, $Arch, $Word) = @_;
+    if($In::Opt{"Target"}=~/\A(unix|linux|macos|freebsd|solaris)\Z/)
     { # GCC
         if($Arch eq "x86") {
             pushStack_R($SInfo, $Word);
@@ -577,7 +588,7 @@ sub useHidden($$$$)
             useRegister("rdi", "f", $Elems, $SInfo);
         }
     }
-    elsif($System eq "windows")
+    elsif($In::Opt{"Target"} eq "windows")
     { # MS C++ Compiler
         if($Arch eq "x86") {
             pushStack_R($SInfo, $Word);
@@ -626,7 +637,7 @@ sub pushStack($$$$)
 {
     my ($SInfo, $Algn, $Size, $Elem) = @_;
     my $Offset = 0;
-    if(my @Offsets = sort {int($a)<=>int($b)} keys(%{$UsedStack{$SInfo}}))
+    if(my @Offsets = sort {$a<=>$b} keys(%{$UsedStack{$SInfo}}))
     {
         $Offset = $Offsets[$#Offsets];
         $Offset += $UsedStack{$SInfo}{$Offset}{"Size"};
@@ -697,17 +708,20 @@ sub getLastUsed(@)
     return undef;
 }
 
-sub callingConvention_P_Model($$$$$$) {
+sub callingConvention_P_Model($$$) {
     return callingConvention_P_I_Model(@_, 1);
 }
 
-sub callingConvention_P_I_Model($$$$$$$)
+sub callingConvention_P_I_Model($$$$)
 { # calling conventions for different compilers and operating systems
-    my ($SInfo, $Pos, $TInfo, $Arch, $System, $Word, $Target) = @_;
-    my %Conv = ();
-    my $ParamTypeId = $SInfo->{"Param"}{$Pos}{"type"};
+    my ($SInfo, $Pos, $LVer, $Target) = @_;
+    
+    my $TInfo = $In::ABI{$LVer}{"TypeInfo"};
+    my $PTid = $SInfo->{"Param"}{$Pos}{"type"};
     my $PName = $SInfo->{"Param"}{$Pos}{"name"};
-    my %Type = get_PureType($ParamTypeId, $TInfo);
+    my %Type = getPureType($PTid, $LVer);
+    my $Word = $In::ABI{$LVer}{"WordSize"};
+    my $Arch = $In::ABI{$LVer}{"Arch"};
     
     if($Target)
     {
@@ -715,7 +729,7 @@ sub callingConvention_P_I_Model($$$$$$$)
         
         # distribute return value
         if(my $RTid = $SInfo->{"Return"}) {
-            callingConvention_R_I_Model($SInfo, $TInfo, $Arch, $System, $Word, 0);
+            callingConvention_R_I_Model($SInfo, $LVer, 0);
         }
         # distribute other parameters
         if($Pos>0)
@@ -724,7 +738,7 @@ sub callingConvention_P_I_Model($$$$$$$)
             my $PPos = 0;
             while($PConv{"Next"} ne $Pos)
             {
-                %PConv = callingConvention_P_I_Model($SInfo, $PPos++, $TInfo, $Arch, $System, $Word, 0);
+                %PConv = callingConvention_P_I_Model($SInfo, $PPos++, $LVer, 0);
                 if(not $PConv{"Next"}) {
                     last;
                 }
@@ -734,10 +748,10 @@ sub callingConvention_P_I_Model($$$$$$$)
     
     my %UsedReg_Copy = %UsedReg;
     
-    my %Classes = classifyType($ParamTypeId, $TInfo, $Arch, $System, $Word);
+    my %Classes = classifyType($PTid, $LVer);
     
     my $Error = 0;
-    foreach my $Offset (sort {int($a)<=>int($b)} keys(%Classes))
+    foreach my $Offset (sort {$a<=>$b} keys(%Classes))
     {
         my $Elems = undef;
         if(defined $Classes{$Offset}{"Elems"})
@@ -757,7 +771,7 @@ sub callingConvention_P_I_Model($$$$$$$)
             next;
         }
         
-        if($System=~/\A(unix|linux|macos|freebsd|solaris)\Z/)
+        if($In::Opt{"Target"}=~/\A(unix|linux|macos|freebsd|solaris)\Z/)
         { # GCC
             if($Arch eq "x86")
             {
@@ -829,7 +843,7 @@ sub callingConvention_P_I_Model($$$$$$$)
                 last;
             }
         }
-        elsif($System eq "windows")
+        elsif($In::Opt{"Target"} eq "windows")
         { # MS C++ Compiler
             if($Arch eq "x86")
             {
@@ -884,6 +898,8 @@ sub callingConvention_P_I_Model($$$$$$$)
         }
     }
     
+    my %Conv = ();
+    
     if(my %Regs = usedBy($PName, $SInfo))
     {
         $Conv{"Method"} = "reg";
@@ -904,14 +920,16 @@ sub callingConvention_P_I_Model($$$$$$$)
     return %Conv;
 }
 
-sub getAlignment_Model($$$)
+sub getAlignment_Model($$)
 {
-    my ($Tid, $TInfo, $Arch) = @_;
+    my ($Tid, $LVer) = @_;
     
     if(not $Tid)
     { # incomplete ABI dump
         return 0;
     }
+    
+    my $TInfo = $In::ABI{$LVer}{"TypeInfo"};
     
     if(defined $TInfo->{$Tid}{"Algn"}) {
         return $TInfo->{$Tid}{"Algn"};
@@ -927,7 +945,7 @@ sub getAlignment_Model($$$)
                 {
                     my $Algn = $TInfo->{$Tid}{"Memb"}{$Pos}{"algn"};
                     if(not $Algn) {
-                        $Algn = getAlignment_Model($TInfo->{$Tid}{"Memb"}{$Pos}{"type"}, $TInfo, $Arch);
+                        $Algn = getAlignment_Model($TInfo->{$Tid}{"Memb"}{$Pos}{"type"}, $LVer);
                     }
                     if($Algn>$Max) {
                         $Max = $Algn;
@@ -939,43 +957,46 @@ sub getAlignment_Model($$$)
         }
         elsif($TInfo->{$Tid}{"Type"} eq "Array")
         {
-            my %Base = get_OneStep_BaseType($Tid, $TInfo);
+            my %Base = getOneStepBaseType($Tid, $LVer);
             
             if($Base{"Tid"} eq $Tid)
             { # emergency exit
                 return 0;
             }
             
-            return getAlignment_Model($Base{"Tid"}, $TInfo, $Arch);
+            return getAlignment_Model($Base{"Tid"}, $LVer);
         }
         elsif($TInfo->{$Tid}{"Type"}=~/Intrinsic|Enum|Pointer|FuncPtr/)
         { # model
-            return getInt_Algn($Tid, $TInfo, $Arch);
+            return getIntAlgn($Tid, $LVer);
         }
         else
         {
-            my %PureType = get_PureType($Tid, $TInfo);
+            my %PureType = getPureType($Tid, $LVer);
             
             if($PureType{"Tid"} eq $Tid)
             { # emergency exit
                 return 0;
             }
             
-            return getAlignment_Model($PureType{"Tid"}, $TInfo, $Arch);
+            return getAlignment_Model($PureType{"Tid"}, $LVer);
         }
     }
 }
 
-sub getInt_Algn($$$)
+sub getIntAlgn($$)
 {
-    my ($Tid, $TInfo, $Arch) = @_;
-    my $Name = $TInfo->{$Tid}{"Name"};
+    my ($Tid, $LVer) = @_;
+    
+    my $Name = $In::ABI{$LVer}{"TypeInfo"}{$Tid}{"Name"};
+    my $Arch = $In::ABI{$LVer}{"Arch"};
+    
     if(my $Algn = $IntAlgn{$Arch}{$Name}) {
         return $Algn;
     }
     else
     {
-        my $Size = $TInfo->{$Tid}{"Size"};
+        my $Size = $In::ABI{$LVer}{"TypeInfo"}{$Tid}{"Size"};
         if($Arch eq "x86_64")
         { # x86_64: sizeof==alignment
             return $Size;
@@ -1000,11 +1021,13 @@ sub getInt_Algn($$$)
     }
 }
 
-sub getAlignment($$$$$)
+sub getAlignment($$$)
 {
-    my ($Pos, $TypePtr, $TInfo, $Arch, $Word) = @_;
+    my ($Pos, $TypePtr, $LVer) = @_;
     my $Tid = $TypePtr->{"Memb"}{$Pos}{"type"};
-    my %Type = get_PureType($Tid, $TInfo);
+    
+    my $TSize = $In::ABI{$LVer}{"TypeInfo"}{$Tid}{"Size"};
+    
     my $Computed = $TypePtr->{"Memb"}{$Pos}{"algn"};
     my  $Alignment = 0;
     
@@ -1016,8 +1039,7 @@ sub getAlignment($$$$$)
         }
         else
         { # model
-            if($BSize eq $Type{"Size"}*$BYTE)
-            {
+            if($BSize eq $TSize*$BYTE) {
                 $Alignment = $BSize;
             }
             else {
@@ -1034,15 +1056,15 @@ sub getAlignment($$$$$)
         }
         else
         { # model
-            $Alignment = getAlignment_Model($Tid, $TInfo, $Arch)*$BYTE;
+            $Alignment = getAlignment_Model($Tid, $LVer)*$BYTE;
         }
-        return ($Alignment, $Type{"Size"}*$BYTE);
+        return ($Alignment, $TSize*$BYTE);
     }
 }
 
-sub getOffset($$$$$)
+sub getOffset($$$)
 { # offset of the field including padding
-    my ($FieldPos, $TypePtr, $TInfo, $Arch, $Word) = @_;
+    my ($FieldPos, $TypePtr, $LVer) = @_;
     
     if($TypePtr->{"Type"} eq "Union") {
         return 0;
@@ -1054,11 +1076,12 @@ sub getOffset($$$$$)
     # }
     
     my $Offset = 0;
-    my $Buffer=0;
+    my $Buffer = 0;
+    my $Word = $In::ABI{$LVer}{"WordSize"};
     
     foreach my $Pos (0 .. keys(%{$TypePtr->{"Memb"}})-1)
     {
-        my ($Alignment, $MSize) = getAlignment($Pos, $TypePtr, $TInfo, $Arch, $Word);
+        my ($Alignment, $MSize) = getAlignment($Pos, $TypePtr, $LVer);
         
         if(not $Alignment)
         { # support for old ABI dumps
@@ -1105,11 +1128,14 @@ sub getPadding($$)
     return $Padding;
 }
 
-sub isMemPadded($$$$$$)
+sub isMemPadded($$$$$)
 { # check if the target field can be added/removed/changed
   # without shifting other fields because of padding bits
-    my ($FieldPos, $Size, $TypePtr, $Skip, $TInfo, $Arch, $Word) = @_;
-    return 0 if($FieldPos==0);
+    my ($FieldPos, $Size, $TypePtr, $Skip, $LVer) = @_;
+    if($FieldPos==0) {
+        return 0;
+    }
+    
     delete($TypePtr->{"Memb"}{""});
     my $Offset = 0;
     my (%Alignment, %MSize) = ();
@@ -1126,7 +1152,7 @@ sub isMemPadded($$$$$$)
                 next;
             }
         }
-        ($Alignment{$Pos}, $MSize{$Pos}) = getAlignment($Pos, $TypePtr, $TInfo, $Arch, $Word);
+        ($Alignment{$Pos}, $MSize{$Pos}) = getAlignment($Pos, $TypePtr, $LVer);
         
         if(not $Alignment{$Pos})
         { # emergency exit

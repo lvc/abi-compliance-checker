@@ -1,10 +1,9 @@
 ###########################################################################
-# Module for ABI Compliance Checker to create ABI dumps in XML format
+# A module to create and read ABI dump in XML format
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-# Copyright (C) 2011-2012 ROSA Laboratory
-# Copyright (C) 2012-2015 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2012-2016 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -28,35 +27,36 @@ my $INDENT = "    ";
 
 sub createXmlDump($)
 {
-    my $ABI = $_[0];
+    my $LVer = $_[0];
     my $ABI_DUMP = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
     
-    $ABI_DUMP .= "<ABI_dump version=\"".$ABI->{"ABI_DUMP_VERSION"}."\"";
-    $ABI_DUMP .= " xml_format=\"".$ABI->{"XML_ABI_DUMP_VERSION"}."\"";
-    $ABI_DUMP .= " acc=\"".$ABI->{"ABI_COMPLIANCE_CHECKER_VERSION"}."\">\n";
+    $ABI_DUMP .= "<ABI_dump version=\"".$In::ABI{$LVer}{"ABI_DUMP_VERSION"}."\"";
+    $ABI_DUMP .= " xml_format=\"".$In::ABI{$LVer}{"XML_ABI_DUMP_VERSION"}."\"";
+    $ABI_DUMP .= " acc=\"".$In::ABI{$LVer}{"ABI_COMPLIANCE_CHECKER_VERSION"}."\">\n";
     
-    $ABI_DUMP .= addTag("library", $ABI->{"LibraryName"});
-    $ABI_DUMP .= addTag("library_version", $ABI->{"LibraryVersion"});
-    $ABI_DUMP .= addTag("language", $ABI->{"Language"});
+    $ABI_DUMP .= addTag("library", $In::ABI{$LVer}{"LibraryName"});
+    $ABI_DUMP .= addTag("library_version", $In::ABI{$LVer}{"LibraryVersion"});
+    $ABI_DUMP .= addTag("language", $In::ABI{$LVer}{"Language"});
     
-    $ABI_DUMP .= addTag("gcc", $ABI->{"GccVersion"});
-    $ABI_DUMP .= addTag("architecture", $ABI->{"Arch"});
-    $ABI_DUMP .= addTag("target", $ABI->{"Target"});
-    $ABI_DUMP .= addTag("word_size", $ABI->{"WordSize"});
+    $ABI_DUMP .= addTag("gcc", $In::ABI{$LVer}{"GccVersion"});
+    $ABI_DUMP .= addTag("clang", $In::ABI{$LVer}{"ClangVersion"});
+    $ABI_DUMP .= addTag("architecture", $In::ABI{$LVer}{"Arch"});
+    $ABI_DUMP .= addTag("target", $In::ABI{$LVer}{"Target"});
+    $ABI_DUMP .= addTag("word_size", $In::ABI{$LVer}{"WordSize"});
     
-    if($ABI->{"Mode"}) {
-        $ABI_DUMP .= addTag("mode", $ABI->{"Mode"});
+    if($In::ABI{$LVer}{"Mode"}) {
+        $ABI_DUMP .= addTag("mode", $In::ABI{$LVer}{"Mode"});
     }
-    if($ABI->{"SrcBin"}) {
+    if($In::ABI{$LVer}{"SrcBin"}) {
         $ABI_DUMP .= addTag("kind", "SrcBin");
     }
-    elsif($ABI->{"BinOnly"}) {
+    elsif($In::ABI{$LVer}{"BinOnly"}) {
         $ABI_DUMP .= addTag("kind", "BinOnly");
     }
     
-    if(my @Headers = keys(%{$ABI->{"Headers"}}))
+    if(my @Headers = keys(%{$In::ABI{$LVer}{"Headers"}}))
     {
-        @Headers = sort {$ABI->{"Headers"}{$a}<=>$ABI->{"Headers"}{$b}} @Headers;
+        @Headers = sort {$In::ABI{$LVer}{"Headers"}{$a}<=>$In::ABI{$LVer}{"Headers"}{$b}} @Headers;
         $ABI_DUMP .= openTag("headers");
         foreach my $Name (@Headers) {
             $ABI_DUMP .= addTag("name", $Name);
@@ -64,9 +64,9 @@ sub createXmlDump($)
         $ABI_DUMP .= closeTag("headers");
     }
     
-    if(my @Sources = keys(%{$ABI->{"Sources"}}))
+    if(my @Sources = keys(%{$In::ABI{$LVer}{"Sources"}}))
     {
-        @Sources = sort {$ABI->{"Sources"}{$a}<=>$ABI->{"Sources"}{$b}} @Sources;
+        @Sources = sort {$In::ABI{$LVer}{"Sources"}{$a}<=>$In::ABI{$LVer}{"Sources"}{$b}} @Sources;
         $ABI_DUMP .= openTag("sources");
         foreach my $Name (@Sources) {
             $ABI_DUMP .= addTag("name", $Name);
@@ -74,7 +74,7 @@ sub createXmlDump($)
         $ABI_DUMP .= closeTag("sources");
     }
     
-    if(my @Libs = keys(%{$ABI->{"Needed"}}))
+    if(my @Libs = keys(%{$In::ABI{$LVer}{"Needed"}}))
     {
         $ABI_DUMP .= openTag("needed");
         foreach my $Name (sort {lc($a) cmp lc($b)} @Libs) {
@@ -83,7 +83,7 @@ sub createXmlDump($)
         $ABI_DUMP .= closeTag("needed");
     }
     
-    if(my @NameSpaces = keys(%{$ABI->{"NameSpaces"}}))
+    if(my @NameSpaces = keys(%{$In::ABI{$LVer}{"NameSpaces"}}))
     {
         $ABI_DUMP .= openTag("namespaces");
         foreach my $NameSpace (sort {lc($a) cmp lc($b)} @NameSpaces) {
@@ -92,12 +92,12 @@ sub createXmlDump($)
         $ABI_DUMP .= closeTag("namespaces");
     }
     
-    if(my @TypeInfo = keys(%{$ABI->{"TypeInfo"}}))
+    if(my @TypeInfo = keys(%{$In::ABI{$LVer}{"TypeInfo"}}))
     {
         $ABI_DUMP .= openTag("type_info");
         foreach my $ID (sort {$a<=>$b} @TypeInfo)
         {
-            my %TInfo = %{$ABI->{"TypeInfo"}{$ID}};
+            my %TInfo = %{$In::ABI{$LVer}{"TypeInfo"}{$ID}};
             $ABI_DUMP .= openTag("data_type");
             $ABI_DUMP .= addTag("id", $ID);
             foreach my $Attr ("Name", "Type", "Size",
@@ -218,12 +218,12 @@ sub createXmlDump($)
         $ABI_DUMP .= closeTag("type_info");
     }
     
-    if(my @Constants = keys(%{$ABI->{"Constants"}}))
+    if(my @Constants = keys(%{$In::ABI{$LVer}{"Constants"}}))
     {
         $ABI_DUMP .= openTag("constants");
         foreach my $Constant (@Constants)
         {
-            my %CInfo = %{$ABI->{"Constants"}{$Constant}};
+            my %CInfo = %{$In::ABI{$LVer}{"Constants"}{$Constant}};
             $ABI_DUMP .= openTag("constant");
             $ABI_DUMP .= addTag("name", $Constant);
             $ABI_DUMP .= addTag("value", $CInfo{"Value"});
@@ -233,7 +233,7 @@ sub createXmlDump($)
         $ABI_DUMP .= closeTag("constants");
     }
     
-    if(my @SymbolInfo = keys(%{$ABI->{"SymbolInfo"}}))
+    if(my @SymbolInfo = keys(%{$In::ABI{$LVer}{"SymbolInfo"}}))
     {
         my %TR = (
             "MnglName" => "mangled",
@@ -242,7 +242,7 @@ sub createXmlDump($)
         $ABI_DUMP .= openTag("symbol_info");
         foreach my $ID (sort {$a<=>$b} @SymbolInfo)
         {
-            my %SInfo = %{$ABI->{"SymbolInfo"}{$ID}};
+            my %SInfo = %{$In::ABI{$LVer}{"SymbolInfo"}{$ID}};
             $ABI_DUMP .= openTag("symbol");
             $ABI_DUMP .= addTag("id", $ID);
             foreach my $Attr ("MnglName", "ShortName", "Class",
@@ -341,7 +341,7 @@ sub createXmlDump($)
     
     foreach my $K ("Symbols", "UndefinedSymbols")
     {
-        if($ABI->{$K} and my @Libs = keys(%{$ABI->{$K}}))
+        if($In::ABI{$LVer}{$K} and my @Libs = keys(%{$In::ABI{$LVer}{$K}}))
         {
             my $SymTag = "symbols";
             if($K eq "UndefinedSymbols") {
@@ -353,9 +353,9 @@ sub createXmlDump($)
             foreach my $Lib (sort {lc($a) cmp lc($b)} @Libs)
             {
                 $ABI_DUMP .= openTag("library", "name", $Lib);
-                foreach my $Symbol (sort {lc($a) cmp lc($b)} keys(%{$ABI->{$K}{$Lib}}))
+                foreach my $Symbol (sort {lc($a) cmp lc($b)} keys(%{$In::ABI{$LVer}{$K}{$Lib}}))
                 {
-                    if((my $Size = $ABI->{$K}{$Lib}{$Symbol})<0)
+                    if((my $Size = $In::ABI{$LVer}{$K}{$Lib}{$Symbol})<0)
                     { # data
                         $ABI_DUMP .= addTag("symbol", $Symbol, "size", -$Size);
                     }
@@ -370,15 +370,15 @@ sub createXmlDump($)
         }
     }
     
-    if(my @DepLibs = keys(%{$ABI->{"DepSymbols"}}))
+    if(my @DepLibs = keys(%{$In::ABI{$LVer}{"DepSymbols"}}))
     {
         $ABI_DUMP .= openTag("dep_symbols");
         foreach my $Lib (sort {lc($a) cmp lc($b)} @DepLibs)
         {
             $ABI_DUMP .= openTag("library", "name", $Lib);
-            foreach my $Symbol (sort {lc($a) cmp lc($b)} keys(%{$ABI->{"DepSymbols"}{$Lib}}))
+            foreach my $Symbol (sort {lc($a) cmp lc($b)} keys(%{$In::ABI{$LVer}{"DepSymbols"}{$Lib}}))
             {
-                if((my $Size = $ABI->{"DepSymbols"}{$Lib}{$Symbol})<0)
+                if((my $Size = $In::ABI{$LVer}{"DepSymbols"}{$Lib}{$Symbol})<0)
                 { # data
                     $ABI_DUMP .= addTag("symbol", $Symbol, "size", -$Size);
                 }
@@ -392,56 +392,20 @@ sub createXmlDump($)
         $ABI_DUMP .= closeTag("dep_symbols");
     }
     
-    if(my @VSymbols = keys(%{$ABI->{"SymbolVersion"}}))
+    if(my @VSymbols = keys(%{$In::ABI{$LVer}{"SymbolVersion"}}))
     {
         $ABI_DUMP .= openTag("symbol_version");
         foreach my $Symbol (sort {lc($a) cmp lc($b)} @VSymbols)
         {
             $ABI_DUMP .= openTag("symbol");
             $ABI_DUMP .= addTag("name", $Symbol);
-            $ABI_DUMP .= addTag("version", $ABI->{"SymbolVersion"}{$Symbol});
+            $ABI_DUMP .= addTag("version", $In::ABI{$LVer}{"SymbolVersion"}{$Symbol});
             $ABI_DUMP .= closeTag("symbol");
         }
         $ABI_DUMP .= closeTag("symbol_version");
     }
     
-    if(my @SkipTypes = keys(%{$ABI->{"SkipTypes"}}))
-    {
-        $ABI_DUMP .= openTag("skip_types");
-        foreach my $Name (sort {lc($a) cmp lc($b)} @SkipTypes) {
-            $ABI_DUMP .= addTag("name", $Name);
-        }
-        $ABI_DUMP .= closeTag("skip_types");
-    }
-    
-    if(my @SkipSymbols = keys(%{$ABI->{"SkipSymbols"}}))
-    {
-        $ABI_DUMP .= openTag("skip_symbols");
-        foreach my $Name (sort {lc($a) cmp lc($b)} @SkipSymbols) {
-            $ABI_DUMP .= addTag("name", $Name);
-        }
-        $ABI_DUMP .= closeTag("skip_symbols");
-    }
-    
-    if(my @SkipNameSpaces = keys(%{$ABI->{"SkipNameSpaces"}}))
-    {
-        $ABI_DUMP .= openTag("skip_namespaces");
-        foreach my $Name (sort {lc($a) cmp lc($b)} @SkipNameSpaces) {
-            $ABI_DUMP .= addTag("name", $Name);
-        }
-        $ABI_DUMP .= closeTag("skip_namespaces");
-    }
-    
-    if(my @SkipHeaders = keys(%{$ABI->{"SkipHeaders"}}))
-    {
-        $ABI_DUMP .= openTag("skip_headers");
-        foreach my $Name (sort {lc($a) cmp lc($b)} @SkipHeaders) {
-            $ABI_DUMP .= addTag("name", $Name);
-        }
-        $ABI_DUMP .= closeTag("skip_headers");
-    }
-    
-    if(my @TargetHeaders = keys(%{$ABI->{"TargetHeaders"}}))
+    if(my @TargetHeaders = keys(%{$In::Desc{$LVer}{"TargetHeader"}}))
     {
         $ABI_DUMP .= openTag("target_headers");
         foreach my $Name (sort {lc($a) cmp lc($b)} @TargetHeaders) {
@@ -460,12 +424,13 @@ sub createXmlDump($)
 sub readXmlDump($)
 {
     my $ABI_DUMP = readFile($_[0]);
-    my %ABI = {};
+    my %ABI = ();
     
     $ABI{"LibraryName"} = parseTag(\$ABI_DUMP, "library");
     $ABI{"LibraryVersion"} = parseTag(\$ABI_DUMP, "library_version");
     $ABI{"Language"} = parseTag(\$ABI_DUMP, "language");
     $ABI{"GccVersion"} = parseTag(\$ABI_DUMP, "gcc");
+    $ABI{"ClangVersion"} = parseTag(\$ABI_DUMP, "clang");
     $ABI{"Arch"} = parseTag(\$ABI_DUMP, "architecture");
     $ABI{"Target"} = parseTag(\$ABI_DUMP, "target");
     $ABI{"WordSize"} = parseTag(\$ABI_DUMP, "word_size");
@@ -772,42 +737,6 @@ sub readXmlDump($)
     {
         while(my $Symbol = parseTag(\$SymbolVersion, "symbol")) {
             $ABI{"SymbolVersion"}{parseTag(\$Symbol, "name")} = parseTag(\$Symbol, "version");
-        }
-    }
-    
-    $ABI{"SkipTypes"} = {};
-    
-    if(my $SkipTypes = parseTag(\$ABI_DUMP, "skip_types"))
-    {
-        while(my $Name = parseTag(\$SkipTypes, "name")) {
-            $ABI{"SkipTypes"}{$Name} = 1;
-        }
-    }
-    
-    $ABI{"SkipSymbols"} = {};
-    
-    if(my $SkipSymbols = parseTag(\$ABI_DUMP, "skip_symbols"))
-    {
-        while(my $Name = parseTag(\$SkipSymbols, "name")) {
-            $ABI{"SkipSymbols"}{$Name} = 1;
-        }
-    }
-    
-    $ABI{"SkipNameSpaces"} = {};
-    
-    if(my $SkipNameSpaces = parseTag(\$ABI_DUMP, "skip_namespaces"))
-    {
-        while(my $Name = parseTag(\$SkipNameSpaces, "name")) {
-            $ABI{"SkipNameSpaces"}{$Name} = 1;
-        }
-    }
-    
-    $ABI{"SkipHeaders"} = {};
-    
-    if(my $SkipHeaders = parseTag(\$ABI_DUMP, "skip_headers"))
-    {
-        while(my $Name = parseTag(\$SkipHeaders, "name")) {
-            $ABI{"SkipHeaders"}{$Name} = 1;
         }
     }
     

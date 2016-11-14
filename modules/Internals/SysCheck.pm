@@ -1,9 +1,8 @@
 ###########################################################################
-# Module for ABI Compliance Checker to compare Operating Systems
+# A module to compare operating systems
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-# Copyright (C) 2011-2012 ROSA Laboratory
 # Copyright (C) 2012-2016 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
@@ -24,27 +23,18 @@
 use strict;
 use File::Temp qw(tempdir);
 use Cwd qw(abs_path cwd);
-use Fcntl;
 
-my ($Debug, $Quiet, $LogMode, $CheckHeadersOnly, $SystemRoot, $GCC_PATH,
-$CrossPrefix, $TargetSysInfo, $TargetLibraryName, $CrossGcc, $UseStaticLibs,
-$NoStdInc, $CxxIncompat, $SkipUnidentified, $OStarget, $BinaryOnly,
-$SourceOnly, $DisableConstantsCheck);
+loadModule("ElfTools");
+loadModule("ABIDump");
 
-my $OSgroup = get_OSgroup();
-my $TMP_DIR = tempdir(CLEANUP=>1);
-my $ORIG_DIR = cwd();
-my $LIB_EXT = getLIB_EXT($OSgroup);
-
-my %SysDescriptor;
-my %Cache;
+my %SysDesc;
 my %NonPrefix;
 
-sub cmpSystems($$$)
+sub cmpSystems($$)
 { # -cmp-systems option handler
   # should be used with -d1 and -d2 options
-    my ($SPath1, $SPath2, $Opts) = @_;
-    initModule($Opts);
+    my ($SPath1, $SPath2) = @_;
+    
     if(not $SPath1) {
         exitStatus("Error", "the option -d1 should be specified");
     }
@@ -64,8 +54,8 @@ sub cmpSystems($$$)
         exitStatus("Access_Error", "can't access directory \'".$SPath2."/abi_dumps\'");
     }
     # sys_dumps/<System>/<Arch>/...
-    my $SystemName1 = get_filename(get_dirname($SPath1));
-    my $SystemName2 = get_filename(get_dirname($SPath2));
+    my $SystemName1 = getFilename(getDirname($SPath1));
+    my $SystemName2 = getFilename(getDirname($SPath2));
     
     my $SystemName1_P = $SystemName1;
     my $SystemName2_P = $SystemName2;
@@ -74,21 +64,24 @@ sub cmpSystems($$$)
     $SystemName2=~s/_/ /g;
     
     # sys_dumps/<System>/<Arch>/...
-    my $ArchName = get_filename($SPath1);
-    if($ArchName ne get_filename($SPath2)) {
+    my $ArchName = getFilename($SPath1);
+    if($ArchName ne getFilename($SPath2)) {
         exitStatus("Error", "can't compare systems of different CPU architecture");
     }
+    
+    my $TmpDir = $In::Opt{"Tmp"};
+    
     if(my $OStarget_Dump = readFile($SPath1."/target.txt"))
     { # change target
-        $OStarget = $OStarget_Dump;
-        $LIB_EXT = getLIB_EXT($OStarget);
+        setTarget($OStarget_Dump);
     }
+    
     my $GroupByHeaders = 0;
     if(my $Mode = readFile($SPath1."/mode.txt"))
     { # change mode
         if($Mode eq "headers-only")
         { # -headers-only mode
-            $CheckHeadersOnly = 1;
+            $In::Opt{"CheckHeadersOnly"} = 1;
             $GroupByHeaders = 1;
         }
         if($Mode eq "group-by-headers") {
@@ -102,7 +95,7 @@ sub cmpSystems($$$)
     {
         if(my ($LFName, $Soname) = split(/;/, $_))
         {
-            if($OStarget eq "symbian") {
+            if($In::Opt{"Target"} eq "symbian") {
                 $Soname=~s/\{.+\}//;
             }
             $LibSoname1{$LFName} = $Soname;
@@ -112,7 +105,7 @@ sub cmpSystems($$$)
     {
         if(my ($LFName, $Soname) = split(/;/, $_))
         {
-            if($OStarget eq "symbian") {
+            if($In::Opt{"Target"} eq "symbian") {
                 $Soname=~s/\{.+\}//;
             }
             $LibSoname2{$LFName} = $Soname;
@@ -131,8 +124,8 @@ sub cmpSystems($$$)
             $LibV2{$LFName} = $V;
         }
     }
-    my @Dumps1 = cmd_find($SPath1."/abi_dumps","f","*.abi",1);
-    my @Dumps2 = cmd_find($SPath2."/abi_dumps","f","*.abi",1);
+    my @Dumps1 = cmdFind($SPath1."/abi_dumps","f","*.abi",1);
+    my @Dumps2 = cmdFind($SPath2."/abi_dumps","f","*.abi",1);
     
     my (%LibVers1, %LibVers2) = ();
     my (%ShortNames1, %ShortNames2) = ();
@@ -142,13 +135,13 @@ sub cmpSystems($$$)
         {
             my ($Soname, $V) = ($LibSoname1{$Name}, $LibV1{$Name});
             if(not $V) {
-                $V = parse_libname($Name, "version", $OStarget);
+                $V = libPart($Name, "version");
             }
             if($GroupByHeaders) {
                 $Soname = $Name;
             }
             $LibVers1{$Soname}{$V} = $DPath;
-            $ShortNames1{parse_libname($Soname, "short", $OStarget)}{$Soname} = 1;
+            $ShortNames1{libPart($Soname, "short")}{$Soname} = 1;
         }
     }
     foreach my $DPath (@Dumps2)
@@ -157,13 +150,13 @@ sub cmpSystems($$$)
         {
             my ($Soname, $V) = ($LibSoname2{$Name}, $LibV2{$Name});
             if(not $V) {
-                $V = parse_libname($Name, "version", $OStarget);
+                $V = libPart($Name, "version");
             }
             if($GroupByHeaders) {
                 $Soname = $Name;
             }
             $LibVers2{$Soname}{$V} = $DPath;
-            $ShortNames2{parse_libname($Soname, "short", $OStarget)}{$Soname} = 1;
+            $ShortNames2{libPart($Soname, "short")}{$Soname} = 1;
         }
     }
     my (%Added, %Removed) = ();
@@ -205,7 +198,7 @@ sub cmpSystems($$$)
         }
         foreach my $LName (sort {lc($a) cmp lc($b)} keys(%LibVers1))
         { # removed libs
-            if(not is_target_lib($LName)) {
+            if(not isTargetLib($LName)) {
                 next;
             }
             if(not defined $LibVers1{$LName}) {
@@ -221,7 +214,7 @@ sub cmpSystems($$$)
             { # removed library
                 if(not $LibSoname2{$LName})
                 {
-                    my $LSName = parse_libname($LName, "short", $OStarget);
+                    my $LSName = libPart($LName, "short");
                     $RemovedShort{$LSName}{$LName} = 1;
                     my $V = $Versions1[0];
                     $Removed{$LName}{"version"} = $V;
@@ -239,7 +232,7 @@ sub cmpSystems($$$)
         }
         foreach my $LName (sort {lc($a) cmp lc($b)} keys(%LibVers2))
         { # added libs
-            if(not is_target_lib($LName)) {
+            if(not isTargetLib($LName)) {
                 next;
             }
             if(not defined $LibVers2{$LName}) {
@@ -259,7 +252,7 @@ sub cmpSystems($$$)
             { # added library
                 if(not $LibSoname1{$LName})
                 {
-                    my $LSName = parse_libname($LName, "short", $OStarget);
+                    my $LSName = libPart($LName, "short");
                     $AddedShort{$LSName}{$LName} = 1;
                     my $V = $Versions2[0];
                     $Added{$LName}{"version"} = $V;
@@ -300,7 +293,7 @@ sub cmpSystems($$$)
     
     foreach my $LName (sort {lc($a) cmp lc($b)} keys(%LibVers1))
     {
-        if(not is_target_lib($LName)) {
+        if(not isTargetLib($LName)) {
             next;
         }
         my @Versions1 = keys(%{$LibVers1{$LName}});
@@ -316,7 +309,7 @@ sub cmpSystems($$$)
             next;
         }
         my ($LV2, $LName2, $DPath2) = ();
-        my $LName_Short = parse_libname($LName, "name+ext", $OStarget);
+        my $LName_Short = libPart($LName, "name+ext");
         if($LName2 = $ChangedSoname{$LName})
         { # changed SONAME
             @Versions2 = keys(%{$LibVers2{$LName2}});
@@ -355,63 +348,63 @@ sub cmpSystems($$$)
         my $BinReportPath_Full = $SYS_REPORT_PATH."/".$BinReportPath;
         my $SrcReportPath_Full = $SYS_REPORT_PATH."/".$SrcReportPath;
         
-        if($BinaryOnly)
+        if($In::Opt{"BinOnly"})
         {
             $ACC_compare .= " -binary";
             $ACC_compare .= " -bin-report-path \"$BinReportPath_Full\"";
         }
-        if($SourceOnly)
+        if($In::Opt{"SrcOnly"})
         {
             $ACC_compare .= " -source";
             $ACC_compare .= " -src-report-path \"$SrcReportPath_Full\"";
         }
         
-        if($CheckHeadersOnly) {
+        if($In::Opt{"CheckHeadersOnly"}) {
             $ACC_compare .= " -headers-only";
         }
         if($GroupByHeaders) {
             $ACC_compare .= " -component header";
         }
         
-        if($DisableConstantsCheck) {
+        if($In::Opt{"DisableConstantsCheck"}) {
             $ACC_compare .= " -disable-constants-check";
         }
         
         $ACC_compare .= " -skip-added-constants";
         $ACC_compare .= " -skip-removed-constants";
         
-        if($Quiet)
+        if($In::Opt{"Quiet"})
         { # quiet mode
             $ACC_compare .= " -quiet";
         }
-        if($LogMode eq "n") {
+        if($In::Opt{"LogMode"} eq "n") {
             $ACC_compare .= " -logging-mode n";
         }
-        elsif($Quiet) {
+        elsif($In::Opt{"Quiet"}) {
             $ACC_compare .= " -logging-mode a";
         }
-        if($Debug)
+        if($In::Opt{"Debug"})
         { # debug mode
             $ACC_compare .= " -debug";
             printMsg("INFO", "$ACC_compare");
         }
         printMsg("INFO_C", "Checking $LName: ");
-        system($ACC_compare." 1>$TMP_DIR/null 2>$TMP_DIR/$LName.stderr");
-        if(-s "$TMP_DIR/$LName.stderr")
+        system($ACC_compare." 1>$TmpDir/null 2>$TmpDir/$LName.stderr");
+        if(-s "$TmpDir/$LName.stderr")
         {
-            my $ErrorLog = readFile("$TMP_DIR/$LName.stderr");
+            my $ErrorLog = readFile("$TmpDir/$LName.stderr");
             chomp($ErrorLog);
             printMsg("INFO", "Failed ($ErrorLog)");
         }
         else
         {
             printMsg("INFO", "Ok");
-            if($BinaryOnly)
+            if($In::Opt{"BinOnly"})
             {
                 $TestResults{$LName}{"Binary"} = readAttributes($BinReportPath_Full, 0);
                 $TestResults{$LName}{"Binary"}{"path"} = $BinReportPath;
             }
-            if($SourceOnly)
+            if($In::Opt{"SrcOnly"})
             {
                 $TestResults{$LName}{"Source"} = readAttributes($SrcReportPath_Full, 0);
                 $TestResults{$LName}{"Source"}{"path"} = $SrcReportPath;
@@ -425,19 +418,19 @@ sub cmpSystems($$$)
         
         if(-d $HP1
         and -d $HP2
-        and my $RfcDiff = get_CmdPath("rfcdiff"))
+        and my $RfcDiff = getCmdPath("rfcdiff"))
         {
-            my @Headers1 = cmd_find($HP1,"f");
-            my @Headers2 = cmd_find($HP2,"f");
+            my @Headers1 = cmdFind($HP1,"f");
+            my @Headers2 = cmdFind($HP2,"f");
             
             my (%Files1, %Files2) = ();
             
             foreach my $P (@Headers1) {
-                $Files1{get_filename($P)} = $P;
+                $Files1{getFilename($P)} = $P;
             }
             
             foreach my $P (@Headers2) {
-                $Files2{get_filename($P)} = $P;
+                $Files2{getFilename($P)} = $P;
             }
             
             my $Diff = "";
@@ -460,7 +453,7 @@ sub cmpSystems($$$)
                     }
                 }
                 
-                my $DiffOut = $TMP_DIR."/rfcdiff";
+                my $DiffOut = $TmpDir."/rfcdiff";
                 
                 if(-e $DiffOut) {
                     unlink($DiffOut);
@@ -591,22 +584,22 @@ sub cmpSystems($$$)
         else {
             $STAT{$Comp}{"affected"} = 0;
         }
-        $STAT{$Comp}{"affected"} = show_number($STAT{$Comp}{"affected"});
+        $STAT{$Comp}{"affected"} = showNum($STAT{$Comp}{"affected"});
         if($STAT{$Comp}{"verdict"}>1) {
             $STAT{$Comp}{"verdict"} = 1;
         }
         push(@{$META_DATA{$Comp}}, "changed_constants:".$STAT{$Comp}{"changed_constants"});
-        push(@{$META_DATA{$Comp}}, "tool_version:".get_dumpversion("perl $0"));
+        push(@{$META_DATA{$Comp}}, "tool_version:".dumpVersion("perl $0"));
         foreach ("removed", "added", "total", "affected", "verdict") {
             @{$META_DATA{$Comp}} = ($_.":".$STAT{$Comp}{$_}, @{$META_DATA{$Comp}});
         }
     }
     
     my $SONAME_Title = "SONAME";
-    if($OStarget eq "windows") {
+    if($In::Opt{"Target"} eq "windows") {
         $SONAME_Title = "DLL";
     }
-    elsif($OStarget eq "symbian") {
+    elsif($In::Opt{"Target"} eq "symbian") {
         $SONAME_Title = "DSO";
     }
     if($GroupByHeaders)
@@ -616,13 +609,14 @@ sub cmpSystems($$$)
     
     my $SYS_REPORT = "<h1>";
     
-    if($BinaryOnly and $SourceOnly) {
+    if($In::Opt{"BinOnly"}
+    and $In::Opt{"SrcOnly"}) {
         $SYS_REPORT .= "API compatibility";
     }
-    elsif($BinaryOnly) {
+    elsif($In::Opt{"BinOnly"}) {
         $SYS_REPORT .= "Binary compatibility";
     }
-    elsif($SourceOnly) {
+    elsif($In::Opt{"SrcOnly"}) {
         $SYS_REPORT .= "Source compatibility";
     }
     
@@ -655,7 +649,8 @@ sub cmpSystems($$$)
     if(not $GroupByHeaders) {
         $SYS_REPORT .= "<th colspan='2'>Version</th>\n";
     }
-    if($BinaryOnly and $SourceOnly) {
+    if($In::Opt{"BinOnly"}
+    and $In::Opt{"SrcOnly"}) {
         $SYS_REPORT .= "<th colspan='2'>Compatibility</th>\n";
     }
     else {
@@ -674,7 +669,8 @@ sub cmpSystems($$$)
     if(not $GroupByHeaders) {
         $SYS_REPORT .= "<th class='ver'>$SystemName1</th><th class='ver'>$SystemName2</th>\n";
     }
-    if($BinaryOnly and $SourceOnly) {
+    if($In::Opt{"BinOnly"}
+    and $In::Opt{"SrcOnly"}) {
         $SYS_REPORT .= "<th>Binary</th><th>Source</th>\n";
     }
     $SYS_REPORT .= "</tr>\n";
@@ -683,7 +679,7 @@ sub cmpSystems($$$)
     foreach my $LName (sort {lc($a) cmp lc($b)} (keys(%TestResults), keys(%Added), keys(%Removed)))
     {
         next if($SONAME_Changed{$LName});
-        my $LName_Short = parse_libname($LName, "name+ext", $OStarget);
+        my $LName_Short = libPart($LName, "name+ext");
         my $Anchor = $LName;
         $Anchor=~s/\+/p/g; # anchor for libFLAC++ is libFLACpp
         $Anchor=~s/\~/-/g; # libqttracker.so.1~6
@@ -701,13 +697,14 @@ sub cmpSystems($$$)
             $SYS_REPORT .= "<td class='ver'>".printVer($TestResults{$LName}{"v1"})."</td>\n";
         }
         my $SONAME_report = "<td colspan=\'$Columns\' rowspan='2'>\n";
-        if($BinaryOnly and $SourceOnly) {
+        if($In::Opt{"BinOnly"}
+        and $In::Opt{"SrcOnly"}) {
             $SONAME_report .= "SONAME has been changed (see <a href='".$TestResults{$LName_Short}{"Binary"}{"path"}."'>binary</a> and <a href='".$TestResults{$LName_Short}{"Source"}{"path"}."'>source</a> compatibility reports)\n";
         }
-        elsif($BinaryOnly) {
+        elsif($In::Opt{"BinOnly"}) {
             $SONAME_report .= "SONAME has been <a href='".$TestResults{$LName_Short}{"Binary"}{"path"}."'>changed</a>\n";
         }
-        elsif($SourceOnly) {
+        elsif($In::Opt{"SrcOnly"}) {
             $SONAME_report .= "SONAME has been <a href='".$TestResults{$LName_Short}{"Source"}{"path"}."'>changed</a>\n";
         }
         $SONAME_report .= "</td>\n";
@@ -715,8 +712,8 @@ sub cmpSystems($$$)
         if(defined $Added{$LName})
         { # added library
             $SYS_REPORT .= "<td class='new ver'>".printVer($Added{$LName}{"version"})."</td>\n";
-            $SYS_REPORT .= "<td class='passed'>100%</td>\n" if($BinaryOnly);
-            $SYS_REPORT .= "<td class='passed'>100%</td>\n" if($SourceOnly);
+            $SYS_REPORT .= "<td class='passed'>100%</td>\n" if($In::Opt{"BinOnly"});
+            $SYS_REPORT .= "<td class='passed'>100%</td>\n" if($In::Opt{"SrcOnly"});
             if($RegisteredPairs{$LName}) {
                 # do nothing
             }
@@ -737,8 +734,8 @@ sub cmpSystems($$$)
         elsif(defined $Removed{$LName})
         { # removed library
             $SYS_REPORT .= "<td class='failed'><a href='".$Removed{$LName}{"list"}."'>removed</a></td>\n";
-            $SYS_REPORT .= "<td class='failed'>0%</td>\n" if($BinaryOnly);
-            $SYS_REPORT .= "<td class='failed'>0%</td>\n" if($SourceOnly);
+            $SYS_REPORT .= "<td class='failed'>0%</td>\n" if($In::Opt{"BinOnly"});
+            $SYS_REPORT .= "<td class='failed'>0%</td>\n" if($In::Opt{"SrcOnly"});
             if($RegisteredPairs{$LName}) {
                 # do nothing
             }
@@ -759,8 +756,8 @@ sub cmpSystems($$$)
         elsif(defined $ChangedSoname{$LName})
         { # added library
             $SYS_REPORT .= "<td class='ver'>".printVer($TestResults{$LName}{"v2"})."</td>\n";
-            $SYS_REPORT .= "<td class='passed'>100%</td>\n" if($BinaryOnly);
-            $SYS_REPORT .= "<td class='passed'>100%</td>\n" if($SourceOnly);
+            $SYS_REPORT .= "<td class='passed'>100%</td>\n" if($In::Opt{"BinOnly"});
+            $SYS_REPORT .= "<td class='passed'>100%</td>\n" if($In::Opt{"SrcOnly"});
             if($RegisteredPairs{$LName}) {
                 # do nothing
             }
@@ -786,7 +783,7 @@ sub cmpSystems($$$)
         my $BinCompatReport = $TestResults{$LName}{"Binary"}{"path"};
         my $SrcCompatReport = $TestResults{$LName}{"Source"}{"path"};
         
-        if($BinaryOnly)
+        if($In::Opt{"BinOnly"})
         {
             if($TestResults{$LName}{"Binary"}{"verdict"} eq "compatible")
             {
@@ -809,7 +806,7 @@ sub cmpSystems($$$)
                 $SYS_REPORT .= "<td class=\'$Cl\'><a href=\'$BinCompatReport\'>$Compatible%</a></td>\n";
             }
         }
-        if($SourceOnly)
+        if($In::Opt{"SrcOnly"})
         {
             if($TestResults{$LName}{"Source"}{"verdict"} eq "compatible")
             {
@@ -832,7 +829,7 @@ sub cmpSystems($$$)
                 $SYS_REPORT .= "<td class=\'$Cl\'><a href=\'$SrcCompatReport\'>$Compatible%</a></td>\n";
             }
         }
-        if($BinaryOnly)
+        if($In::Opt{"BinOnly"})
         { # show added/removed symbols at binary level
           # for joined and -binary-only reports
             my $AddedSym="";
@@ -856,7 +853,7 @@ sub cmpSystems($$$)
                 $SYS_REPORT.="<td class='passed'>0</td>\n";
             }
         }
-        elsif($SourceOnly)
+        elsif($In::Opt{"SrcOnly"})
         {
             my $AddedSym="";
             if(my $Count = $TestResults{$LName}{"Source"}{"added"}) {
@@ -908,20 +905,20 @@ sub cmpSystems($$$)
     $SYS_REPORT .= getReportFooter();
     $SYS_REPORT .= "</body></html>\n";
     
-    if($SourceOnly) {
+    if($In::Opt{"SrcOnly"}) {
         $SYS_REPORT = "<!-\- kind:source;".join(";", @{$META_DATA{"Source"}})." -\->\n".$SYS_REPORT;
     }
-    if($BinaryOnly) {
+    if($In::Opt{"BinOnly"}) {
         $SYS_REPORT = "<!-\- kind:binary;".join(";", @{$META_DATA{"Binary"}})." -\->\n".$SYS_REPORT;
     }
     my $REPORT_PATH = $SYS_REPORT_PATH."/";
-    if($BinaryOnly and $SourceOnly) {
+    if($In::Opt{"BinOnly"} and $In::Opt{"SrcOnly"}) {
         $REPORT_PATH .= "compat_report.html";
     }
-    elsif($BinaryOnly) {
+    elsif($In::Opt{"BinOnly"}) {
         $REPORT_PATH .= "abi_compat_report.html";
     }
-    elsif($SourceOnly) {
+    elsif($In::Opt{"SrcOnly"}) {
         $REPORT_PATH .= "src_compat_report.html";
     }
     writeFile($REPORT_PATH, $SYS_REPORT);
@@ -945,34 +942,16 @@ sub getPrefix_S($)
     return $Prefix;
 }
 
-sub problem_title($)
-{
-    if($_[0]==1)  {
-        return "1 change";
-    }
-    else  {
-        return $_[0]." changes";
-    }
-}
-
-sub warning_title($)
-{
-    if($_[0]==1)  {
-        return "1 warning";
-    }
-    else  {
-        return $_[0]." warnings";
-    }
-}
-
-sub readSystemDescriptor($)
+sub readSysDesc($)
 {
     my $Content = $_[0];
+    
     $Content=~s/\/\*(.|\n)+?\*\///g;
     $Content=~s/<\!--(.|\n)+?-->//g;
-    $SysDescriptor{"Name"} = parseTag(\$Content, "name");
-    my @Tools = ();
-    if(not $SysDescriptor{"Name"}) {
+    
+    $SysDesc{"Name"} = parseTag(\$Content, "name");
+    
+    if(not $SysDesc{"Name"}) {
         exitStatus("Error", "system name is not specified (<name> section)");
     }
     foreach my $Path (split(/\s*\n\s*/, parseTag(\$Content, "libs")))
@@ -980,151 +959,70 @@ sub readSystemDescriptor($)
         if(not -e $Path) {
             exitStatus("Access_Error", "can't access \'$Path\'");
         }
-        $Path = get_abs_path($Path);
-        $Path=~s/[\/\\]+\Z//g;
-        $SysDescriptor{"Libs"}{$Path} = 1;
+        $Path = getAbsPath($Path);
+        $SysDesc{"Libs"}{$Path} = 1;
     }
     foreach my $Path (split(/\s*\n\s*/, parseTag(\$Content, "search_libs")))
     { # target libs
         if(not -d $Path) {
             exitStatus("Access_Error", "can't access directory \'$Path\'");
         }
-        $Path = get_abs_path($Path);
-        $Path=~s/[\/\\]+\Z//g;
-        $SysDescriptor{"SearchLibs"}{$Path} = 1;
+        $Path = getAbsPath($Path);
+        $SysDesc{"SearchLibs"}{$Path} = 1;
     }
     foreach my $Path (split(/\s*\n\s*/, parseTag(\$Content, "skip_libs")))
     { # skip libs
-        $SysDescriptor{"SkipLibs"}{$Path} = 1;
+        $SysDesc{"SkipLibs"}{$Path} = 1;
     }
     foreach my $Path (split(/\s*\n\s*/, parseTag(\$Content, "headers")))
     {
         if(not -e $Path) {
             exitStatus("Access_Error", "can't access \'$Path\'");
         }
-        $Path = get_abs_path($Path);
-        $Path=~s/[\/\\]+\Z//g;
-        $SysDescriptor{"Headers"}{$Path} = 1;
+        $Path = getAbsPath($Path);
+        $SysDesc{"Headers"}{$Path} = 1;
     }
     foreach my $Path (split(/\s*\n\s*/, parseTag(\$Content, "search_headers")))
     {
         if(not -d $Path) {
             exitStatus("Access_Error", "can't access directory \'$Path\'");
         }
-        $Path = get_abs_path($Path);
-        $Path=~s/[\/\\]+\Z//g;
-        $SysDescriptor{"SearchHeaders"}{$Path} = 1;
+        $Path = getAbsPath($Path);
+        $SysDesc{"SearchHeaders"}{$Path} = 1;
     }
     foreach my $Path (split(/\s*\n\s*/, parseTag(\$Content, "tools")))
     {
         if(not -d $Path) {
             exitStatus("Access_Error", "can't access directory \'$Path\'");
         }
-        $Path = get_abs_path($Path);
-        $Path=~s/[\/\\]+\Z//g;
-        $SysDescriptor{"Tools"}{$Path} = 1;
-        push(@Tools, $Path);
+        $Path = getAbsPath($Path);
+        $SysDesc{"Tools"}{$Path} = 1;
+        
+        $In::Opt{"TargetTools"}{$Path} = 1;
+        push_U($In::Opt{"SysPaths"}{"bin"}, $Path);
     }
-    foreach my $Path (split(/\s*\n\s*/, parseTag(\$Content, "gcc_options")))
-    {
-        $Path=~s/[\/\\]+\Z//g;
-        $SysDescriptor{"GccOpts"}{$Path} = 1;
+    foreach my $Op (split(/\s*\n\s*/, parseTag(\$Content, "gcc_options"))) {
+        $SysDesc{"GccOpts"}{$Op} = 1;
     }
-    if($SysDescriptor{"CrossPrefix"} = parseTag(\$Content, "cross_prefix"))
+    if($SysDesc{"CrossPrefix"} = parseTag(\$Content, "cross_prefix"))
     { # <cross_prefix> section of XML descriptor
-        $CrossPrefix = $SysDescriptor{"CrossPrefix"};
+        $In::Opt{"CrossPrefix"} = $SysDesc{"CrossPrefix"};
     }
-    elsif($CrossPrefix)
-    { # -cross-prefix tool option
-        $SysDescriptor{"CrossPrefix"} = $CrossPrefix;
+    elsif($In::Opt{"CrossPrefix"})
+    { # -cross-prefix option
+        $SysDesc{"CrossPrefix"} = $In::Opt{"CrossPrefix"};
     }
-    $SysDescriptor{"Defines"} = parseTag(\$Content, "defines");
-    if($SysDescriptor{"Image"} = parseTag(\$Content, "image"))
+    $SysDesc{"Defines"} = parseTag(\$Content, "defines");
+    if($SysDesc{"Image"} = parseTag(\$Content, "image"))
     { # <image>
       # FIXME: isn't implemented yet
-        if(not -f $SysDescriptor{"Image"}) {
-            exitStatus("Access_Error", "can't access \'".$SysDescriptor{"Image"}."\'");
-        }
-    }
-    return {"Tools"=>\@Tools,"CrossPrefix"=>$CrossPrefix};
-}
-
-sub initModule($)
-{
-    my $S = $_[0];
-    
-    $OStarget = $S->{"OStarget"};
-    $Debug = $S->{"Debug"};
-    $Quiet = $S->{"Quiet"};
-    $LogMode = $S->{"LogMode"};
-    $CheckHeadersOnly = $S->{"CheckHeadersOnly"};
-    
-    $SystemRoot = $S->{"SystemRoot"};
-    $GCC_PATH = $S->{"GCC_PATH"};
-    $TargetSysInfo = $S->{"TargetSysInfo"};
-    $CrossPrefix = $S->{"CrossPrefix"};
-    $TargetLibraryName = $S->{"TargetLibraryName"};
-    $CrossGcc = $S->{"CrossGcc"};
-    $UseStaticLibs = $S->{"UseStaticLibs"};
-    $NoStdInc = $S->{"NoStdInc"};
-    $CxxIncompat = $S->{"CxxIncompat"};
-    $SkipUnidentified = $S->{"SkipUnidentified"};
-    $DisableConstantsCheck = $S->{"DisableConstantsCheck"};
-    
-    $BinaryOnly = $S->{"BinaryOnly"};
-    $SourceOnly = $S->{"SourceOnly"};
-    
-    if(not $BinaryOnly and not $SourceOnly)
-    { # default
-        $BinaryOnly = 1;
-    }
-}
-
-sub check_list($$)
-{
-    my ($Item, $Skip) = @_;
-    return 0 if(not $Skip);
-    foreach (@{$Skip})
-    {
-        my $Pattern = $_;
-        if(index($Pattern, "*")!=-1)
-        { # wildcards
-            $Pattern=~s/\*/.*/g; # to perl format
-            if($Item=~/$Pattern/) {
-                return 1;
-            }
-        }
-        elsif(index($Pattern, "/")!=-1
-        or index($Pattern, "\\")!=-1)
-        { # directory
-            if(index($Item, $Pattern)!=-1) {
-                return 1;
-            }
-        }
-        elsif($Item eq $Pattern
-        or get_filename($Item) eq $Pattern)
-        { # by name
-            return 1;
-        }
-    }
-    return 0;
-}
-
-sub filter_format($)
-{
-    my $FiltRef = $_[0];
-    foreach my $Entry (keys(%{$FiltRef}))
-    {
-        foreach my $Filt (@{$FiltRef->{$Entry}})
-        {
-            if($Filt=~/[\/\\]/) {
-                $Filt = path_format($Filt, $OSgroup);
-            }
+        if(not -f $SysDesc{"Image"}) {
+            exitStatus("Access_Error", "can't access \'".$SysDesc{"Image"}."\'");
         }
     }
 }
 
-sub readSysDescriptor($)
+sub readSysDesc_P($)
 {
     my $Path = $_[0];
     my $Content = readFile($Path);
@@ -1156,7 +1054,7 @@ sub readSysDescriptor($)
                 foreach my $Item (@Items)
                 {
                     if($Tags{$Tag}=~/f/) {
-                        $Item = path_format($Item, $OSgroup);
+                        $Item = pathFmt($Item);
                     }
                     push(@{$DInfo{$Tag}}, $Item);
                 }
@@ -1184,25 +1082,19 @@ sub readSysDescriptor($)
     return \%DInfo;
 }
 
-sub readSysInfo($)
+sub readSysInfo()
 {
-    my $Target = $_[0];
+    my $TargetSysInfo = $In::Opt{"TargetSysInfo"};
     
-    if(not $TargetSysInfo) {
-        exitStatus("Error", "system info path is not specified");
-    }
-    if(not -d $TargetSysInfo) {
-        exitStatus("Module_Error", "can't access \'$TargetSysInfo\'");
-    }
     # Library Specific Info
     my %SysInfo = ();
     if(-d $TargetSysInfo."/descriptors/")
     {
-        foreach my $DPath (cmd_find($TargetSysInfo."/descriptors/","f","",1))
+        foreach my $DPath (cmdFind($TargetSysInfo."/descriptors/","f","",1))
         {
-            my $LSName = get_filename($DPath);
+            my $LSName = getFilename($DPath);
             $LSName=~s/\.xml\Z//;
-            $SysInfo{$LSName} = readSysDescriptor($DPath);
+            $SysInfo{$LSName} = readSysDesc_P($DPath);
         }
     }
     else {
@@ -1210,15 +1102,15 @@ sub readSysInfo($)
     }
     
     # Exceptions
-    if(check_gcc($GCC_PATH, "4.4"))
+    if(checkGcc("4.4"))
     { # exception for libstdc++
         $SysInfo{"libstdc++"}{"gcc_options"} = ["-std=c++0x"];
     }
-    if($OStarget eq "symbian")
+    if($In::Opt{"Target"} eq "symbian")
     { # exception for libstdcpp
         $SysInfo{"libstdcpp"}{"defines"} = "namespace std { struct nothrow_t {}; }";
     }
-    if($SysDescriptor{"Name"}=~/maemo/i)
+    if($SysDesc{"Name"}=~/maemo/i)
     { # GL/gl.h: No such file
         $SysInfo{"libSDL"}{"skip_headers"}=["SDL_opengl.h"];
     }
@@ -1226,17 +1118,17 @@ sub readSysInfo($)
     # Common Info
     my $SysCInfo = {};
     if(-f $TargetSysInfo."/common.xml") {
-        $SysCInfo = readSysDescriptor($TargetSysInfo."/common.xml");
+        $SysCInfo = readSysDesc_P($TargetSysInfo."/common.xml");
     }
     else {
         printMsg("Module_Error", "can't find \'$TargetSysInfo/common.xml\'");
     }
     
     my @CompilerOpts = ();
-    if($SysDescriptor{"Name"}=~/maemo|meego/i) {
+    if($SysDesc{"Name"}=~/maemo|meego/i) {
         push(@CompilerOpts, "-DMAEMO_CHANGES", "-DM_APPLICATION_NAME=\\\"app\\\"");
     }
-    if(my @Opts = keys(%{$SysDescriptor{"GccOpts"}})) {
+    if(my @Opts = keys(%{$SysDesc{"GccOpts"}})) {
         push(@CompilerOpts, @Opts);
     }
     if(@CompilerOpts)
@@ -1249,101 +1141,71 @@ sub readSysInfo($)
     return (\%SysInfo, $SysCInfo);
 }
 
-sub get_binversion($)
-{
-    my $Path = $_[0];
-    if($OStarget eq "windows"
-    and $LIB_EXT eq "dll")
-    { # get version of DLL using "sigcheck"
-        my $SigcheckCmd = get_CmdPath("sigcheck");
-        if(not $SigcheckCmd) {
-            return "";
-        }
-        my $VInfo = `$SigcheckCmd -nobanner -n $Path 2>$TMP_DIR/null`;
-        $VInfo=~s/\s*\(.*\)\s*//;
-        chomp($VInfo);
-        
-        if($VInfo eq "n/a") {
-            $VInfo = uc($VInfo);
-        }
-        
-        return $VInfo;
-    }
-    return "";
-}
-
-sub readBytes($)
-{
-    sysopen(FILE, $_[0], O_RDONLY);
-    sysread(FILE, my $Header, 4);
-    close(FILE);
-    my @Bytes = map { sprintf('%02x', ord($_)) } split (//, $Header);
-    return join("", @Bytes);
-}
-
-sub dumpSystem($)
+sub dumpSystem()
 { # -dump-system option handler
   # should be used with -sysroot and -cross-gcc options
-    my $Opts = $_[0];
-    initModule($Opts);
+    my $TmpDir = $In::Opt{"Tmp"};
+    my $LibExt = $In::Opt{"Ext"};
     
-    my $SysName_P = $SysDescriptor{"Name"};
+    my $SysName_P = $SysDesc{"Name"};
     $SysName_P=~s/ /_/g;
     
-    my $SYS_DUMP_PATH = "sys_dumps/".$SysName_P."/".getArch(1);
-    if(not $TargetLibraryName) {
+    my $SystemRoot = $In::Opt{"SystemRoot"};
+    
+    my $SYS_DUMP_PATH = "sys_dumps/".$SysName_P."/".getArch_GCC(1);
+    if(not $In::Opt{"TargetLib"}) {
         rmtree($SYS_DUMP_PATH);
     }
     my (@SystemLibs, @SysHeaders) = ();
     
-    foreach my $Path (keys(%{$SysDescriptor{"Libs"}}))
+    foreach my $Path (keys(%{$SysDesc{"Libs"}}))
     {
         if(not -e $Path) {
             exitStatus("Access_Error", "can't access \'$Path\'");
         }
         if(-d $Path)
         {
-            if(my @SubLibs = find_libs($Path,"",1)) {
+            if(my @SubLibs = findLibs($Path,"",1)) {
                 push(@SystemLibs, @SubLibs);
             }
-            $SysDescriptor{"SearchLibs"}{$Path}=1;
+            $SysDesc{"SearchLibs"}{$Path} = 1;
         }
         else
         { # single file
             push(@SystemLibs, $Path);
-            $SysDescriptor{"SearchLibs"}{get_dirname($Path)}=1;
+            $SysDesc{"SearchLibs"}{getDirname($Path)} = 1;
         }
     }
-    foreach my $Path (keys(%{$SysDescriptor{"Headers"}}))
+    foreach my $Path (keys(%{$SysDesc{"Headers"}}))
     {
         if(not -e $Path) {
             exitStatus("Access_Error", "can't access \'$Path\'");
         }
         if(-d $Path)
         {
-            if(my @SubHeaders = cmd_find($Path,"f","","")) {
+            if(my @SubHeaders = cmdFind($Path,"f","","")) {
                 push(@SysHeaders, @SubHeaders);
             }
-            $SysDescriptor{"SearchHeaders"}{$Path}=1;
+            $SysDesc{"SearchHeaders"}{$Path}=1;
         }
         else
         { # single file
             push(@SysHeaders, $Path);
-            $SysDescriptor{"SearchHeaders"}{get_dirname($Path)}=1;
+            $SysDesc{"SearchHeaders"}{getDirname($Path)} = 1;
         }
     }
     my $GroupByHeaders = 0;
-    if($CheckHeadersOnly)
+    if($In::Opt{"CheckHeadersOnly"})
     { # -headers-only
         $GroupByHeaders = 1;
         # @SysHeaders = optimize_set(@SysHeaders);
     }
-    elsif($SysDescriptor{"Image"})
+    elsif($SysDesc{"Image"})
     { # one big image
         $GroupByHeaders = 1;
-        @SystemLibs = ($SysDescriptor{"Image"});
+        @SystemLibs = ($SysDesc{"Image"});
     }
-    writeFile($SYS_DUMP_PATH."/target.txt", $OStarget);
+    writeFile($SYS_DUMP_PATH."/target.txt", $In::Opt{"Target"});
     my (%SysLib_Symbols, %SymbolGroup, %Symbol_SysHeaders,
     %SysHeader_Symbols, %SysLib_SysHeaders) = ();
     my (%Skipped, %Failed) = ();
@@ -1355,7 +1217,7 @@ sub dumpSystem($)
         "libc",
         "libpthread"
     );
-    my ($SysInfo, $SysCInfo) = readSysInfo($OStarget);
+    my ($SysInfo, $SysCInfo) = readSysInfo();
     
     foreach (keys(%{$SysCInfo->{"non_prefix"}}))
     {
@@ -1367,36 +1229,36 @@ sub dumpSystem($)
     
     if(not $GroupByHeaders)
     {
-        if($Debug) {
+        if($In::Opt{"Debug"}) {
             printMsg("INFO", localtime(time));
         }
         printMsg("INFO", "Indexing sonames ...\n");
     }
     my (%LibSoname, %SysLibVersion) = ();
     my %DevelPaths = map {$_=>1} @SystemLibs;
-    foreach my $Path (sort keys(%{$SysDescriptor{"SearchLibs"}}))
+    foreach my $Path (sort keys(%{$SysDesc{"SearchLibs"}}))
     {
-        foreach my $LPath (find_libs($Path,"",1)) {
-            $DevelPaths{$LPath}=1;
+        foreach my $LPath (findLibs($Path,"",1)) {
+            $DevelPaths{$LPath} = 1;
         }
     }
     foreach my $LPath (keys(%DevelPaths))
     { # register SONAMEs
-        my $LName = get_filename($LPath);
-        if(not is_target_lib($LName)) {
+        my $LName = getFilename($LPath);
+        if(not isTargetLib($LName)) {
             next;
         }
-        if($OSgroup=~/\A(linux|macos|freebsd|solaris)\Z/
+        if($In::Opt{"Target"}=~/\A(linux|macos|freebsd|solaris)\Z/
         and $LName!~/\Alib/) {
             next;
         }
         if(my $Soname = getSONAME($LPath))
         {
-            if($OStarget eq "symbian")
+            if($In::Opt{"Target"} eq "symbian")
             {
                 if($Soname=~/[\/\\]/)
                 { # L://epoc32/release/armv5/lib/gfxtrans{000a0000}.dso
-                    $Soname = get_filename($Soname);
+                    $Soname = getFilename($Soname);
                 }
                 $Soname = lc($Soname);
             }
@@ -1405,7 +1267,7 @@ sub dumpSystem($)
             }
             if(-l $LPath and my $Path = realpath_F($LPath))
             {
-                my $Name = get_filename($Path);
+                my $Name = getFilename($Path);
                 if(not defined $LibSoname{$Name}) {
                     $LibSoname{$Name}=$Soname;
                 }
@@ -1425,24 +1287,24 @@ sub dumpSystem($)
     }
     foreach my $LPath (sort keys(%DevelPaths))
     { # register VERSIONs
-        my $LName = get_filename($LPath);
-        if(not is_target_lib($LName)
-        and not is_target_lib($LibSoname{$LName})) {
+        my $LName = getFilename($LPath);
+        if(not isTargetLib($LName)
+        and not isTargetLib($LibSoname{$LName})) {
             next;
         }
-        if(my $BV = get_binversion($LPath))
+        if(my $BV = getBinVer($LPath))
         { # binary version
             $SysLibVersion{$LName} = $BV;
         }
-        elsif(my $PV = parse_libname($LName, "version", $OStarget))
+        elsif(my $PV = libPart($LName, "version"))
         { # source version
             $SysLibVersion{$LName} = $PV;
         }
-        elsif(my $SV = parse_libname(getSONAME($LPath), "version", $OStarget))
+        elsif(my $SV = libPart(getSONAME($LPath), "version"))
         { # soname version
             $SysLibVersion{$LName} = $SV;
         }
-        elsif($LName=~/(\d[\d\.\-\_]*)\.$LIB_EXT\Z/)
+        elsif($LName=~/(\d[\d\.\-\_]*)\.$LibExt\Z/)
         { # libfreebl3.so
             if($1 ne 32 and $1 ne 64) {
                 $SysLibVersion{$LName} = $1;
@@ -1458,47 +1320,47 @@ sub dumpSystem($)
     }
     
     # create target list
-    my @SkipLibs = keys(%{$SysDescriptor{"SkipLibs"}});
+    my @SkipLibs = keys(%{$SysDesc{"SkipLibs"}});
     if(my $CSkip = $SysCInfo->{"skip_libs"}) {
         push(@SkipLibs, @{$CSkip});
     }
-    if(@SkipLibs and not $TargetLibraryName)
+    if(@SkipLibs and not $In::Opt{"TargetLib"})
     {
         my %SkipLibs = map {$_ => 1} @SkipLibs;
         my @Target = ();
         foreach my $LPath (@SystemLibs)
         {
-            my $LName = get_filename($LPath);
-            my $LName_Short = parse_libname($LName, "name+ext", $OStarget);
+            my $LName = getFilename($LPath);
+            my $LName_Short = libPart($LName, "name+ext");
             if(not defined $SkipLibs{$LName_Short}
             and not defined $SkipLibs{$LName}
-            and not check_list($LPath, \@SkipLibs)) {
+            and not checkList($LPath, \@SkipLibs)) {
                 push(@Target, $LName);
             }
         }
-        add_target_libs(\@Target);
+        addTargetLibs(\@Target);
     }
     
     my %SysLibs = ();
     foreach my $LPath (sort @SystemLibs)
     {
-        my $LName = get_filename($LPath);
-        my $LSName = parse_libname($LName, "short", $OStarget);
-        my $LRelPath = cut_path_prefix($LPath, $SystemRoot);
-        if(not is_target_lib($LName)) {
+        my $LName = getFilename($LPath);
+        my $LSName = libPart($LName, "short");
+        my $LRelPath = cutPrefix($LPath, $SystemRoot);
+        if(not isTargetLib($LName)) {
             next;
         }
-        if($OSgroup=~/\A(linux|macos|freebsd|solaris)\Z/
+        if($In::Opt{"Target"}=~/\A(linux|macos|freebsd|solaris)\Z/
         and $LName!~/\Alib/) {
             next;
         }
-        if($OStarget eq "symbian")
+        if($In::Opt{"Target"} eq "symbian")
         {
-            if(my $V = parse_libname($LName, "version", $OStarget))
+            if(my $V = libPart($LName, "version"))
             { # skip qtcore.dso
               # register qtcore{00040604}.dso
-                delete($SysLibs{get_dirname($LPath)."\\".$LSName.".".$LIB_EXT});
-                my $MV = parse_libname($LibSoname{$LSName.".".$LIB_EXT}, "version", $OStarget);
+                delete($SysLibs{getDirname($LPath)."\\".$LSName.".".$LibExt});
+                my $MV = libPart($LibSoname{$LSName.".".$LibExt}, "version");
                 if($MV and $V ne $MV)
                 { # skip other versions:
                   #  qtcore{00040700}.dso
@@ -1516,9 +1378,9 @@ sub dumpSystem($)
         elsif(-f $LPath)
         {
             if($Glibc{$LSName}
-            and cmd_file($LPath)=~/ASCII/)
+            and -T $LPath)
             { # GNU ld scripts (libc.so, libpthread.so)
-                my @Candidates = cmd_find($SystemRoot."/lib","",$LSName.".".$LIB_EXT."*","1");
+                my @Candidates = cmdFind($SystemRoot."/lib","",$LSName.".".$LibExt."*","1");
                 if(@Candidates)
                 {
                     my $Candidate = $Candidates[0];
@@ -1540,12 +1402,12 @@ sub dumpSystem($)
         exitStatus("Error", "can't find libraries");
     }
     
-    if(not $CheckHeadersOnly)
+    if(not $In::Opt{"CheckHeadersOnly"})
     {
-        if($Debug) {
+        if($In::Opt{"Debug"}) {
             printMsg("INFO", localtime(time));
         }
-        if($SysDescriptor{"Image"}) {
+        if($SysDesc{"Image"}) {
             printMsg("INFO", "Reading symbols from image ...\n");
         }
         else {
@@ -1559,14 +1421,14 @@ sub dumpSystem($)
     
     foreach my $LPath (sort {lc($a) cmp lc($b)} keys(%SysLibs))
     {
-        my $LRelPath = cut_path_prefix($LPath, $SystemRoot);
-        my $LName = get_filename($LPath);
+        my $LRelPath = cutPrefix($LPath, $SystemRoot);
+        my $LName = getFilename($LPath);
         
-        $ShortestNames{$LPath} = parse_libname($LName, "shortest", $OStarget);
+        $ShortestNames{$LPath} = libPart($LName, "shortest");
         
         my $Res = readSymbols_Lib(1, $LPath, 0, "-Weak", 0, 0);
         
-        if(not keys(%{$Res}) and $TargetLibraryName) {
+        if(not keys(%{$Res}) and $In::Opt{"TargetLib"}) {
             exitStatus("Error", "can't find exported symbols in the library");
         }
         
@@ -1580,8 +1442,8 @@ sub dumpSystem($)
     
     foreach my $LPath (sort {lc($a) cmp lc($b)} keys(%SysLibs))
     {
-        my $LRelPath = cut_path_prefix($LPath, $SystemRoot);
-        my $LName = get_filename($LPath);
+        my $LRelPath = cutPrefix($LPath, $SystemRoot);
+        my $LName = getFilename($LPath);
         foreach my $Symbol (keys(%{$Syms{$LPath}}))
         {
             $Symbol=~s/[\@\$]+(.*)\Z//g;
@@ -1720,7 +1582,7 @@ sub dumpSystem($)
     
     %PrefixSymbols = (); # free memory
     
-    if(not $CheckHeadersOnly) {
+    if(not $In::Opt{"CheckHeadersOnly"}) {
         writeFile($SYS_DUMP_PATH."/debug/symbols.txt", Dumper(\%SysLib_Symbols));
     }
     
@@ -1747,13 +1609,13 @@ sub dumpSystem($)
     
     if(0)
     {
-        if($Debug) {
+        if($In::Opt{"Debug"}) {
             printMsg("INFO", localtime(time));
         }
         printMsg("INFO", "Reading info from packages ...\n");
-        if(my $Urpmf = get_CmdPath("urpmf"))
+        if(my $Urpmf = getCmdPath("urpmf"))
         { # Mandriva, ROSA
-            my $Out = $TMP_DIR."/urpmf.out";
+            my $Out = $TmpDir."/urpmf.out";
             system("urpmf : >\"$Out\"");
             open(FILE, $Out);
             while(<FILE>)
@@ -1775,9 +1637,9 @@ sub dumpSystem($)
     {
         foreach my $LPath (sort {lc($a) cmp lc($b)} keys(%SysLibs))
         {
-            my $LName = get_filename($LPath);
-            my $LDir = get_dirname($LPath);
-            my $LName_Short = parse_libname($LName, "name+ext", $OStarget);
+            my $LName = getFilename($LPath);
+            my $LDir = getDirname($LPath);
+            my $LName_Short = libPart($LName, "name+ext");
             
             my $Pkg = $FilePackage{$LDir."/".$LName_Short};
             if(not $Pkg)
@@ -1818,20 +1680,20 @@ sub dumpSystem($)
     
     my %HeaderFile_Path = ();
     
-    if($Debug) {
+    if($In::Opt{"Debug"}) {
         printMsg("INFO", localtime(time));
     }
     printMsg("INFO", "Reading symbols from headers ...\n");
     foreach my $HPath (@SysHeaders)
     {
-        $HPath = path_format($HPath, $OSgroup);
-        if(readBytes($HPath) eq "7f454c46")
+        $HPath = pathFmt($HPath);
+        if(isElf($HPath))
         { # skip ELF files
             next;
         }
-        my $HRelPath = cut_path_prefix($HPath, $SystemRoot);
-        my ($HDir, $HName) = separate_path($HRelPath);
-        if(is_not_header($HName))
+        my $HRelPath = cutPrefix($HPath, $SystemRoot);
+        my ($HDir, $HName) = sepPath($HRelPath);
+        if(isNotHeader($HName))
         { # have a wrong extension: .gch, .in
             next;
         }
@@ -1862,7 +1724,7 @@ sub dumpSystem($)
         }
         if(index($HRelPath, "/lib/")!=-1)
         {
-            if(not is_header_file($HName))
+            if(not isHeaderFile($HName))
             { # without or with a wrong extension
               # under the /lib directory
                 next;
@@ -1882,7 +1744,7 @@ sub dumpSystem($)
             $SysHeader_Symbols{$HRelPath}{$Symbol} = 1;
         }
         $SysHeaderDir_SysHeaders{$HDir}{$HName} = 1;
-        $HeaderFile_Path{get_filename($HRelPath)}{$HRelPath} = 1;
+        $HeaderFile_Path{getFilename($HRelPath)}{$HRelPath} = 1;
     }
     
     # writeFile($SYS_DUMP_PATH."/debug/headers.txt", Dumper(\%SysHeader_Symbols));
@@ -1895,10 +1757,10 @@ sub dumpSystem($)
                         "TelepathyQt4/*-*", "debug.h", "global.h",
                         "properties.h", "Channel", "channel.h", "message.h"],
     );
-    filter_format(\%SkipDHeaders);
+    filterFormat(\%SkipDHeaders);
     if(not $GroupByHeaders)
     {
-        if($Debug) {
+        if($In::Opt{"Debug"}) {
             printMsg("INFO", localtime(time));
         }
         printMsg("INFO", "Matching symbols ...\n");
@@ -1906,15 +1768,15 @@ sub dumpSystem($)
     
     foreach my $LPath (sort {lc($a) cmp lc($b)} keys(%SysLibs))
     { # matching
-        my $LName = get_filename($LPath);
+        my $LName = getFilename($LPath);
     }
     
     foreach my $LPath (sort {lc($a) cmp lc($b)} keys(%SysLibs))
     { # matching
-        my $LName = get_filename($LPath);
-        my $LName_Short = parse_libname($LName, "name", $OStarget);
-        my $LRelPath = cut_path_prefix($LPath, $SystemRoot);
-        my $LSName = parse_libname($LName, "short", $OStarget);
+        my $LName = getFilename($LPath);
+        my $LName_Short = libPart($LName, "name");
+        my $LRelPath = cutPrefix($LPath, $SystemRoot);
+        my $LSName = libPart($LName, "short");
         my $SName = $ShortestNames{$LPath};
         
         my @TryNames = (); # libX-N.so.M
@@ -1992,7 +1854,7 @@ sub dumpSystem($)
             }
             my @SymHeaders = keys(%{$Symbol_SysHeaders{$Symbol}});
             @SymHeaders = sort {lc($a) cmp lc($b)} @SymHeaders; # sort by name
-            @SymHeaders = sort {length(get_dirname($a))<=>length(get_dirname($b))} @SymHeaders; # sort by length
+            @SymHeaders = sort {length(getDirname($a))<=>length(getDirname($b))} @SymHeaders; # sort by length
             if(length($SName)>=3)
             { # sort candidate headers by name
                 @SymHeaders = sort {$b=~/\Q$SName\E/i<=>$a=~/\Q$SName\E/i} @SymHeaders;
@@ -2003,12 +1865,12 @@ sub dumpSystem($)
                 @SymHeaders = sort {$b=~/\Q$SName\Elib/i<=>$a=~/\Q$SName\Elib/i} @SymHeaders;
             }
             @SymHeaders = sort {$b=~/\Q$LSName\E/i<=>$a=~/\Q$LSName\E/i} @SymHeaders;
-            @SymHeaders = sort {$SymbolDirs{get_dirname($b)}<=>$SymbolDirs{get_dirname($a)}} @SymHeaders;
-            @SymHeaders = sort {$SymbolFiles{get_filename($b)}<=>$SymbolFiles{get_filename($a)}} @SymHeaders;
+            @SymHeaders = sort {$SymbolDirs{getDirname($b)}<=>$SymbolDirs{getDirname($a)}} @SymHeaders;
+            @SymHeaders = sort {$SymbolFiles{getFilename($b)}<=>$SymbolFiles{getFilename($a)}} @SymHeaders;
             foreach my $HRelPath (@SymHeaders)
             {
-                my $HDir = get_dirname($HRelPath);
-                my $HName = get_filename($HRelPath);
+                my $HDir = getDirname($HRelPath);
+                my $HName = getFilename($HRelPath);
                 
                 if(my $Group = $SymbolGroup{$LRelPath}{$Symbol})
                 {
@@ -2021,7 +1883,7 @@ sub dumpSystem($)
                 {
                     if(my $Filt = $SysInfo->{$_}{"headers"})
                     { # search for specified headers
-                        if(not check_list($HRelPath, $Filt))
+                        if(not checkList($HRelPath, $Filt))
                         {
                             $Filter = 1;
                             last;
@@ -2029,7 +1891,7 @@ sub dumpSystem($)
                     }
                     if(my $Filt = $SysInfo->{$_}{"skip_headers"})
                     { # do NOT search for some headers
-                        if(check_list($HRelPath, $Filt))
+                        if(checkList($HRelPath, $Filt))
                         {
                             $Filter = 1;
                             last;
@@ -2037,7 +1899,7 @@ sub dumpSystem($)
                     }
                     if(my $Filt = $SysInfo->{$_}{"skip_including"})
                     { # do NOT search for some headers
-                        if(check_list($HRelPath, $Filt))
+                        if(checkList($HRelPath, $Filt))
                         {
                             $SymbolDirs{$HDir}+=1;
                             $SymbolFiles{$HName}+=1;
@@ -2051,29 +1913,29 @@ sub dumpSystem($)
                 }
                 if(my $Filt = $SysCInfo->{"skip_headers"})
                 { # do NOT search for some headers
-                    if(check_list($HRelPath, $Filt)) {
+                    if(checkList($HRelPath, $Filt)) {
                         next;
                     }
                 }
                 if(my $Filt = $SysCInfo->{"skip_including"})
                 { # do NOT search for some headers
-                    if(check_list($HRelPath, $Filt)) {
+                    if(checkList($HRelPath, $Filt)) {
                         next;
                     }
                 }
                 
-                if(defined $LibraryFile{$LRelPath})
-                { # skip wrongly matched headers
-                    if(not defined $LibraryFile{$LRelPath}{$HRelPath})
-                    { print "WRONG: $LRelPath $HRelPath\n";
-                        # next;
-                    }
-                }
+                #if(defined $LibraryFile{$LRelPath})
+                #{ # skip wrongly matched headers
+                #    if(not defined $LibraryFile{$LRelPath}{$HRelPath})
+                #    {
+                #        next;
+                #    }
+                #}
                 
                 $SysLib_SysHeaders{$LRelPath}{$HRelPath} = $Symbol;
                 
                 $SysHeaderDir_Used{$HDir}{$LName_Short} = 1;
-                $SysHeaderDir_Used{get_dirname($HDir)}{$LName_Short} = 1;
+                $SysHeaderDir_Used{getDirname($HDir)}{$LName_Short} = 1;
                 
                 $SymbolDirs{$HDir} += 1;
                 $SymbolFiles{$HName} +=1 ;
@@ -2091,7 +1953,7 @@ sub dumpSystem($)
                 my @Paths = ();
                 foreach my $Path (keys(%{$HeaderFile_Path{$SName.".h"}}), keys(%{$HeaderFile_Path{$LSName.".h"}}))
                 {
-                    my $Dir = get_dirname($Path);
+                    my $Dir = getDirname($Path);
                     if(defined $SymbolDirs{$Dir} or $Dir eq "/usr/include") {
                         push(@Paths, $Path);
                     }
@@ -2117,7 +1979,7 @@ sub dumpSystem($)
                         next if($HName=~/[\*\/\\]/);
                         if(my $HPath = selectSystemHeader($HName, 1))
                         {
-                            my $HRelPath = cut_path_prefix($HPath, $SystemRoot);
+                            my $HRelPath = cutPrefix($HPath, $SystemRoot);
                             $SysLib_SysHeaders{$LRelPath}{$HRelPath} = "by descriptor";
                         }
                     }
@@ -2139,27 +2001,27 @@ sub dumpSystem($)
     (%SysLib_Symbols, %SymbolGroup, %Symbol_SysHeaders, %SysHeader_Symbols) = (); # free memory
     if($GroupByHeaders)
     {
-        if($SysDescriptor{"Image"} and not $CheckHeadersOnly) {
-            @SysHeaders = keys(%{$SysLib_SysHeaders{$SysDescriptor{"Image"}}});
+        if($SysDesc{"Image"} and not $In::Opt{"CheckHeadersOnly"}) {
+            @SysHeaders = keys(%{$SysLib_SysHeaders{$SysDesc{"Image"}}});
         }
         %SysLib_SysHeaders = ();
         foreach my $Path (@SysHeaders)
         {
             if(my $Skip = $SysCInfo->{"skip_headers"})
             { # do NOT search for some headers
-                if(check_list($Path, $Skip)) {
+                if(checkList($Path, $Skip)) {
                     next;
                 }
             }
             if(my $Skip = $SysCInfo->{"skip_including"})
             { # do NOT search for some headers
-                if(check_list($Path, $Skip)) {
+                if(checkList($Path, $Skip)) {
                     next;
                 }
             }
             $SysLib_SysHeaders{$Path}{$Path} = 1;
         }
-        if($CheckHeadersOnly) {
+        if($In::Opt{"CheckHeadersOnly"}) {
             writeFile($SYS_DUMP_PATH."/mode.txt", "headers-only");
         }
         else {
@@ -2168,7 +2030,7 @@ sub dumpSystem($)
     }
     @SysHeaders = (); # clear memory
     
-    if($Debug) {
+    if($In::Opt{"Debug"}) {
         printMsg("INFO", localtime(time));
     }
     printMsg("INFO", "Generating XML descriptors ...");
@@ -2176,14 +2038,14 @@ sub dumpSystem($)
     my %CxxIncompat_L = ();
     foreach my $LRelPath (keys(%SysLib_SysHeaders))
     {
-        my $LName = get_filename($LRelPath);
+        my $LName = getFilename($LRelPath);
         my $DPath = $SYS_DUMP_PATH."/descriptors/$LName.xml";
         unlink($DPath);
         if(my @LibHeaders = keys(%{$SysLib_SysHeaders{$LRelPath}}))
         {
-            my $LSName = parse_libname($LName, "short", $OStarget);
-            my $LName_Short = parse_libname($LName, "name", $OStarget);
-            my $LName_Shortest = parse_libname($LName, "shortest", $OStarget);
+            my $LSName = libPart($LName, "short");
+            my $LName_Short = libPart($LName, "name");
+            my $LName_Shortest = libPart($LName, "shortest");
             if($GroupByHeaders)
             { # header short name
                 $LSName = $LName;
@@ -2193,13 +2055,13 @@ sub dumpSystem($)
             my (%DirsHeaders, %Includes, %MainDirs) = ();
             foreach my $HRelPath (@LibHeaders)
             {
-                my $Dir = get_dirname($HRelPath);
+                my $Dir = getDirname($HRelPath);
                 $DirsHeaders{$Dir}{$HRelPath} = 1;
                 
                 if($Dir=~/\/\Q$LName_Shortest\E(\/|\Z)/i
                 or $Dir=~/\/\Q$LName_Short\E(\/|\Z)/i)
                 {
-                    if(get_filename($Dir) ne "include")
+                    if(getFilename($Dir) ne "include")
                     { # except /usr/include
                         $MainDirs{$Dir} += 1;
                     }
@@ -2216,7 +2078,7 @@ sub dumpSystem($)
                 {
                     if(keys(%MainDirs) and not defined $MainDirs{$Dir})
                     { # search in /X/ dir for libX headers
-                        if(get_filename($Dir) ne "include")
+                        if(getFilename($Dir) ne "include")
                         { # except /usr/include
                             next;
                         }
@@ -2229,7 +2091,7 @@ sub dumpSystem($)
                     my $Neighbourhoods = keys(%{$SysHeaderDir_Used{$Dir}});
                     if($Neighbourhoods==1)
                     { # one lib in this directory
-                        if(get_filename($Dir) ne "include"
+                        if(getFilename($Dir) ne "include"
                         and $DirPart>=5)
                         { # complete directory
                             $Includes{$Dir} = 1;
@@ -2243,7 +2105,7 @@ sub dumpSystem($)
                     }
                     elsif((keys(%{$DirsHeaders{$Dir}})*100)/($#LibHeaders+1)>5)
                     { # remove 5% divergence
-                        if(get_filename($Dir) ne "include"
+                        if(getFilename($Dir) ne "include"
                         and $DirPart>=50)
                         { # complete directory if more than 50%
                             $Includes{$Dir} = 1;
@@ -2273,10 +2135,10 @@ sub dumpSystem($)
             my $LVersion = $SysLibVersion{$LName};
             if($LVersion)
             { # append by system name
-                $LVersion .= "-".$SysDescriptor{"Name"};
+                $LVersion .= "-".$SysDesc{"Name"};
             }
             else {
-                $LVersion = $SysDescriptor{"Name"};
+                $LVersion = $SysDesc{"Name"};
             }
             my @Content = ("<version>\n    $LVersion\n</version>");
             
@@ -2289,9 +2151,9 @@ sub dumpSystem($)
             @IncHeaders = sort {sortHeaders($a, $b)} @IncHeaders;
             
             # sort by library name
-            sortByWord(\@IncHeaders, parse_libname($LName, "shortest", $OStarget));
+            sortByWord(\@IncHeaders, libPart($LName, "shortest"));
             
-            if(is_abs($IncHeaders[0]) or -f $IncHeaders[0]) {
+            if(isAbsPath($IncHeaders[0]) or -f $IncHeaders[0]) {
                 push(@Content, "<headers>\n    ".join("\n    ", @IncHeaders)."\n</headers>");
             }
             else {
@@ -2299,13 +2161,13 @@ sub dumpSystem($)
             }
             if($GroupByHeaders)
             {
-                if($SysDescriptor{"Image"}) {
-                    push(@Content, "<libs>\n    ".$SysDescriptor{"Image"}."\n</libs>");
+                if($SysDesc{"Image"}) {
+                    push(@Content, "<libs>\n    ".$SysDesc{"Image"}."\n</libs>");
                 }
             }
             else
             {
-                if(is_abs($LRelPath) or -f $LRelPath) {
+                if(isAbsPath($LRelPath) or -f $LRelPath) {
                     push(@Content, "<libs>\n    $LRelPath\n</libs>");
                 }
                 else {
@@ -2314,16 +2176,16 @@ sub dumpSystem($)
             }
             
             # system
-            if(my @SearchHeaders = sort keys(%{$SysDescriptor{"SearchHeaders"}})) {
+            if(my @SearchHeaders = sort keys(%{$SysDesc{"SearchHeaders"}})) {
                 push(@Content, "<search_headers>\n    ".join("\n    ", @SearchHeaders)."\n</search_headers>");
             }
-            if(my @SearchLibs = sort keys(%{$SysDescriptor{"SearchLibs"}})) {
+            if(my @SearchLibs = sort keys(%{$SysDesc{"SearchLibs"}})) {
                 push(@Content, "<search_libs>\n    ".join("\n    ", @SearchLibs)."\n</search_libs>");
             }
-            if(my @Tools = sort keys(%{$SysDescriptor{"Tools"}})) {
+            if(my @Tools = sort keys(%{$SysDesc{"Tools"}})) {
                 push(@Content, "<tools>\n    ".join("\n    ", @Tools)."\n</tools>");
             }
-            if(my $Prefix = $SysDescriptor{"CrossPrefix"}) {
+            if(my $Prefix = $SysDesc{"CrossPrefix"}) {
                 push(@Content, "<cross_prefix>\n    $Prefix\n</cross_prefix>");
             }
             
@@ -2406,8 +2268,8 @@ sub dumpSystem($)
             if($SkipDHeaders{$LSName}) {
                 @SkipInc = (@SkipInc, @{$SkipDHeaders{$LSName}});
             }
-            if($SysDescriptor{"Defines"}) {
-                push(@Defines, $SysDescriptor{"Defines"});
+            if($SysDesc{"Defines"}) {
+                push(@Defines, $SysDesc{"Defines"});
             }
             
             # add sections
@@ -2456,18 +2318,18 @@ sub dumpSystem($)
     }
     printMsg("INFO", "Created descriptors:     ".keys(%Generated)." ($SYS_DUMP_PATH/descriptors/)\n");
     
-    if($Debug) {
+    if($In::Opt{"Debug"}) {
         printMsg("INFO", localtime(time));
     }
     printMsg("INFO", "Dumping ABIs:");
     my %Dumped = ();
-    my @Descriptors = cmd_find($SYS_DUMP_PATH."/descriptors","f","*.xml","1");
+    my @Descriptors = cmdFind($SYS_DUMP_PATH."/descriptors","f","*.xml","1");
     if(-d $SYS_DUMP_PATH."/descriptors" and $#Descriptors==-1) {
         printMsg("ERROR", "internal problem with \'find\' utility");
     }
     foreach my $DPath (sort {lc($a) cmp lc($b)} @Descriptors)
     {
-        my $DName = get_filename($DPath);
+        my $DName = getFilename($DPath);
         my $LName = "";
         if($DName=~/\A(.+).xml\Z/) {
             $LName = $1;
@@ -2475,18 +2337,18 @@ sub dumpSystem($)
         else {
             next;
         }
-        if(not is_target_lib($LName)
-        and not is_target_lib($LibSoname{$LName})) {
+        if(not isTargetLib($LName)
+        and not isTargetLib($LibSoname{$LName})) {
             next;
         }
-        $DPath = cut_path_prefix($DPath, $ORIG_DIR);
+        $DPath = cutPrefix($DPath, $In::Opt{"OrigDir"});
         my $ACC_dump = "perl $0";
         if($GroupByHeaders)
         { # header name is going here
             $ACC_dump .= " -l $LName";
         }
         else {
-            $ACC_dump .= " -l ".parse_libname($LName, "name", $OStarget);
+            $ACC_dump .= " -l ".libPart($LName, "name");
         }
         $ACC_dump .= " -dump \"$DPath\"";
         if($SystemRoot)
@@ -2499,58 +2361,58 @@ sub dumpSystem($)
         my $LogPath = "$SYS_DUMP_PATH/logs/$LName.txt";
         unlink($LogPath);
         $ACC_dump .= " -log-path \"$LogPath\"";
-        if($CrossGcc) {
-            $ACC_dump .= " -cross-gcc \"$CrossGcc\"";
+        if($In::Opt{"CrossGcc"}) {
+            $ACC_dump .= " -cross-gcc \"".$In::Opt{"CrossGcc"}."\"";
         }
-        if($CheckHeadersOnly) {
+        if($In::Opt{"CheckHeadersOnly"}) {
             $ACC_dump .= " -headers-only";
         }
-        if($UseStaticLibs) {
+        if($In::Opt{"UseStaticLibs"}) {
             $ACC_dump .= " -static-libs";
         }
         if($GroupByHeaders) {
             $ACC_dump .= " -header $LName";
         }
-        if($NoStdInc
-        or $OStarget=~/windows|symbian/)
+        if($In::Opt{"NoStdInc"}
+        or $In::Opt{"Target"}=~/windows|symbian/)
         { # 1. user-defined
           # 2. windows/minGW
           # 3. symbian/GCC
             $ACC_dump .= " -nostdinc";
         }
-        if($CxxIncompat or $CxxIncompat_L{$LName}) {
+        if($In::Opt{"CxxIncompat"} or $CxxIncompat_L{$LName}) {
             $ACC_dump .= " -cxx-incompatible";
         }
-        if($SkipUnidentified) {
+        if($In::Opt{"SkipUnidentified"}) {
             $ACC_dump .= " -skip-unidentified";
         }
-        if($Quiet)
+        if($In::Opt{"Quiet"})
         { # quiet mode
             $ACC_dump .= " -quiet";
         }
-        if($LogMode eq "n") {
+        if($In::Opt{"LogMode"} eq "n") {
             $ACC_dump .= " -logging-mode n";
         }
-        elsif($Quiet) {
+        elsif($In::Opt{"Quiet"}) {
             $ACC_dump .= " -logging-mode a";
         }
-        if($Debug)
+        if($In::Opt{"Debug"})
         { # debug mode
             $ACC_dump .= " -debug";
             printMsg("INFO", "$ACC_dump");
         }
         printMsg("INFO_C", "Dumping $LName: ");
-        system($ACC_dump." 1>$TMP_DIR/null 2>$TMP_DIR/$LName.stderr");
+        system($ACC_dump." 1>$TmpDir/null 2>$TmpDir/$LName.stderr");
         my $ErrCode = $?;
         appendFile("$SYS_DUMP_PATH/logs/$LName.txt", "The ACC parameters:\n  $ACC_dump\n");
-        my $ErrCont = readFile("$TMP_DIR/$LName.stderr");
+        my $ErrCont = readFile("$TmpDir/$LName.stderr");
         if($ErrCont) {
             appendFile("$SYS_DUMP_PATH/logs/$LName.txt", $ErrCont);
         }
         
         if(filterError($ErrCont))
         {
-            if(get_CodeError($ErrCode>>8) eq "Invalid_Dump") {
+            if(getCodeError($ErrCode>>8) eq "Invalid_Dump") {
                 printMsg("INFO", "Empty");
             }
             else {
@@ -2574,7 +2436,7 @@ sub dumpSystem($)
         printMsg("INFO", "Failed to find headers:  ".keys(%Failed)." ($SYS_DUMP_PATH/failed.txt)");
     }
     printMsg("INFO", "Dumped ABIs:             ".keys(%Dumped)." ($SYS_DUMP_PATH/abi_dumps/)");
-    printMsg("INFO", "The ".$SysDescriptor{"Name"}." system ABI has been dumped to:\n  $SYS_DUMP_PATH");
+    printMsg("INFO", "The ".$SysDesc{"Name"}." system ABI has been dumped to:\n  $SYS_DUMP_PATH");
 }
 
 sub filterError($)
@@ -2594,6 +2456,30 @@ sub filterError($)
     }
     
     return join("\n", @Err);
+}
+
+sub getBinVer($)
+{
+    my $Path = $_[0];
+    if($In::Opt{"Target"} eq "windows"
+    and $Path=~/\.dll\Z/)
+    { # get version of DLL using "sigcheck"
+        my $Sigcheck = getCmdPath("sigcheck");
+        if(not $Sigcheck) {
+            return undef;
+        }
+        my $TmpDir = $In::Opt{"Tmp"};
+        my $VInfo = `$Sigcheck -nobanner -n $Path 2>$TmpDir/null`;
+        $VInfo=~s/\s*\(.*\)\s*//;
+        chomp($VInfo);
+        
+        if($VInfo eq "n/a") {
+            $VInfo = uc($VInfo);
+        }
+        
+        return $VInfo;
+    }
+    return undef;
 }
 
 return 1;

@@ -1,7 +1,13 @@
+ABICC 2.0 Beta
+==============
+
 NAME:
   ABI Compliance Checker (ABICC) - a tool for checking backward binary and source-level compatibility of a C/C++ software library.
   
-  The tool checks header files and shared objects of old and new versions and analyzes changes in API/ABI that may break binary and/or source compatibility: changes in calling stack, v-table changes, removed symbols, renamed fields, etc.
+  The tool analyzes changes in API/ABI (ABI=API+compiler ABI) that may break binary compatibility and/or source compatibility: changes in calling stack, v-table changes, removed symbols, renamed fields, etc.
+  
+  The tool can create and compare ABI dumps for header files and shared objects of a library. The ABI dump for a library can also be created by
+  the ABI Dumper tool (https://github.com/lvc/abi-dumper) if shared objects include debug-info.
   
   The tool is intended for developers of software libraries and Linux maintainers who are interested in ensuring backward compatibility, i.e. allow old applications to run or to be recompiled with newer library versions.
   
@@ -63,4 +69,4 @@ TEST SUITE:
   
     abi-compliance-checker -test
 
-  There are about 100 basic tests for C and about 200 basic tests for C++ API/ABI breaks.
+  There are about 100 test cases for C and 200 test cases for C++ API/ABI breaks.

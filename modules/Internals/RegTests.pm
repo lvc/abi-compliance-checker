@@ -1,9 +1,8 @@
 ###########################################################################
-# Module for ABI Compliance Checker with regression test suite
+# A module with regression test suite
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-# Copyright (C) 2011-2012 ROSA Laboratory
 # Copyright (C) 2012-2016 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
@@ -23,27 +22,27 @@
 ###########################################################################
 use strict;
 
-my ($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode, $ReportFormat,
-$DumpFormat, $LIB_EXT, $GCC_PATH, $SortDump, $CheckHeadersOnly,
-$OldStyle, $TestABIDumper);
-my $OSgroup = get_OSgroup();
+loadModule("ElfTools");
 
-sub testTool($$$$$$$$$$$)
+sub testTool()
 {
-    ($TestDump, $Debug, $Quiet, $ExtendedCheck, $LogMode, $ReportFormat,
-    $DumpFormat, $LIB_EXT, $GCC_PATH, $SortDump, $CheckHeadersOnly,
-    $OldStyle, $TestABIDumper) = @_;
-    
     testC();
     testCpp();
 }
 
 sub testCpp()
 {
-    printMsg("INFO", "verifying detectable C++ library changes");
+    printMsg("INFO", "Verifying detectable C++ library changes");
     my ($HEADER1, $SOURCE1, $HEADER2, $SOURCE2) = ();
-    my $DECL_SPEC = ($OSgroup eq "windows")?"__declspec( dllexport )":"";
-    my $EXTERN = ($OSgroup eq "windows")?"extern ":""; # add "extern" for CL compiler
+    
+    my $DECL_SPEC = "";
+    my $EXTERN = "";
+    
+    if($In::Opt{"OS"} eq "windows")
+    {
+        $DECL_SPEC = "__declspec( dllexport )";
+        $EXTERN = "extern "; # add "extern" for CL compiler
+    }
     
     # Class outside namespace
     $HEADER1 .= "
@@ -1300,7 +1299,45 @@ sub testCpp()
     $SOURCE2 .= "
         int RemovedVirtualMethodFromEnd::method(int param) { return param; }
         int RemovedVirtualMethodFromEnd::removedMethod(int param) { return param; }";
-
+    
+    # Removed_Virtual_Method
+    $HEADER1 .= "
+        class $DECL_SPEC RemovedVirtualSymbol {
+        public:
+            virtual int method(int param);
+            virtual int removedMethod(int param);
+        };";
+    $SOURCE1 .= "
+        int RemovedVirtualSymbol::method(int param) { return param; }
+        int RemovedVirtualSymbol::removedMethod(int param) { return param; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC RemovedVirtualSymbol
+        {
+        public:
+            virtual int method(int param);
+        };";
+    $SOURCE2 .= "
+        int RemovedVirtualSymbol::method(int param) { return param; }";
+    
+    # Removed and added virtual method
+    $HEADER1 .= "
+        class $DECL_SPEC RemovedAddedVirtualSymbol {
+        public:
+            virtual int removedMethod(int param);
+        };";
+    $SOURCE1 .= "
+        int RemovedAddedVirtualSymbol::removedMethod(int param) { return param; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC RemovedAddedVirtualSymbol
+        {
+        public:
+            virtual int addedMethod(int param);
+        };";
+    $SOURCE2 .= "
+        int RemovedAddedVirtualSymbol::addedMethod(int param) { return param; }";
+    
     # Removed_Last_Virtual_Method
     $HEADER1 .= "
         class $DECL_SPEC RemovedLastVirtualMethod
@@ -1325,6 +1362,28 @@ sub testCpp()
         int RemovedLastVirtualMethod::method(int param) { return param; }";
     $SOURCE2 .= "
         int RemovedLastVirtualMethod::removedMethod(int param) { return param; }";
+    
+    # Removed_Last_Virtual_Method
+    $HEADER1 .= "
+        class $DECL_SPEC RemovedLastVirtualSymbol
+        {
+        public:
+            int method(int param);
+            virtual int removedMethod(int param);
+        };";
+    $SOURCE1 .= "
+        int RemovedLastVirtualSymbol::method(int param) { return param; }";
+    $SOURCE1 .= "
+        int RemovedLastVirtualSymbol::removedMethod(int param) { return param; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC RemovedLastVirtualSymbol
+        {
+        public:
+            int method(int param);
+        };";
+    $SOURCE2 .= "
+        int RemovedLastVirtualSymbol::method(int param) { return param; }";
     
     # Virtual_Table_Size
     $HEADER1 .= "
@@ -2968,10 +3027,17 @@ sub testCpp()
 
 sub testC()
 {
-    printMsg("INFO", "\nverifying detectable C library changes");
+    printMsg("INFO", "\nVerifying detectable C library changes");
     my ($HEADER1, $SOURCE1, $HEADER2, $SOURCE2) = ();
-    my $DECL_SPEC = ($OSgroup eq "windows")?"__declspec( dllexport )":"";
-    my $EXTERN = ($OSgroup eq "windows")?"extern ":""; # add "extern" for CL compiler
+    
+    my $DECL_SPEC = "";
+    my $EXTERN = "";
+    
+    if($In::Opt{"OS"} eq "windows")
+    {
+        $DECL_SPEC = "__declspec( dllexport )";
+        $EXTERN = "extern "; # add "extern" for CL compiler
+    }
     
     # Struct to union
     $HEADER1 .= "
@@ -4342,7 +4408,7 @@ sub testC()
     $SOURCE2 .= "
         int internalTypeUse(struct InternalType param, int param_2) { return param_2; }";
     
-    if($OSgroup eq "linux")
+    if($In::Opt{"OS"} eq "linux")
     {
         # Changed version
         $HEADER1 .= "
@@ -4678,6 +4744,9 @@ sub runTests($$$$$$$$)
 {
     my ($LibName, $Lang, $HEADER1, $SOURCE1, $HEADER2, $SOURCE2, $Opaque, $Private) = @_;
     
+    my $LExt = $In::Opt{"Ext"};
+    my $GccPath = $In::Opt{"GccPath"};
+    
     my $SrcE = ($Lang eq "C++")?"cpp":"c";
     rmtree($LibName);
     
@@ -4690,30 +4759,25 @@ sub runTests($$$$$$$$)
     mkpath($Path_v2);
     writeFile("$Path_v1/$ObjName.h", $HEADER1."\n");
     writeFile("$Path_v1/$ObjName.$SrcE", "#include \"$ObjName.h\"\n".$SOURCE1."\n");
+    
     writeFile("$LibName/v1.xml", "
         <version>
             1.0
         </version>
         
         <headers>
-            ".get_abs_path($Path_v1)."
+            ".getAbsPath($Path_v1)."
         </headers>
         
         <libs>
-            ".get_abs_path($Path_v1)."
+            ".getAbsPath($Path_v1)."
         </libs>
         
-        <skip_types>
-            $Opaque
-        </skip_types>
-        
-        <skip_symbols>
-            $Private
-        </skip_symbols>
-        
         <include_paths>
-            ".get_abs_path($Path_v1)."
-        </include_paths>\n");
+            ".getAbsPath($Path_v1)."
+        </include_paths>
+    ");
+    
     writeFile("$Path_v1/test.$SrcE", "
         #include \"$ObjName.h\"
         #include <stdio.h>
@@ -4723,7 +4787,8 @@ sub runTests($$$$$$$$)
             int ret = 0;
             printf(\"\%d\\n\", ret);
             return 0;
-        }\n");
+        }
+    ");
     
     writeFile("$Path_v2/$ObjName.h", $HEADER2."\n");
     writeFile("$Path_v2/$ObjName.$SrcE", "#include \"$ObjName.h\"\n".$SOURCE2."\n");
@@ -4733,24 +4798,18 @@ sub runTests($$$$$$$$)
         </version>
         
         <headers>
-            ".get_abs_path($Path_v2)."
+            ".getAbsPath($Path_v2)."
         </headers>
         
         <libs>
-            ".get_abs_path($Path_v2)."
+            ".getAbsPath($Path_v2)."
         </libs>
         
-        <skip_types>
-            $Opaque
-        </skip_types>
-        
-        <skip_symbols>
-            $Private
-        </skip_symbols>
-        
         <include_paths>
-            ".get_abs_path($Path_v2)."
-        </include_paths>\n");
+            ".getAbsPath($Path_v2)."
+        </include_paths>
+    ");
+    
     writeFile("$Path_v2/test.$SrcE", "
         #include \"$ObjName.h\"
         #include <stdio.h>
@@ -4760,21 +4819,22 @@ sub runTests($$$$$$$$)
             int ret = 0;
             printf(\"\%d\\n\", ret);
             return 0;
-        }\n");
+        }
+    ");
+    
+    writeFile("$LibName/filt.xml", "
+        <skip_types>
+            $Opaque
+        </skip_types>
+        
+        <skip_symbols>
+            $Private
+        </skip_symbols>
+    ");
     
     my ($BuildCmd, $BuildCmd_Test) = ("", "");
-    if($OSgroup eq "windows")
-    {
-        check_win32_env(); # to run MS VC++ compiler
-        my $CL = get_CmdPath("cl");
-        
-        if(not $CL) {
-            exitStatus("Not_Found", "can't find \"cl\" compiler");
-        }
-        $BuildCmd = "$CL /LD $ObjName.$SrcE >build_log.txt 2>&1";
-        $BuildCmd_Test = "$CL test.$SrcE $ObjName.$LIB_EXT";
-    }
-    elsif($OSgroup eq "linux")
+    
+    if($In::Opt{"OS"} eq "linux")
     {
         if($Lang eq "C")
         { # tests for symbol versioning
@@ -4802,61 +4862,72 @@ sub runTests($$$$$$$$)
                     changedDefaultVersion;
                 };
             ");
-            $BuildCmd = $GCC_PATH." -Wl,--version-script version -shared $ObjName.$SrcE -o $ObjName.$LIB_EXT -g -Og";
-            $BuildCmd_Test = $GCC_PATH." -Wl,--version-script version test.$SrcE -Wl,$ObjName.$LIB_EXT -o test";
+            $BuildCmd = $GccPath." -Wl,--version-script version -shared $ObjName.$SrcE -o $ObjName.$LExt -g -Og";
+            $BuildCmd_Test = $GccPath." -Wl,--version-script version test.$SrcE -Wl,$ObjName.$LExt -o test";
         }
         else
         {
-            $BuildCmd = $GCC_PATH." -shared -x c++ $ObjName.$SrcE -lstdc++ -o $ObjName.$LIB_EXT -g -Og";
-            $BuildCmd_Test = $GCC_PATH." -x c++ test.$SrcE -lstdc++ -Wl,$ObjName.$LIB_EXT -o test";
+            $BuildCmd = $GccPath." -shared -x c++ $ObjName.$SrcE -lstdc++ -o $ObjName.$LExt -g -Og";
+            $BuildCmd_Test = $GccPath." -x c++ test.$SrcE -lstdc++ -Wl,$ObjName.$LExt -o test";
         }
         if(getArch_GCC(1)=~/\A(arm|x86_64)\Z/i)
         { # relocation R_ARM_MOVW_ABS_NC against `a local symbol' can not be used when making a shared object; recompile with -fPIC
-            $BuildCmd .= " -fPIC";
-            $BuildCmd_Test .= " -fPIC";
+            $BuildCmd .= " -fPIC -DPIC";
+            $BuildCmd_Test .= " -fPIC -DPIC";
         }
     }
-    elsif($OSgroup eq "macos")
+    elsif($In::Opt{"OS"} eq "macos")
     { # using GCC -dynamiclib
         if($Lang eq "C")
         {
-            $BuildCmd = $GCC_PATH." -dynamiclib $ObjName.$SrcE -o $ObjName.$LIB_EXT";
-            $BuildCmd_Test = $GCC_PATH." test.$SrcE $ObjName.$LIB_EXT -o test";
+            $BuildCmd = $GccPath." -dynamiclib $ObjName.$SrcE -o $ObjName.$LExt";
+            $BuildCmd_Test = $GccPath." test.$SrcE $ObjName.$LExt -o test";
         }
         else
         { # C++
-            $BuildCmd = $GCC_PATH." -dynamiclib -x c++ $ObjName.$SrcE -lstdc++ -o $ObjName.$LIB_EXT";
-            $BuildCmd_Test = $GCC_PATH." -x c++ test.$SrcE $ObjName.$LIB_EXT -o test";
+            $BuildCmd = $GccPath." -dynamiclib -x c++ $ObjName.$SrcE -lstdc++ -o $ObjName.$LExt";
+            $BuildCmd_Test = $GccPath." -x c++ test.$SrcE $ObjName.$LExt -o test";
         }
+    }
+    elsif($In::Opt{"OS"} eq "windows")
+    {
+        checkWin32Env(); # to run MS VC++ compiler
+        my $CL = getCmdPath("cl");
+        
+        if(not $CL) {
+            exitStatus("Not_Found", "can't find \"cl\" compiler");
+        }
+        $BuildCmd = "$CL /LD $ObjName.$SrcE >build_log.txt 2>&1";
+        $BuildCmd_Test = "$CL test.$SrcE $ObjName.$LExt";
     }
     else
     { # default unix-like
         if($Lang eq "C")
         {
-            $BuildCmd = $GCC_PATH." -shared $ObjName.$SrcE -o $ObjName.$LIB_EXT -g -Og";
-            $BuildCmd_Test = $GCC_PATH." test.$SrcE -Wl,$ObjName.$LIB_EXT -o test";
+            $BuildCmd = $GccPath." -shared $ObjName.$SrcE -o $ObjName.$LExt -g -Og";
+            $BuildCmd_Test = $GccPath." test.$SrcE -Wl,$ObjName.$LExt -o test";
         }
         else
         { # C++
-            $BuildCmd = $GCC_PATH." -shared -x c++ $ObjName.$SrcE -lstdc++ -o $ObjName.$LIB_EXT -g -Og";
-            $BuildCmd_Test = $GCC_PATH." -x c++ test.$SrcE -Wl,$ObjName.$LIB_EXT -o test";
+            $BuildCmd = $GccPath." -shared -x c++ $ObjName.$SrcE -lstdc++ -o $ObjName.$LExt -g -Og";
+            $BuildCmd_Test = $GccPath." -x c++ test.$SrcE -Wl,$ObjName.$LExt -o test";
         }
         
-        if($OSgroup eq "solaris")
+        if(getArch_GCC(1)=~/\A(arm|x86_64)\Z/i)
         {
             $BuildCmd .= " -fPIC -DPIC";
             $BuildCmd_Test .= " -fPIC -DPIC";
         }
     }
     
-    if(my $Opts = getGCC_Opts(1))
+    if(my $Opts = getGccOptions(1))
     { # user-defined options
         $BuildCmd .= " ".$Opts;
         $BuildCmd_Test .= " ".$Opts;
     }
     
     my $MkContent = "all:\n\t$BuildCmd\ntest:\n\t$BuildCmd_Test\n";
-    if($OSgroup eq "windows") {
+    if($In::Opt{"OS"} eq "windows") {
         $MkContent .= "clean:\n\tdel test $ObjName.so\n";
     }
     else {
@@ -4877,25 +4948,27 @@ sub runTests($$$$$$$$)
     if($?) {
         exitStatus("Error", "can't compile $LibName v.2: \'$Path_v2/build-log.txt\'");
     }
+    
     # executing the tool
     my @Cmd = ("perl", $0, "-l", $LibName);
     
-    if($TestABIDumper and $OSgroup eq "linux")
+    if($In::Opt{"TestABIDumper"}
+    and $In::Opt{"OS"} eq "linux")
     {
-        my @Cmd_d1 = ("abi-dumper", $Path_v1."/".$ObjName.".".$LIB_EXT, "-o", $LibName."/ABIv1.dump");
+        my @Cmd_d1 = ("abi-dumper", $Path_v1."/".$ObjName.".".$LExt, "-o", $LibName."/ABIv1.dump");
         @Cmd_d1 = (@Cmd_d1, "-public-headers", $Path_v1, "-lver", "1.0");
-        if($Debug)
+        if($In::Opt{"Debug"})
         { # debug mode
-            printMsg("INFO", "executing @Cmd_d1");
+            printMsg("INFO", "Executing @Cmd_d1");
         }
         system(@Cmd_d1);
         printMsg("INFO", "");
         
-        my @Cmd_d2 = ("abi-dumper", $Path_v2."/".$ObjName.".".$LIB_EXT, "-o", $LibName."/ABIv2.dump");
+        my @Cmd_d2 = ("abi-dumper", $Path_v2."/".$ObjName.".".$LExt, "-o", $LibName."/ABIv2.dump");
         @Cmd_d2 = (@Cmd_d2, "-public-headers", $Path_v2, "-lver", "2.0");
-        if($Debug)
+        if($In::Opt{"Debug"})
         { # debug mode
-            printMsg("INFO", "executing @Cmd_d2");
+            printMsg("INFO", "Executing @Cmd_d2");
         }
         system(@Cmd_d2);
         printMsg("INFO", "");
@@ -4907,69 +4980,79 @@ sub runTests($$$$$$$$)
         @Cmd = (@Cmd, "-old", "$LibName/v1.xml", "-new", "$LibName/v2.xml");
     }
     
+    @Cmd = (@Cmd, "-filter", "$LibName/filt.xml");
+    
     if($Lang eq "C") {
         @Cmd = (@Cmd, "-cxx-incompatible");
     }
     
     @Cmd = (@Cmd, "-lang", $Lang);
     
-    if($TestDump)
+    if($In::Opt{"TestDump"})
     {
         @Cmd = (@Cmd, "-use-dumps");
-        if($SortDump) {
+        if($In::Opt{"SortDump"}) {
             @Cmd = (@Cmd, "-sort");
         }
     }
-    if($DumpFormat and $DumpFormat ne "perl")
+    if($In::Opt{"DumpFormat"} and $In::Opt{"DumpFormat"} ne "perl")
     { # Perl Data::Dumper is default format
-        @Cmd = (@Cmd, "-dump-format", $DumpFormat);
+        @Cmd = (@Cmd, "-dump-format", $In::Opt{"DumpFormat"});
     }
-    if($GCC_PATH ne "gcc") {
-        @Cmd = (@Cmd, "-cross-gcc", $GCC_PATH);
+    if($GccPath ne "gcc") {
+        @Cmd = (@Cmd, "-cross-gcc", $GccPath);
     }
-    if($Quiet)
+    if($In::Opt{"Quiet"})
     { # quiet mode
         @Cmd = (@Cmd, "-quiet");
         @Cmd = (@Cmd, "-logging-mode", "a");
     }
-    elsif($LogMode and $LogMode ne "w")
+    elsif($In::Opt{"LogMode"}
+    and $In::Opt{"LogMode"} ne "w")
     { # "w" is default
-        @Cmd = (@Cmd, "-logging-mode", $LogMode);
+        @Cmd = (@Cmd, "-logging-mode", $In::Opt{"LogMode"});
     }
-    if($ExtendedCheck)
+    if($In::Opt{"ExtendedCheck"})
     { # extended mode
         @Cmd = (@Cmd, "-extended");
         if($Lang eq "C") {
             @Cmd = (@Cmd, "-lang", "C");
         }
     }
-    if($ReportFormat and $ReportFormat ne "html")
+    if($In::Opt{"ReportFormat"}
+    and $In::Opt{"ReportFormat"} ne "html")
     { # HTML is default format
-        @Cmd = (@Cmd, "-report-format", $ReportFormat);
+        @Cmd = (@Cmd, "-report-format", $In::Opt{"ReportFormat"});
     }
-    if($CheckHeadersOnly) {
+    if($In::Opt{"CheckHeadersOnly"}) {
         @Cmd = (@Cmd, "-headers-only");
     }
-    if($OldStyle) {
+    if($In::Opt{"OldStyle"}) {
         @Cmd = (@Cmd, "-old-style");
     }
-    if($Debug)
+    
+    if($In::Opt{"DebugMangling"}) {
+        @Cmd = (@Cmd, "-debug-mangling");
+    }
+    
+    if($In::Opt{"Debug"})
     { # debug mode
         @Cmd = (@Cmd, "-debug");
-        printMsg("INFO", "executing @Cmd");
+        printMsg("INFO", "Executing @Cmd");
     }
+    
     system(@Cmd);
     
     my $ECode = $?>>8;
     
     if($ECode!~/\A[016]\Z/)
     { # error
-        exitStatus("Error", "analysis has failed (".$ECode.")");
+        exitStatus("Error", "analysis has failed ($ECode)");
     }
     
-    my $RPath = "compat_reports/$LibName/1.0_to_2.0/compat_report.$ReportFormat";
+    my $RPath = "compat_reports/$LibName/1.0_to_2.0/compat_report.".$In::Opt{"ReportFormat"};
     my $NProblems = 0;
-    if($ReportFormat eq "xml")
+    if($In::Opt{"ReportFormat"} eq "xml")
     {
         my $Content = readFile($RPath);
         # binary
@@ -5016,10 +5099,10 @@ sub runTests($$$$$$$$)
     }
     if(($LibName eq "libsample_c" and $NProblems>70)
     or ($LibName eq "libsample_cpp" and $NProblems>150)) {
-        printMsg("INFO", "result: SUCCESS ($NProblems problems found)\n");
+        printMsg("INFO", "Result: SUCCESS ($NProblems problems found)\n");
     }
     else {
-        printMsg("ERROR", "result: FAILED ($NProblems problems found)\n");
+        printMsg("ERROR", "Result: FAILED ($NProblems problems found)\n");
     }
 }
 

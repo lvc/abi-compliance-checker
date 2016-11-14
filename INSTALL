@@ -1,7 +1,6 @@
 
 Copyright (C) 2009-2011 Institute for System Programming, RAS
 Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-Copyright (C) 2011-2012 ROSA Laboratory
 Copyright (C) 2012-2016 Andrey Ponomarenko's ABI Laboratory
 All rights reserved.
 
@@ -9,8 +8,8 @@ All rights reserved.
 RELEASE INFORMATION
 
 Project:           ABI Compliance Checker (ABICC)
-Version:           1.99.25
-Date:              2016-10-07
+Version:           2.0 Beta
+Date:              2016-11-14
 
 
 This file explains how to install and setup environment
@@ -103,6 +102,9 @@ Content:
      abi-dumper OLD.so -o ABI-0.dump -lver 0
      abi-dumper NEW.so -o ABI-1.dump -lver 1
 
+   You can filter public ABI symbols with the help of
+   additional -public-headers option of the ABI Dumper tool.
+      
    Compare ABI dumps to create report:
 
      abi-compliance-checker -l NAME -old ABI-0.dump -new ABI-1.dump
