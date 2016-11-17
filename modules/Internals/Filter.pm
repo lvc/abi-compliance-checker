@@ -26,6 +26,10 @@ sub symbolFilter($$$$)
 { # some special cases when the symbol cannot be imported
     my ($Symbol, $SInfo, $Type, $Level, $LVer) = @_;
     
+    if($SInfo->{"Private"}) {
+        return 0;
+    }
+    
     if(isPrivateData($Symbol))
     { # non-public global data
         return 0;

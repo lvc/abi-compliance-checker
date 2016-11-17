@@ -19,6 +19,7 @@
 # If not, see <http://www.gnu.org/licenses/>.
 ###########################################################################
 use strict;
+use Cwd qw(realpath);
 
 my %Cache;
 

@@ -26,8 +26,13 @@ loadModule("ElfTools");
 
 sub testTool()
 {
-    testC();
-    testCpp();
+    if($In::Opt{"UserLang"} ne "C++") {
+        testC();
+    }
+    
+    if($In::Opt{"UserLang"} ne "C") {
+        testCpp();
+    }
 }
 
 sub testCpp()
@@ -1319,6 +1324,66 @@ sub testCpp()
         };";
     $SOURCE2 .= "
         int RemovedVirtualSymbol::method(int param) { return param; }";
+    
+    # Removed_Virtual_Method (Private)
+    $HEADER1 .= "
+        class $DECL_SPEC RemovedPrivateVirtualSymbol {
+        public:
+            virtual int method(int param);
+        private:
+            virtual int removedMethod(int param);
+        };";
+    $SOURCE1 .= "
+        int RemovedPrivateVirtualSymbol::method(int param) { return param; }
+        int RemovedPrivateVirtualSymbol::removedMethod(int param) { return param; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC RemovedPrivateVirtualSymbol
+        {
+        public:
+            virtual int method(int param);
+        };";
+    $SOURCE2 .= "
+        int RemovedPrivateVirtualSymbol::method(int param) { return param; }";
+    
+    # Added_Virtual_Method (Private)
+    $HEADER1 .= "
+        class $DECL_SPEC AddedPrivateVirtualSymbol
+        {
+        public:
+            AddedPrivateVirtualSymbol();
+            virtual int method(int param);
+        };
+        
+        class $DECL_SPEC AddedPrivateVirtualSymbol_Derived: public AddedPrivateVirtualSymbol
+        {
+        public:
+            virtual int method1(int param);
+        };";
+    $SOURCE1 .= "
+        AddedPrivateVirtualSymbol::AddedPrivateVirtualSymbol() {};
+        int AddedPrivateVirtualSymbol::method(int param) { return param; }
+        int AddedPrivateVirtualSymbol_Derived::method1(int param) { return param; }";
+    
+    $HEADER2 .= "
+        class $DECL_SPEC AddedPrivateVirtualSymbol {
+        public:
+            AddedPrivateVirtualSymbol();
+            virtual int method(int param);
+        private:
+            virtual int addedMethod(int param);
+        };
+        
+        class $DECL_SPEC AddedPrivateVirtualSymbol_Derived: public AddedPrivateVirtualSymbol
+        {
+        public:
+            virtual int method1(int param);
+        };";
+    $SOURCE2 .= "
+        AddedPrivateVirtualSymbol::AddedPrivateVirtualSymbol() {};
+        int AddedPrivateVirtualSymbol::method(int param) { return param; }
+        int AddedPrivateVirtualSymbol::addedMethod(int param) { return param; }
+        int AddedPrivateVirtualSymbol_Derived::method1(int param) { return param; }";
     
     # Removed and added virtual method
     $HEADER1 .= "
@@ -5041,16 +5106,21 @@ sub runTests($$$$$$$$)
         printMsg("INFO", "Executing @Cmd");
     }
     
+    my $RPath = "compat_reports/$LibName/1.0_to_2.0/compat_report.".$In::Opt{"ReportFormat"};
+    
+    if(-f $RPath) {
+        unlink($RPath);
+    }
+    
     system(@Cmd);
     
     my $ECode = $?>>8;
     
-    if($ECode!~/\A[016]\Z/)
+    if($ECode!~/\A[016]\Z/ or not -f $RPath)
     { # error
         exitStatus("Error", "analysis has failed ($ECode)");
     }
     
-    my $RPath = "compat_reports/$LibName/1.0_to_2.0/compat_report.".$In::Opt{"ReportFormat"};
     my $NProblems = 0;
     if($In::Opt{"ReportFormat"} eq "xml")
     {
@@ -5079,6 +5149,7 @@ sub runTests($$$$$$$$)
                 $NProblems += int(parseTag(\$TProblems, "high"));
                 $NProblems += int(parseTag(\$TProblems, "medium"));
             }
+            
             if(my $IProblems = parseTag(\$PSummary, "problems_with_symbols"))
             {
                 $NProblems += int(parseTag(\$IProblems, "high"));
@@ -5092,11 +5163,13 @@ sub runTests($$$$$$$$)
         $NProblems += $BReport->{"removed"};
         $NProblems += $BReport->{"type_problems_high"}+$BReport->{"type_problems_medium"};
         $NProblems += $BReport->{"interface_problems_high"}+$BReport->{"interface_problems_medium"};
+        
         my $SReport = readAttributes($RPath, 1);
         $NProblems += $SReport->{"removed"};
         $NProblems += $SReport->{"type_problems_high"}+$SReport->{"type_problems_medium"};
         $NProblems += $SReport->{"interface_problems_high"}+$SReport->{"interface_problems_medium"};
     }
+    
     if(($LibName eq "libsample_c" and $NProblems>70)
     or ($LibName eq "libsample_cpp" and $NProblems>150)) {
         printMsg("INFO", "Result: SUCCESS ($NProblems problems found)\n");

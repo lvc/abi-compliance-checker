@@ -64,6 +64,7 @@ my %C_Structure = map {$_=>1} (
     "_xsave_hdr",
     "_xstate",
     "_ymmh_state",
+    "_prop_t",
  # Other
     "timespec",
     "random_data",

@@ -53,10 +53,9 @@ use Getopt::Long;
 Getopt::Long::Configure ("posix_default", "no_ignore_case");
 use File::Path qw(mkpath rmtree);
 use File::Temp qw(tempdir);
-use File::Copy qw(copy move);
+use File::Copy qw(copy);
 use File::Basename qw(dirname);
-use Cwd qw(abs_path cwd realpath);
-use Storable qw(dclone);
+use Cwd qw(abs_path cwd);
 use Data::Dumper;
 
 my $TOOL_VERSION = "2.0";
@@ -225,7 +224,7 @@ sub errMsg()
 # Default log path
 $In::Opt{"DefaultLog"} = "logs/run.log";
 
-my $HelpMessage="
+my $HelpMessage = "
 NAME:
   ABI Compliance Checker ($CmdName)
   Check backward compatibility of a C/C++ library API
@@ -2058,7 +2057,7 @@ sub mergeVTables($)
 sub mergeBases($)
 {
     my $Level = $_[0];
-    foreach my $ClassName (keys(%{$ClassNames{1}}))
+    foreach my $ClassName (sort keys(%{$ClassNames{1}}))
     { # detect added and removed virtual functions
         my $ClassId = $TName_Tid{1}{$ClassName};
         next if(not $ClassId);
@@ -2122,8 +2121,10 @@ sub mergeBases($)
                     { # skip: DomUi => DomUI parameter (Qt 4.2.3 to 4.3.0)
                         next;
                     }
+                    
                     my $ProblemType = "Virtual_Replacement";
-                    my @Affected = ($RemovedVFunc);
+                    my @Affected = ();
+                    
                     if($CompSign{1}{$RemovedVFunc}{"PureVirt"})
                     { # pure methods
                         if(not isUsedClass($ClassId, 1, $Level))
@@ -2134,9 +2135,15 @@ sub mergeBases($)
                         
                         # affected all methods (both virtual and non-virtual ones)
                         @Affected = (keys(%{$ClassMethods{$Level}{1}{$ClassName}}));
-                        push(@Affected, keys(%{$OverriddenMethods{1}{$RemovedVFunc}}));
                     }
-                    $VTableChanged_M{$ClassName}=1;
+                    else {
+                        @Affected = ($RemovedVFunc);
+                    }
+                    
+                    push(@Affected, keys(%{$OverriddenMethods{1}{$RemovedVFunc}}));
+                    
+                    $VTableChanged_M{$ClassName} = 1;
+                    
                     foreach my $AffectedInt (@Affected)
                     {
                         if($CompSign{1}{$AffectedInt}{"PureVirt"})
@@ -2151,26 +2158,6 @@ sub mergeBases($)
                             "Target"=>$AddedVFunc,
                             "Old_Value"=>$RemovedVFunc);
                     }
-                }
-            }
-            
-            foreach my $Symbol (keys(%{$RemovedInt_Virt{$Level}{$ClassName}}))
-            {
-                if($VirtualReplacement{$Symbol}) {
-                    next;
-                }
-                
-                if(symbolFilter($Symbol, $CompSign{1}{$Symbol}, "Affected", $Level, 1))
-                {
-                    my $ProblemType = "Removed_Virtual_Method";
-                    if($CompSign{1}{$Symbol}{"PureVirt"}) {
-                        $ProblemType = "Removed_Pure_Virtual_Method";
-                    }
-                    
-                    %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{getSignature($Symbol, 1, "Name|Qual")}}=(
-                        "Type_Name"=>$ClassName,
-                        "Target"=>$Symbol);
-                    $VTableChanged_M{$ClassName} = 1;
                 }
             }
         }
@@ -2190,10 +2177,7 @@ sub mergeBases($)
           # example: class has only a private exported or private inline constructor
             next;
         }
-        if($ClassName=~/>/)
-        { # skip affected template instances
-            next;
-        }
+        
         my %Class_Old = getType($ClassId_Old, 1);
         my $ClassId_New = $TName_Tid{2}{$ClassName};
         if(not $ClassId_New) {
@@ -2220,6 +2204,40 @@ sub mergeBases($)
             next;
         }
         
+        if($Level eq "Binary")
+        {
+            foreach my $Symbol (sort keys(%{$RemovedInt_Virt{$Level}{$ClassName}}))
+            {
+                if($VirtualReplacement{$Symbol}) {
+                    next;
+                }
+                
+                if(symbolFilter($Symbol, $CompSign{1}{$Symbol}, "Affected", $Level, 1))
+                {
+                    my $ProblemType = "Removed_Virtual_Method";
+                    if($CompSign{1}{$Symbol}{"PureVirt"}) {
+                        $ProblemType = "Removed_Pure_Virtual_Method";
+                    }
+                    
+                    %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{getSignature($Symbol, 1, "Name|Qual")}}=(
+                        "Type_Name"=>$ClassName,
+                        "Target"=>$Symbol);
+                }
+                
+                $VTableChanged_M{$ClassName} = 1;
+                foreach my $SubId (getSubClasses($ClassId_Old, 1, 1))
+                {
+                    if(my $SubName = $TypeInfo{1}{$SubId}{"Name"}) {
+                        $VTableChanged_M{$SubName} = 1;
+                    }
+                }
+            }
+        }
+        
+        if(index($ClassName, ">")!=-1)
+        { # skip affected template instances
+            next;
+        }
         
         my @Bases_Old = sort {$Class_Old{"Base"}{$a}{"pos"}<=>$Class_Old{"Base"}{$b}{"pos"}} keys(%{$Class_Old{"Base"}});
         my @Bases_New = sort {$Class_New{"Base"}{$a}{"pos"}<=>$Class_New{"Base"}{$b}{"pos"}} keys(%{$Class_New{"Base"}});
@@ -2235,7 +2253,6 @@ sub mergeBases($)
         my $Shift_Old = getShift($ClassId_Old, 1);
         my $Shift_New = getShift($ClassId_New, 2);
         my %BaseId_New = map {$Tr_New{$TypeInfo{2}{$_}{"Name"}} => $_} @Bases_New;
-        my ($Added, $Removed) = (0, 0);
         my @StableBases_Old = ();
         foreach my $BaseId (@Bases_Old)
         {
@@ -2263,7 +2280,7 @@ sub mergeBases($)
                     and cmpVTables($ClassName)==1)
                     { # affected v-table
                         $ProblemKind .= "_And_VTable";
-                        $VTableChanged_M{$ClassName}=1;
+                        $VTableChanged_M{$ClassName} = 1;
                     }
                 }
                 my @Affected = keys(%{$ClassMethods{$Level}{1}{$ClassName}});
@@ -2273,23 +2290,22 @@ sub mergeBases($)
                     {
                         push(@Affected, keys(%{$ClassMethods{$Level}{1}{$SubName}}));
                         if($ProblemKind=~/VTable/) {
-                            $VTableChanged_M{$SubName}=1;
+                            $VTableChanged_M{$SubName} = 1;
                         }
                     }
                 }
                 foreach my $Interface (@Affected)
                 {
-                    if(not symbolFilter($Interface, $CompSign{1}{$Interface}, "Affected", $Level, 1)) {
-                        next;
+                    if(symbolFilter($Interface, $CompSign{1}{$Interface}, "Affected", $Level, 1))
+                    {
+                        %{$CompatProblems{$Level}{$Interface}{$ProblemKind}{"this"}}=(
+                            "Type_Name"=>$ClassName,
+                            "Target"=>$BaseName,
+                            "Old_Size"=>$Class_Old{"Size"}*$BYTE,
+                            "New_Size"=>$Class_New{"Size"}*$BYTE,
+                            "Shift"=>abs($Shift_New-$Shift_Old));
                     }
-                    %{$CompatProblems{$Level}{$Interface}{$ProblemKind}{"this"}}=(
-                        "Type_Name"=>$ClassName,
-                        "Target"=>$BaseName,
-                        "Old_Size"=>$Class_Old{"Size"}*$BYTE,
-                        "New_Size"=>$Class_New{"Size"}*$BYTE,
-                        "Shift"=>abs($Shift_New-$Shift_Old)  );
                 }
-                $Removed+=1;
             }
         }
         my @StableBases_New = ();
@@ -2319,7 +2335,7 @@ sub mergeBases($)
                     and cmpVTables($ClassName)==1)
                     { # affected v-table
                         $ProblemKind .= "_And_VTable";
-                        $VTableChanged_M{$ClassName}=1;
+                        $VTableChanged_M{$ClassName} = 1;
                     }
                 }
                 my @Affected = keys(%{$ClassMethods{$Level}{1}{$ClassName}});
@@ -2329,23 +2345,22 @@ sub mergeBases($)
                     {
                         push(@Affected, keys(%{$ClassMethods{$Level}{1}{$SubName}}));
                         if($ProblemKind=~/VTable/) {
-                            $VTableChanged_M{$SubName}=1;
+                            $VTableChanged_M{$SubName} = 1;
                         }
                     }
                 }
                 foreach my $Interface (@Affected)
                 {
-                    if(not symbolFilter($Interface, $CompSign{1}{$Interface}, "Affected", $Level, 1)) {
-                        next;
+                    if(symbolFilter($Interface, $CompSign{1}{$Interface}, "Affected", $Level, 1))
+                    {
+                        %{$CompatProblems{$Level}{$Interface}{$ProblemKind}{"this"}}=(
+                            "Type_Name"=>$ClassName,
+                            "Target"=>$BaseName,
+                            "Old_Size"=>$Class_Old{"Size"}*$BYTE,
+                            "New_Size"=>$Class_New{"Size"}*$BYTE,
+                            "Shift"=>abs($Shift_New-$Shift_Old));
                     }
-                    %{$CompatProblems{$Level}{$Interface}{$ProblemKind}{"this"}}=(
-                        "Type_Name"=>$ClassName,
-                        "Target"=>$BaseName,
-                        "Old_Size"=>$Class_Old{"Size"}*$BYTE,
-                        "New_Size"=>$Class_New{"Size"}*$BYTE,
-                        "Shift"=>abs($Shift_New-$Shift_Old)  );
                 }
-                $Added+=1;
             }
         }
         if($Level eq "Binary")
@@ -2364,14 +2379,14 @@ sub mergeBases($)
                     { # changed position of the base class
                         foreach my $Interface (keys(%{$ClassMethods{$Level}{1}{$ClassName}}))
                         {
-                            if(not symbolFilter($Interface, $CompSign{1}{$Interface}, "Affected", $Level, 1)) {
-                                next;
+                            if(symbolFilter($Interface, $CompSign{1}{$Interface}, "Affected", $Level, 1))
+                            {
+                                %{$CompatProblems{$Level}{$Interface}{"Base_Class_Position"}{"this"}}=(
+                                    "Type_Name"=>$ClassName,
+                                    "Target"=>$BaseName,
+                                    "Old_Value"=>$OldPos-1,
+                                    "New_Value"=>$NewPos-1);
                             }
-                            %{$CompatProblems{$Level}{$Interface}{"Base_Class_Position"}{"this"}}=(
-                                "Type_Name"=>$ClassName,
-                                "Target"=>$BaseName,
-                                "Old_Value"=>$OldPos-1,
-                                "New_Value"=>$NewPos-1  );
                         }
                     }
                     if($Class_Old{"Base"}{$BaseId}{"virtual"}
@@ -2379,12 +2394,12 @@ sub mergeBases($)
                     { # became non-virtual base
                         foreach my $Interface (keys(%{$ClassMethods{$Level}{1}{$ClassName}}))
                         {
-                            if(not symbolFilter($Interface, $CompSign{1}{$Interface}, "Affected", $Level, 1)) {
-                                next;
+                            if(symbolFilter($Interface, $CompSign{1}{$Interface}, "Affected", $Level, 1))
+                            {
+                                %{$CompatProblems{$Level}{$Interface}{"Base_Class_Became_Non_Virtually_Inherited"}{"this->".$BaseName}}=(
+                                    "Type_Name"=>$ClassName,
+                                    "Target"=>$BaseName  );
                             }
-                            %{$CompatProblems{$Level}{$Interface}{"Base_Class_Became_Non_Virtually_Inherited"}{"this->".$BaseName}}=(
-                                "Type_Name"=>$ClassName,
-                                "Target"=>$BaseName  );
                         }
                     }
                     elsif(not $Class_Old{"Base"}{$BaseId}{"virtual"}
@@ -2684,7 +2699,6 @@ sub mergeVirtualTables($$)
                                     next;
                                 }
                             }
-                            $CheckedSymbols{$Level}{$ASymbol} = 1;
                             %{$CompatProblems{$Level}{$ASymbol}{"Added_Virtual_Method"}{getSignature($AddedVFunc, 2, "Name|Qual")}}=(
                                 "Type_Name"=>$CName,
                                 "Target"=>$AddedVFunc  );
@@ -2752,7 +2766,7 @@ sub mergeVirtualTables($$)
                             if($CompSign{1}{$RemovedVFunc}{"PureVirt"}) {
                                 $ProblemType = "Removed_Pure_Virtual_Method";
                             }
-                            $CheckedSymbols{$Level}{$ASymbol} = 1;
+                            
                             %{$CompatProblems{$Level}{$ASymbol}{$ProblemType}{getSignature($RemovedVFunc, 1, "Name|Qual")}}=(
                                 "Type_Name"=>$CName,
                                 "Target"=>$RemovedVFunc);
@@ -2957,8 +2971,13 @@ sub mergeTypes($$$)
         return {};
     }
     
-    $CheckedTypes{$Level}{$Type1{"Name"}} = 1;
-    $CheckedTypes{$Level}{$Type1_Pure{"Name"}} = 1;
+    if($Type1{"Type"}=~/Intrinsic|Class|Struct|Union|Enum|Ptr|Typedef/) {
+        $CheckedTypes{$Level}{$Type1{"Name"}} = 1;
+    }
+    
+    if($Type1_Pure{"Type"}=~/Intrinsic|Class|Struct|Union|Enum|Ptr|Typedef/) {
+        $CheckedTypes{$Level}{$Type1_Pure{"Name"}} = 1;
+    }
     
     my %SubProblems = ();
     
@@ -4281,9 +4300,6 @@ sub mergeSymbols($)
         { # double-check added symbol
             next;
         }
-        if(not symbolFilter($Symbol, $CompSign{2}{$Symbol}, "Affected", $Level, 2)) {
-            next;
-        }
         if($Symbol=~/\A(_Z|\?)/)
         { # C++
             $AddedOverloads{symbolPrefix($Symbol, 2)}{getSignature($Symbol, 2, "Qual")} = $Symbol;
@@ -4299,11 +4315,14 @@ sub mergeSymbols($)
                 { # class should exist in previous version
                     if(not isCopyingClass($TName_Tid{1}{$AffectedClass_Name}, 1))
                     { # old v-table is NOT copied by old applications
-                        %{$CompatProblems{$Level}{$OverriddenMethod}{"Overridden_Virtual_Method"}{$Symbol}}=(
-                            "Type_Name"=>$AffectedClass_Name,
-                            "Target"=>$Symbol,
-                            "Old_Value"=>$OverriddenMethod,
-                            "New_Value"=>$Symbol);
+                        if(symbolFilter($OverriddenMethod, $CompSign{1}{$OverriddenMethod}, "Affected", $Level, 1))
+                        {
+                            %{$CompatProblems{$Level}{$OverriddenMethod}{"Overridden_Virtual_Method"}{$Symbol}}=(
+                                "Type_Name"=>$AffectedClass_Name,
+                                "Target"=>$Symbol,
+                                "Old_Value"=>$OverriddenMethod,
+                                "New_Value"=>$Symbol);
+                        }
                     }
                 }
             }
@@ -4413,6 +4432,7 @@ sub mergeSymbols($)
                 }
             }
         }
+        
         if($Symbol=~/\A(_Z|\?)/)
         { # C++
             my $Prefix = symbolPrefix($Symbol, 1);
@@ -4490,6 +4510,7 @@ sub mergeSymbols($)
             }
         }
     }
+    
     foreach my $Symbol (sort keys(%{$CompSign{1}}))
     { # checking symbols
         my ($SN, $SS, $SV) = symbolParts($Symbol);
@@ -4575,10 +4596,6 @@ sub mergeSymbols($)
         }
         
         if(not symbolFilter($Symbol, $CompSign{1}{$Symbol}, "Affected + InlineVirt", $Level, 1))
-        { # exported, target, inline virtual and pure virtual
-            next;
-        }
-        if(not symbolFilter($PSymbol, $CompSign{2}{$PSymbol}, "Affected + InlineVirt", $Level, 2))
         { # exported, target, inline virtual and pure virtual
             next;
         }
@@ -4700,7 +4717,9 @@ sub mergeSymbols($)
         { # do NOT check type changes in pure virtuals
             next;
         }
+        
         $CheckedSymbols{$Level}{$Symbol} = 1;
+        
         if($Symbol=~/\A(_Z|\?)/
         or keys(%{$CompSign{1}{$Symbol}{"Param"}})==keys(%{$CompSign{2}{$PSymbol}{"Param"}}))
         { # C/C++: changes in parameters
@@ -5133,9 +5152,12 @@ sub mergeSymbols($)
             }
         }
     }
+    
     if($Level eq "Binary") {
         mergeVTables($Level);
     }
+    
+    # mark all affected symbols as "checked"
     foreach my $Symbol (keys(%{$CompatProblems{$Level}})) {
         $CheckedSymbols{$Level}{$Symbol} = 1;
     }
@@ -9652,6 +9674,11 @@ sub compareInit()
     if($In::Opt{"UseDumps"})
     { # --use-dumps
       # parallel processing
+        if(isDump($In::Desc{1}{"Path"})
+        or isDump($In::Desc{2}{"Path"})) {
+            exitStatus("Error", "please specify input XML descriptors instead of ABI dumps to use with -use-dumps option.");
+        }
+        
         readDesc(createDesc($In::Desc{1}{"Path"}, 1), 1);
         readDesc(createDesc($In::Desc{2}{"Path"}, 2), 2);
         
@@ -9707,6 +9734,10 @@ sub compareInit()
     
     if(my $FPath = $In::Opt{"FilterPath"})
     {
+        if(not -f $FPath) {
+            exitStatus("Access_Error", "can't access \'".$FPath."\'");
+        }
+        
         if(my $Filt = readFile($FPath))
         {
             readFilter($Filt, 1);

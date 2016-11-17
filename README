@@ -6,8 +6,7 @@ NAME:
   
   The tool analyzes changes in API/ABI (ABI=API+compiler ABI) that may break binary compatibility and/or source compatibility: changes in calling stack, v-table changes, removed symbols, renamed fields, etc.
   
-  The tool can create and compare ABI dumps for header files and shared objects of a library. The ABI dump for a library can also be created by
-  the ABI Dumper tool (https://github.com/lvc/abi-dumper) if shared objects include debug-info.
+  The tool can create and compare ABI dumps for header files and shared objects of a library. The ABI dump for a library can also be created by the ABI Dumper tool (https://github.com/lvc/abi-dumper) if shared objects include debug-info.
   
   The tool is intended for developers of software libraries and Linux maintainers who are interested in ensuring backward compatibility, i.e. allow old applications to run or to be recompiled with newer library versions.
   
@@ -20,10 +19,15 @@ INSTALL:
 
 REQUIRES:
   Perl 5
-  G++
+  GCC C++
   GNU Binutils
   Ctags
   ABI Dumper (0.99.15 or newer)
+
+PLATFORMS:
+  Linux
+  Mac OS X
+  Windows
 
 USAGE (WITH ABI DUMPER):
 
