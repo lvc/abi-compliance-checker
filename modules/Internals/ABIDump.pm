@@ -275,7 +275,8 @@ sub readSymbols_Lib($$$$$$)
     { # special cases: libstdc++ and libc
         if(my $ShortName = libPart($Lib_Name, "short"))
         {
-            if($ShortName eq "libstdc++")
+            if($ShortName eq "libstdc++"
+            or $ShortName eq "libc++")
             { # libstdc++.so.6
                 $In::Opt{"StdcxxTesting"} = 1;
             }

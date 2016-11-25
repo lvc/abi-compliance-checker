@@ -179,6 +179,7 @@ GetOptions(
   "skip-types=s" => \$In::Opt{"SkipTypesListPath"},
   "skip-internal-symbols|skip-internal=s" => \$In::Opt{"SkipInternalSymbols"},
   "skip-internal-types=s" => \$In::Opt{"SkipInternalTypes"},
+  "keep-cxx!" => \$In::Opt{"KeepCxx"},
 # Filter header files
   "skip-headers=s" => \$In::Opt{"SkipHeadersPath"},
   "headers-list=s" => \$In::Opt{"TargetHeadersPath"},
@@ -610,6 +611,9 @@ FILTER SYMBOLS OPTIONS:
 
   -skip-internal-types PATTERN
       Do not check types matched by the pattern.
+
+  -keep-cxx
+      Check _ZS*, _ZNS* and _ZNKS* symbols.
 
 FILTER HEADERS OPTIONS:
   -skip-headers PATH
@@ -3832,20 +3836,19 @@ sub mergeLibs($)
     my $Level = $_[0];
     foreach my $Symbol (sort keys(%{$AddedInt{$Level}}))
     { # checking added symbols
-        next if($CompSign{2}{$Symbol}{"Private"});
         next if(not $CompSign{2}{$Symbol}{"Header"} and not $CompSign{2}{$Symbol}{"Source"});
         next if(not symbolFilter($Symbol, $CompSign{2}{$Symbol}, "Affected + InlineVirt", $Level, 2));
-        %{$CompatProblems{$Level}{$Symbol}{"Added_Symbol"}{""}}=();
+        %{$CompatProblems{$Level}{$Symbol}{"Added_Symbol"}{""}} = ();
     }
     foreach my $Symbol (sort keys(%{$RemovedInt{$Level}}))
     { # checking removed symbols
-        next if($CompSign{1}{$Symbol}{"Private"});
         next if(not $CompSign{1}{$Symbol}{"Header"} and not $CompSign{1}{$Symbol}{"Source"});
+        
         if(index($Symbol, "_ZTV")==0)
         { # skip v-tables for templates, that should not be imported by applications
             if(my $CName = $VTableClass{1}{$Symbol})
             {
-                if($CName=~/</) {
+                if(index($CName, "<")!=-1) {
                     next;
                 }
                 
@@ -3864,11 +3867,13 @@ sub mergeLibs($)
         else {
             next if(not symbolFilter($Symbol, $CompSign{1}{$Symbol}, "Affected + InlineVirt", $Level, 1));
         }
+        
         if($CompSign{1}{$Symbol}{"PureVirt"})
         { # symbols for pure virtual methods cannot be called by clients
             next;
         }
-        %{$CompatProblems{$Level}{$Symbol}{"Removed_Symbol"}{""}}=();
+        
+        %{$CompatProblems{$Level}{$Symbol}{"Removed_Symbol"}{""}} = ();
     }
 }
 
@@ -4060,7 +4065,6 @@ sub mergeHeaders($)
     foreach my $Symbol (sort keys(%{$AddedInt{$Level}}))
     { # checking added symbols
         next if($CompSign{2}{$Symbol}{"PureVirt"});
-        next if($CompSign{2}{$Symbol}{"Private"});
         next if(not symbolFilter($Symbol, $CompSign{2}{$Symbol}, "Affected", $Level, 2));
         if($Level eq "Binary")
         {
@@ -4083,7 +4087,6 @@ sub mergeHeaders($)
     foreach my $Symbol (sort keys(%{$RemovedInt{$Level}}))
     { # checking removed symbols
         next if($CompSign{1}{$Symbol}{"PureVirt"});
-        next if($CompSign{1}{$Symbol}{"Private"});
         next if(not symbolFilter($Symbol, $CompSign{1}{$Symbol}, "Affected", $Level, 1));
         if($Level eq "Binary")
         {
@@ -4339,10 +4342,6 @@ sub mergeSymbols($)
         { # double-check removed symbol
             next;
         }
-        if($CompSign{1}{$Symbol}{"Private"})
-        { # skip private methods
-            next;
-        }
         if(not symbolFilter($Symbol, $CompSign{1}{$Symbol}, "Affected", $Level, 1)) {
             next;
         }
@@ -4564,6 +4563,7 @@ sub mergeSymbols($)
                 }
             }
         }
+        
         if($CompSign{1}{$Symbol}{"Private"})
         { # private symbols
             next;
@@ -4580,7 +4580,7 @@ sub mergeSymbols($)
         }
         if((not $CompSign{1}{$Symbol}{"Header"} and not $CompSign{1}{$Symbol}{"Source"})
         or (not $CompSign{2}{$PSymbol}{"Header"} and not $CompSign{2}{$PSymbol}{"Source"}))
-        { # without a header
+        { # without a header or source
             next;
         }
         
@@ -9321,6 +9321,11 @@ sub readABIDump($$)
         }
     }
     
+    if(index($ABIRef->{"LibraryName"}, "libstdc++")==0
+    or index($ABIRef->{"LibraryName"}, "libc++")==0) {
+        $In::Opt{"StdcxxTesting"} = 1;
+    }
+    
     if($ABIRef->{"BinOnly"})
     { # ABI dump created with --binary option
         $UsedDump{$LVer}{"BinOnly"} = 1;
@@ -10319,9 +10324,6 @@ sub scenario()
         foreach my $Symbol (sort keys(%{$CompSign{1}}))
         {
             if($CompSign{1}{$Symbol}{"PureVirt"}) {
-                next;
-            }
-            if($CompSign{1}{$Symbol}{"Private"}) {
                 next;
             }
             if(not $CompSign{1}{$Symbol}{"Header"}) {

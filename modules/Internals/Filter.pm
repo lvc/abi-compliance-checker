@@ -26,7 +26,8 @@ sub symbolFilter($$$$)
 { # some special cases when the symbol cannot be imported
     my ($Symbol, $SInfo, $Type, $Level, $LVer) = @_;
     
-    if($SInfo->{"Private"}) {
+    if($SInfo->{"Private"})
+    { # skip private methods
         return 0;
     }
     
@@ -205,7 +206,8 @@ sub selectSymbol($$$$)
         }
     }
     
-    if(not $In::Opt{"StdcxxTesting"} and $Symbol=~/\A(_ZS|_ZNS|_ZNKS)/)
+    if(not $In::Opt{"StdcxxTesting"} and not $In::Opt{"KeepCxx"}
+    and $Symbol=~/\A(_ZS|_ZNS|_ZNKS)/)
     { # stdc++ interfaces
         return 0;
     }
