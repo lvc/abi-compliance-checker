@@ -2077,11 +2077,20 @@ sub mergeBases($)
                 if($TName_Tid{1}{$ClassName}
                 and not defined $VirtualTable{1}{$ClassName}{$Symbol})
                 { # added to v-table
-                    if(defined $CompSign{1}{$Symbol}
-                    and $CompSign{1}{$Symbol}{"Virt"})
-                    { # override some method in v.1
-                        next;
+                    if(defined $CompSign{1}{$Symbol})
+                    {
+                        if($CompSign{1}{$Symbol}{"Virt"})
+                        { # override some method in v.1
+                            next;
+                        }
                     }
+                    else
+                    {
+                        if(linkSymbol($Symbol, 1, "+Deps")) {
+                            next;
+                        }
+                    }
+                    
                     $AddedInt_Virt{$Level}{$ClassName}{$Symbol} = 1;
                 }
             }
@@ -2093,11 +2102,20 @@ sub mergeBases($)
                 if($TName_Tid{2}{$ClassName}
                 and not defined $VirtualTable{2}{$ClassName}{$Symbol})
                 { # removed from v-table
-                    if(defined $CompSign{2}{$Symbol}
-                    and $CompSign{2}{$Symbol}{"Virt"})
-                    { # override some method in v.2
-                        next;
+                    if(defined $CompSign{2}{$Symbol})
+                    {
+                        if($CompSign{2}{$Symbol}{"Virt"})
+                        { # override some method in v.2
+                            next;
+                        }
                     }
+                    else
+                    {
+                        if(linkSymbol($Symbol, 2, "+Deps")) {
+                            next;
+                        }
+                    }
+                    
                     $RemovedInt_Virt{$Level}{$ClassName}{$Symbol} = 1;
                 }
             }
@@ -2208,7 +2226,7 @@ sub mergeBases($)
             next;
         }
         
-        if($Level eq "Binary")
+        if($Level eq "Binary" and cmpVTables_Real($ClassName, 1)!=0)
         {
             foreach my $Symbol (sort keys(%{$RemovedInt_Virt{$Level}{$ClassName}}))
             {
