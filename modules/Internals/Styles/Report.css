@@ -25,16 +25,16 @@ span.section {
     cursor:pointer;
     color:#003E69;
     white-space:nowrap;
-    margin-left:5px;
+    margin-left:0.3125em;
 }
 span.new_sign {
     font-weight:bold;
-    margin-left:26px;
+    margin-left:1.65em;
     color:#003E69;
 }
 span.new_sign_lbl {
-    margin-left:28px;
-    font-size:0.875em;
+    margin-left:3em;
+    font-size:1em;
     color:Black;
 }
 span:hover.section {
@@ -42,15 +42,13 @@ span:hover.section {
 }
 span.sect_aff {
     cursor:pointer;
-    margin-left:7px;
-    padding-left:15px;
+    padding-left:1.55em;
     font-size:0.875em;
     color:#cc3300;
 }
 span.sect_info {
     cursor:pointer;
-    margin-left:7px;
-    padding-left:15px;
+    padding-left:1.55em;
     font-size:0.875em;
     color:Black;
 }
@@ -64,7 +62,7 @@ span.h_name {
 }
 div.h_list, div.lib_list {
     font-size:0.94em;
-    padding-left:5px;
+    padding-left:0.4em;
 }
 span.ns {
     color:#408080;
@@ -78,11 +76,10 @@ span.lib_name {
 span.iname {
     font-weight:bold;
     color:#003E69;
-    margin-left:5px;
+    margin-left:0.3125em;
 }
 span.iname_b {
     font-weight:bold;
-    font-size:1.1em;
 }
 span.iname_a {
     color:#333333;
@@ -93,48 +90,53 @@ span.sym_p {
     font-weight:normal;
     white-space:normal;
 }
+span.sym_pd {
+    white-space:normal;
+}
+span.sym_p span, span.sym_pd span {
+    white-space:nowrap;
+}
 div.affect {
-    padding-left:15px;
+    padding-left:1em;
     padding-bottom:10px;
     font-size:0.87em;
     font-style:italic;
-    line-height:0.75em;
+    line-height:0.9em;
 }
 div.affected {
-    padding-left:30px;
+    padding-left:1.9em;
     padding-top:10px;
 }
 table.ptable {
     border-collapse:collapse;
     border:1px outset black;
-    line-height:1em;
-    margin-left:15px;
+    margin-left:0.95em;
     margin-top:3px;
     margin-bottom:3px;
-    width:900px;
-    
+    width:56.25em;
 }
 table.ptable td {
     border:1px solid gray;
-    padding: 3px;
+    padding:3px;
     font-size:0.875em;
     text-align:left;
     vertical-align:top;
+    max-width:28em;
+    word-wrap:break-word;
 }
 table.vtable {
     border-collapse:collapse;
     border:1px outset black;
-    line-height:16px;
-    margin-left:30px;
-    margin-top:10px;
+    margin-left:1.9em;
+    margin-top:0.7em;
 }
 table.vtable td {
     border:1px solid gray;
-    word-wrap:break-word;
-    padding: 3px;
+    padding:3px;
     font-size:0.875em;
-    max-width:450px;
     vertical-align:top;
+    max-width:450px;
+    word-wrap:break-word;
 }
 table.ptable th, table.vtable th {
     background-color:#eeeeee;
@@ -146,7 +148,7 @@ table.ptable th, table.vtable th {
     text-align:center;
     vertical-align:top;
     white-space:nowrap;
-    padding: 3px;
+    padding:3px;
 }
 table.summary {
     border-collapse:collapse;
@@ -159,19 +161,23 @@ table.summary th {
     font-size:0.94em;
     white-space:nowrap;
     border:1px inset gray;
-    padding: 3px;
+    padding:3px;
 }
 table.summary td {
     text-align:right;
     white-space:nowrap;
     border:1px inset gray;
-    padding: 3px 5px 3px 10px;
+    padding:3px 5px 3px 10px;
 }
-span.mangled {
-    padding-left:15px;
+span.mngl {
+    padding-left:1em;
     font-size:0.875em;
     cursor:text;
     color:#444444;
+    font-weight:bold;
+}
+span.pleft {
+    padding-left:2.5em;
 }
 span.sym_ver {
     color:#333333;

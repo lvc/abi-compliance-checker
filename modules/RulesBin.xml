@@ -2746,7 +2746,7 @@
         Method became static.
     </change>
     <effect>
-        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause "undefined reference" linker error in old client applications.
+        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause undefined reference linker error in old client applications.
     </effect>
 </rule>
 
@@ -2764,7 +2764,7 @@
         Method became non-static.
     </change>
     <effect>
-        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause "undefined reference" linker error in old client applications.
+        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause undefined reference linker error in old client applications.
     </effect>
 </rule>
 
@@ -2782,7 +2782,7 @@
         Method became virtual.
     </change>
     <effect>
-        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause "undefined reference" linker error in old client applications.
+        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause undefined reference linker error in old client applications.
     </effect>
 </rule>
 
@@ -2800,7 +2800,7 @@
         Method became non-virtual.
     </change>
     <effect>
-        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause "undefined reference" linker error in old client applications.
+        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause undefined reference linker error in old client applications.
     </effect>
 </rule>
 
@@ -2818,7 +2818,7 @@
         Type of return value has been changed from @old_type to @new_type.
     </change>
     <effect>
-        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause "undefined reference" linker error in old client applications.
+        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause undefined reference linker error in old client applications.
     </effect>
 </rule>
 
@@ -2836,7 +2836,7 @@
         Type of this global data has been changed from @old_type to @new_type.
     </change>
     <effect>
-        The name of the appropriate symbol for this data on binary level has been changed from @old_value to @new_value. This may cause "undefined reference" linker error in old client applications.
+        The name of the appropriate symbol for this data on binary level has been changed from @old_value to @new_value. This may cause undefined reference linker error in old client applications.
     </effect>
 </rule>
 
@@ -2854,7 +2854,7 @@
         Parameters list has been changed.
     </change>
     <effect>
-        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause "undefined reference" linker error in old client applications.
+        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause undefined reference linker error in old client applications.
     </effect>
 </rule>
 
@@ -2872,7 +2872,7 @@
         Method became non-const.
     </change>
     <effect>
-        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause "undefined reference" linker error in old client applications.
+        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause undefined reference linker error in old client applications.
     </effect>
 </rule>
 
@@ -2890,7 +2890,7 @@
         Method became const.
     </change>
     <effect>
-        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause "undefined reference" linker error in old client applications.
+        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause undefined reference linker error in old client applications.
     </effect>
 </rule>
 
@@ -2908,7 +2908,7 @@
         Method became volatile.
     </change>
     <effect>
-        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause "undefined reference" linker error in old client applications.
+        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause undefined reference linker error in old client applications.
     </effect>
 </rule>
 
@@ -2926,7 +2926,7 @@
         Method became non-volatile.
     </change>
     <effect>
-        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause "undefined reference" linker error in old client applications.
+        The name of the appropriate symbol for this function on binary level has been changed from @old_value to @new_value. This may cause undefined reference linker error in old client applications.
     </effect>
 </rule>
 

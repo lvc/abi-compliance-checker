@@ -392,6 +392,8 @@ sub createTUDump($)
     writeLog($LVer, "The GCC parameters:\n  $SyntaxTreeCmd\n\n");
     chdir($TmpDir);
     system($SyntaxTreeCmd." >\"$TmpDir/tu_errors\" 2>&1");
+    chdir($In::Opt{"OrigDir"});
+    
     my $Errors = "";
     if($?)
     { # failed to compile, but the TU dump still can be created
@@ -414,7 +416,7 @@ sub createTUDump($)
                 }
                 resetLogging($LVer);
                 $TmpDir = tempdir(CLEANUP=>1);
-                return getDump();
+                return createTUDump($LVer);
             }
             elsif($Cpp0xMode{$LVer}!=-1
             and ($Errors=~/\Q-std=c++0x\E/
@@ -427,7 +429,7 @@ sub createTUDump($)
                     resetLogging($LVer);
                     $TmpDir = tempdir(CLEANUP=>1);
                     $In::Desc{$LVer}{"CompilerOptions"} .= " -std=c++0x";
-                    return getDump();
+                    return createTUDump($LVer);
                 }
                 else {
                     printMsg("WARNING", "Probably c++0x element detected");
@@ -444,7 +446,7 @@ sub createTUDump($)
         $In::Opt{"CompileError"} = 1;
         writeLog($LVer, "\n"); # new line
     }
-    chdir($In::Opt{"OrigDir"});
+    
     unlink($TmpHeaderPath);
     unlink($HeaderPath);
     

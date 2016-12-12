@@ -210,7 +210,7 @@ my %Add_Include_Paths = (
     "2"=>[]
 );
 
-sub check_Cmd($)
+sub tryCmd($)
 {
     my $Cmd = $_[0];
     
@@ -362,7 +362,7 @@ sub getCmdPath_Default_I($)
     elsif($Name=~/gcc/) {
         return checkGcc("3", $Name);
     }
-    if(check_Cmd($Name)) {
+    if(tryCmd($Name)) {
         return $Name;
     }
     if($In::Opt{"OS"} eq "windows")
@@ -2204,7 +2204,9 @@ sub searchForHeaders($)
         }
     }
     
-    $In::Desc{$LVer}{"Include_Preamble"} = [];
+    if(not defined $In::Desc{$LVer}{"Include_Preamble"}) {
+        $In::Desc{$LVer}{"Include_Preamble"} = [];
+    }
     
     if(my $HList = $DescRef->{"IncludePreamble"})
     { # preparing preamble headers

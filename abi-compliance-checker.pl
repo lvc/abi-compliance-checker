@@ -560,7 +560,7 @@ REPORT FORMAT OPTIONS:
 
 ABI DUMP OPTIONS:
   -dump-path PATH
-      Specify a *.abi file path where to generate an ABI dump.
+      Specify a *.dump file path where to generate an ABI dump.
       Default: 
           abi_dumps/LIB_NAME/VERSION/ABI.dump
 
@@ -1048,10 +1048,10 @@ sub getChargeLevel($$)
     return undef;
 }
 
-sub blackName($$)
+sub blackName($)
 {
-    my ($Symbol, $LVer) = @_;
-    return "<span class='iname_b'>".getSignature($Symbol, $LVer, "Name|Qual|HTML|Italic")."</span>";
+    my $N = $_[0];
+    return "<span class='iname_b'>".$N."</span>";
 }
 
 sub highLight_ItalicColor($$)
@@ -1068,8 +1068,8 @@ sub getSignature($$$)
     }
     
     # settings
-    my ($Html, $Simple, $Italic, $Color,
-    $Full, $ShowName, $ShowParams, $ShowQuals, $ShowAttr, $Target) = (0, 0, 0, 0, 0, 0, 0, 0, 0, undef);
+    my ($Html, $Simple, $Italic, $Color, $Full, $ShowClass, $ShowName,
+    $ShowParams, $ShowQuals, $ShowAttr, $Desc, $Target) = ();
     
     if($Kind=~/HTML/) {
         $Html = 1;
@@ -1087,6 +1087,9 @@ sub getSignature($$$)
     if($Kind=~/Full/) {
         $Full = 1;
     }
+    if($Kind=~/Class/) {
+        $ShowClass = 1;
+    }
     if($Kind=~/Name/) {
         $ShowName = 1;
     }
@@ -1099,13 +1102,21 @@ sub getSignature($$$)
     if($Kind=~/Attr/) {
         $ShowAttr = 1;
     }
+    if($Kind=~/Desc/) {
+        $Desc = 1;
+    }
     
     if($Kind=~/Target=(\d+)/) {
         $Target = $1;
     }
     
+    if($Full)
+    {
+        $ShowName = 1;
+        $ShowClass = 1;
+    }
+    
     my ($MnglName, $VSpec, $SVer) = symbolParts($Symbol);
-    my $Signature = "";
     
     if(index($Symbol, "_ZTV")==0)
     {
@@ -1115,13 +1126,10 @@ sub getSignature($$$)
             $ClassName=~s/\bstruct //g;
             
             if($Html) {
-                $Signature = "vtable for ".specChars($ClassName)." <span class='attr'>[data]</span>";
-            }
-            else {
-                $Signature = "vtable for $ClassName [data]";
+                return "vtable for ".specChars($ClassName)." <span class='attr'>[data]</span>";
             }
             
-            return $Signature;
+            return "vtable for $ClassName [data]";
         }
         else
         { # failure
@@ -1131,7 +1139,8 @@ sub getSignature($$$)
     
     my $Mngl = (index($Symbol, "_Z")==0 or index($Symbol, "?")==0);
     
-    if($Full or $ShowName)
+    my $Signature = "";
+    if($ShowName)
     {
         my $ShortName = $CompSign{$LVer}{$Symbol}{"ShortName"};
         
@@ -1147,19 +1156,22 @@ sub getSignature($$$)
                 $Signature = "~".$Signature;
             }
             
-            if(my $ClassId = $CompSign{$LVer}{$Symbol}{"Class"})
+            if($ShowClass)
             {
-                my $Class = $TypeInfo{$LVer}{$ClassId}{"Name"};
-                $Class=~s/\bstruct //g;
-                
-                if($Html) {
-                    $Class = specChars($Class);
+                if(my $ClassId = $CompSign{$LVer}{$Symbol}{"Class"})
+                {
+                    my $Class = $TypeInfo{$LVer}{$ClassId}{"Name"};
+                    $Class=~s/\bstruct //g;
+                    
+                    if($Html) {
+                        $Class = specChars($Class);
+                    }
+                    
+                    $Signature = $Class."::".$Signature;
                 }
-                
-                $Signature = $Class."::".$Signature;
-            }
-            elsif(my $NameSpace = $CompSign{$LVer}{$Symbol}{"NameSpace"}) {
-                $Signature = $NameSpace."::".$Signature;
+                elsif(my $NameSpace = $CompSign{$LVer}{$Symbol}{"NameSpace"}) {
+                    $Signature = $NameSpace."::".$Signature;
+                }
             }
         }
     }
@@ -1191,8 +1203,7 @@ sub getSignature($$$)
                 }
                 
                 my $PName = $CompSign{$LVer}{$Symbol}{"Param"}{$PPos}{"name"};
-                if($PName eq "this"
-                and $Mngl)
+                if($Mngl and ($PName eq "this" or $PName eq "__in_chrg" or $PName eq "__vtt_parm"))
                 { # do NOT show first hidded "this"-parameter
                     next;
                 }
@@ -1248,7 +1259,13 @@ sub getSignature($$$)
         if($Html and not $Simple)
         {
             $Signature .= "&#160;";
-            $Signature .= "<span class='sym_p'>";
+            
+            if($Desc) {
+                $Signature .= "<span class='sym_pd'>";
+            }
+            else {
+                $Signature .= "<span class='sym_p'>";
+            }
             if(@Params)
             {
                 foreach my $Pos (0 .. $#Params)
@@ -1424,7 +1441,7 @@ sub prepareSymbols($)
                 $SymbolInfo{$LVer}{$InfoId}{"Unmangled"} = $ShortName;
             }
             else {
-                $SymbolInfo{$LVer}{$InfoId}{"Unmangled"} = getSignature($MnglName, $LVer, "Name|Qual");
+                $SymbolInfo{$LVer}{$InfoId}{"Unmangled"} = getSignature($MnglName, $LVer, "Class|Name|Qual");
             }
         }
         
@@ -1553,7 +1570,7 @@ sub prepareSymbols($)
                 $CompSign{$LVer}{$MnglName}{"Source"} = $S;
             }
             $CompSign{$LVer}{$MnglName}{"Class"} = $ClassId;
-            $CompSign{$LVer}{$MnglName}{"Unmangled"} = getSignature($MnglName, $LVer, "Name");
+            $CompSign{$LVer}{$MnglName}{"Unmangled"} = getSignature($MnglName, $LVer, "Class|Name");
         }
         
         $VTableClass{$LVer}{$MnglName} = $ClassName;
@@ -2241,7 +2258,7 @@ sub mergeBases($)
                         $ProblemType = "Removed_Pure_Virtual_Method";
                     }
                     
-                    %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{getSignature($Symbol, 1, "Name|Qual")}}=(
+                    %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{getSignature($Symbol, 1, "Class|Name|Qual")}}=(
                         "Type_Name"=>$ClassName,
                         "Target"=>$Symbol);
                 }
@@ -2534,7 +2551,7 @@ sub mergeBases($)
                                     if($CompSign{2}{$VirtFunc}{"PureVirt"}) {
                                         $ProblemType = "Added_Pure_Virtual_Method";
                                     }
-                                    %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{getSignature($VirtFunc, 2, "Name|Qual")}}=(
+                                    %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{getSignature($VirtFunc, 2, "Class|Name|Qual")}}=(
                                         "Type_Name"=>$BaseType{"Name"},
                                         "Target"=>$VirtFunc  );
                                 }
@@ -2546,7 +2563,7 @@ sub mergeBases($)
                                     if($CompSign{1}{$VirtFunc}{"PureVirt"}) {
                                         $ProblemType = "Removed_Pure_Virtual_Method";
                                     }
-                                    %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{getSignature($VirtFunc, 1, "Name|Qual")}}=(
+                                    %{$CompatProblems{$Level}{$Symbol}{$ProblemType}{getSignature($VirtFunc, 1, "Class|Name|Qual")}}=(
                                         "Type_Name"=>$BaseType{"Name"},
                                         "Target"=>$VirtFunc  );
                                 }
@@ -2683,7 +2700,7 @@ sub mergeVirtualTables($$)
                         if(isLeafClass($Class_Id, 1)) {
                             $ProblemType = "Added_Virtual_Method_At_End_Of_Leaf_Copying_Class";
                         }
-                        %{$CompatProblems{$Level}{$Interface}{$ProblemType}{getSignature($AddedVFunc, 2, "Name|Qual")}}=(
+                        %{$CompatProblems{$Level}{$Interface}{$ProblemType}{getSignature($AddedVFunc, 2, "Class|Name|Qual")}}=(
                             "Type_Name"=>$CName,
                             "Target"=>$AddedVFunc  );
                         $VTableChanged_M{$CName} = 1;
@@ -2694,7 +2711,7 @@ sub mergeVirtualTables($$)
                         if(isLeafClass($Class_Id, 1)) {
                             $ProblemType = "Added_Virtual_Method_At_End_Of_Leaf_Allocable_Class";
                         }
-                        %{$CompatProblems{$Level}{$Interface}{$ProblemType}{getSignature($AddedVFunc, 2, "Name|Qual")}}=(
+                        %{$CompatProblems{$Level}{$Interface}{$ProblemType}{getSignature($AddedVFunc, 2, "Class|Name|Qual")}}=(
                             "Type_Name"=>$CName,
                             "Target"=>$AddedVFunc  );
                         $VTableChanged_M{$CName} = 1;
@@ -2721,7 +2738,7 @@ sub mergeVirtualTables($$)
                                     next;
                                 }
                             }
-                            %{$CompatProblems{$Level}{$ASymbol}{"Added_Virtual_Method"}{getSignature($AddedVFunc, 2, "Name|Qual")}}=(
+                            %{$CompatProblems{$Level}{$ASymbol}{"Added_Virtual_Method"}{getSignature($AddedVFunc, 2, "Class|Name|Qual")}}=(
                                 "Type_Name"=>$CName,
                                 "Target"=>$AddedVFunc  );
                             $VTableChanged_M{$TypeInfo{1}{$CompSign{1}{$ASymbol}{"Class"}}{"Name"}} = 1;
@@ -2746,7 +2763,7 @@ sub mergeVirtualTables($$)
             
             if(not keys(%{$VirtualTable_Model{2}{$CName}}))
             { # became non-polymorphous class, removed v-table pointer
-                %{$CompatProblems{$Level}{$Interface}{"Removed_Last_Virtual_Method"}{getSignature($RemovedVFunc, 1, "Name|Qual")}}=(
+                %{$CompatProblems{$Level}{$Interface}{"Removed_Last_Virtual_Method"}{getSignature($RemovedVFunc, 1, "Class|Name|Qual")}}=(
                     "Type_Name"=>$CName,
                     "Target"=>$RemovedVFunc);
                 $VTableChanged_M{$CName} = 1;
@@ -2789,7 +2806,7 @@ sub mergeVirtualTables($$)
                                 $ProblemType = "Removed_Pure_Virtual_Method";
                             }
                             
-                            %{$CompatProblems{$Level}{$ASymbol}{$ProblemType}{getSignature($RemovedVFunc, 1, "Name|Qual")}}=(
+                            %{$CompatProblems{$Level}{$ASymbol}{$ProblemType}{getSignature($RemovedVFunc, 1, "Class|Name|Qual")}}=(
                                 "Type_Name"=>$CName,
                                 "Target"=>$RemovedVFunc);
                             $VTableChanged_M{$TypeInfo{1}{$CompSign{1}{$ASymbol}{"Class"}}{"Name"}} = 1;
@@ -6323,32 +6340,31 @@ sub getObjTitle()
 sub getTypeProblemsCount($$)
 {
     my ($TargetSeverity, $Level) = @_;
-    my $Type_Problems_Count = 0;
+    my $Count = 0;
     
     foreach my $Type_Name (sort keys(%{$TypeChanges{$Level}}))
     {
         my %Kinds_Target = ();
         foreach my $Kind (keys(%{$TypeChanges{$Level}{$Type_Name}}))
         {
+            if($CompatRules{$Level}{$Kind}{"Severity"} ne $TargetSeverity) {
+                next;
+            }
+            
             foreach my $Loc (keys(%{$TypeChanges{$Level}{$Type_Name}{$Kind}}))
             {
                 my $Target = $TypeChanges{$Level}{$Type_Name}{$Kind}{$Loc}{"Target"};
-                my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
-                
-                if($Severity ne $TargetSeverity) {
-                    next;
-                }
                 
                 if($Kinds_Target{$Kind}{$Target}) {
                     next;
                 }
                 
                 $Kinds_Target{$Kind}{$Target} = 1;
-                $Type_Problems_Count += 1;
+                $Count += 1;
             }
         }
     }
-    return $Type_Problems_Count;
+    return $Count;
 }
 
 sub getSummary($)
@@ -6359,7 +6375,7 @@ sub getSummary($)
     %{$RESULT{$Level}} = (
         "Problems"=>0,
         "Warnings"=>0,
-        "Affected"=>0 );
+        "Affected"=>0);
     # check rules
     foreach my $Symbol (sort keys(%{$CompatProblems{$Level}}))
     {
@@ -6397,9 +6413,9 @@ sub getSummary($)
         {
             if($CompatRules{$Level}{$Kind}{"Kind"} eq "Symbols")
             {
+                my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
                 foreach my $Loc (sort keys(%{$CompatProblems{$Level}{$Symbol}{$Kind}}))
                 {
-                    my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
                     if($Kind eq "Added_Symbol") {
                         $Added += 1;
                     }
@@ -7111,7 +7127,7 @@ sub getReportAdded($)
                         }
                         
                         if($Symbol=~/\A(_Z|\?)/) {
-                            $ADDED_INTERFACES .= insertIDs($ContentSpanStart.$Signature.$ContentSpanEnd."<br/>\n".$ContentDivStart."<span class='mangled'>[symbol: <b>$Symbol</b>]</span>\n<br/>\n<br/>\n".$ContentDivEnd."\n");
+                            $ADDED_INTERFACES .= insertIDs($ContentSpanStart.$Signature.$ContentSpanEnd."<br/>\n".$ContentDivStart."<span class='mngl'>$Symbol</span>\n<br/>\n<br/>\n".$ContentDivEnd."\n");
                         }
                         else {
                             $ADDED_INTERFACES .= "<span class=\"iname\">".$Signature."</span><br/>\n";
@@ -7204,7 +7220,7 @@ sub getReportRemoved($)
                             $Signature = cutNs($Signature, $NameSpace);
                         }
                         if($Symbol=~/\A(_Z|\?)/) {
-                            $REMOVED_INTERFACES .= insertIDs($ContentSpanStart.$Signature.$ContentSpanEnd."<br/>\n".$ContentDivStart."<span class='mangled'>[symbol: <b>$Symbol</b>]</span>\n<br/>\n<br/>\n".$ContentDivEnd."\n");
+                            $REMOVED_INTERFACES .= insertIDs($ContentSpanStart.$Signature.$ContentSpanEnd."<br/>\n".$ContentDivStart."<span class='mngl'>$Symbol</span>\n<br/>\n<br/>\n".$ContentDivEnd."\n");
                         }
                         else {
                             $REMOVED_INTERFACES .= "<span class=\"iname\">".$Signature."</span><br/>\n";
@@ -7265,20 +7281,23 @@ sub getXmlParams($$)
 sub addMarkup($)
 {
     my $Content = $_[0];
+    
     # auto-markup
     $Content=~s/\n[ ]*//; # spaces
     $Content=~s!(\@\w+\s*\(\@\w+\))!<nowrap>$1</nowrap>!g; # @old_type (@old_size)
     $Content=~s!(... \(\w+\))!<nowrap><b>$1</b></nowrap>!g; # ... (va_list)
     $Content=~s!<nowrap>(.+?)</nowrap>!<span class='nowrap'>$1</span>!g;
     $Content=~s!([2-9]\))!<br/>$1!g; # 1), 2), ...
+    
     if($Content=~/\ANOTE:/)
     { # notes
         $Content=~s!(NOTE):!<b>$1</b>:!g;
     }
     else {
-        $Content=~s!(NOTE):!<br/><b>$1</b>:!g;
+        $Content=~s!(NOTE):!<br/><br/><b>$1</b>:!g;
     }
     $Content=~s! (out)-! <b>$1</b>-!g; # out-parameters
+    
     my @Keywords = (
         "void",
         "const",
@@ -7295,8 +7314,9 @@ sub addMarkup($)
     $Content=~s!(added\s*|to\s*|from\s*|became\s*)($MKeys)([^\w-]|\Z)!$1<b>$2</b>$3!ig; # intrinsic types, modifiers
     
     # Markdown
-    $Content=~s!\*\*([\w\-]+)\*\*!<b>$1</b>!ig;
-    $Content=~s!\*([\w\-]+)\*!<i>$1</i>!ig;
+    $Content=~s!\*\*([\w\-]+?)\*\*!<b>$1</b>!ig;
+    $Content=~s!\*([\w\-]+?)\*!<i>$1</i>!ig;
+    
     return $Content;
 }
 
@@ -7353,18 +7373,22 @@ sub applyMacroses($$$$)
         }
         else
         {
+            my $Fmt = "Class|Name|Qual|HTML|Desc";
+            if($Kind!~/Overridden/) {
+                $Fmt = "Name|Qual|HTML|Desc";
+            }
+            
             my $V1 = (defined $CompSign{1}{$Value} and defined $CompSign{1}{$Value}{"ShortName"});
             my $V2 = (defined $CompSign{2}{$Value} and defined $CompSign{2}{$Value}{"ShortName"});
             
-            if($Level eq "Binary"
-            and $Kind!~/_Constant\Z/ and $Kind!~/_Type_/ and $Kind!~/Symbol_Became|Symbol_Changed|Method_Became/
+            if($Kind!~/Symbol_Became|Symbol_Changed|Method_Became/
             and ($V1 or $V2))
             { # symbols
                 if($V1) {
-                    $Value = blackName($Value, 1);
+                    $Value = blackName(getSignature($Value, 1, $Fmt));
                 }
                 else {
-                    $Value = blackName($Value, 2);
+                    $Value = blackName(getSignature($Value, 2, $Fmt));
                 }
             }
             else
@@ -7542,11 +7566,11 @@ sub getReportSymbolProblems($$)
                                 if($NameSpace) {
                                     $NSign = cutNs($NSign, $NameSpace);
                                 }
-                                $INTERFACE_PROBLEMS .= "\n<span class='new_sign_lbl'>changed to:</span>\n<br/>\n<span class='new_sign'>".$NSign."</span><br/>\n";
+                                $INTERFACE_PROBLEMS .= "\n<span class='new_sign_lbl'>&#8675;</span>\n<br/>\n<span class='new_sign'>".$NSign."</span><br/>\n";
                             }
                             
                             if($Symbol=~/\A(_Z|\?)/) {
-                                $INTERFACE_PROBLEMS .= "<span class='mangled'>&#160;&#160;&#160;&#160;[symbol: <b>$Symbol</b>]</span><br/>\n";
+                                $INTERFACE_PROBLEMS .= "<span class='mngl pleft'>$Symbol</span><br/>\n";
                             }
                             
                             $INTERFACE_PROBLEMS .= "<table class='ptable'>\n<tr>\n<th width='2%'></th>\n<th width='47%'>Change</th>\n<th>Effect</th>\n</tr>\n$SYMBOL_REPORT</table>\n<br/>\n";
@@ -7603,16 +7627,14 @@ sub getReportTypeProblems($$)
         
         foreach my $Kind (keys(%{$TypeChanges{$Level}{$TypeName}}))
         {
+            if($CompatRules{$Level}{$Kind}{"Severity"} ne $TargetSeverity) {
+                next;
+            }
+            
             foreach my $Loc (keys(%{$TypeChanges{$Level}{$TypeName}{$Kind}}))
             {
-                my $Target = $TypeChanges{$Level}{$TypeName}{$Kind}{$Loc}{"Target"};
-                my $Severity = $CompatRules{$Level}{$Kind}{"Severity"};
-                
-                if($Severity eq $TargetSeverity)
-                {
-                    $ReportMap{$HeaderName}{$TypeName} = 1;
-                    $TypeChanges_Sev{$TypeName}{$Kind}{$Loc} = $TypeChanges{$Level}{$TypeName}{$Kind}{$Loc};
-                }
+                $ReportMap{$HeaderName}{$TypeName} = 1;
+                $TypeChanges_Sev{$TypeName}{$Kind}{$Loc} = $TypeChanges{$Level}{$TypeName}{$Kind}{$Loc};
             }
         }
     }
@@ -8041,7 +8063,7 @@ sub getAffectedSymbols($$$)
             my $PName = getParamName($Loc);
             my $Pos = adjustParamPos(getParamPos($PName, $Symbol, 1), $Symbol, 1);
             
-            $Affected .= "<span class='iname_a'>".getSignature($Symbol, 1, "Name|Param|HTML|Italic|Target=".$Pos)."</span><br/>\n";
+            $Affected .= "<span class='iname_a'>".getSignature($Symbol, 1, "Class|Name|Param|HTML|Italic|Target=".$Pos)."</span><br/>\n";
             $Affected .= "<div class='affect'>".specChars($Des)."</div>\n";
             
             if(++$SNum>=$LIMIT) {
@@ -8128,7 +8150,7 @@ sub getAffectDesc($$$$)
             if($Loc=~/retval/)
             { # return value
                 if(index($Loc, "->")!=-1) {
-                    push(@Sentence, "Field \'".$Loc."\' in return value");
+                    push(@Sentence, "Field \'".$Loc."\' in the return value");
                 }
                 else {
                     push(@Sentence, "Return value");
@@ -8192,7 +8214,7 @@ sub getAffectDesc($$$$)
                 }
                 
                 if($TypeInfo{1}{$TypeID_Problem}{"Name"} eq $PAttr->{"Type_Name"}) {
-                    push(@Sentence, "has type \'".$PAttr->{"Type_Name"}."\'.");
+                    push(@Sentence, "is of type \'".$PAttr->{"Type_Name"}."\'.");
                 }
                 else {
                     push(@Sentence, "has base type \'".$PAttr->{"Type_Name"}."\'.");
@@ -8352,8 +8374,7 @@ sub getReportProblems_All($)
 
 sub createReport()
 {
-    if($In::Opt{"JoinReport"})
-    { # --stdout
+    if($In::Opt{"JoinReport"}) {
         writeReport("Join", getReport("Join"));
     }
     elsif($In::Opt{"DoubleReport"})
@@ -8869,7 +8890,7 @@ sub createSymbolsList($$$$$)
                         $Signature = cutNs($Signature, $NameSpace);
                     }
                     if($Symbol=~/\A(_Z|\?)/) {
-                        $SubReport = insertIDs($ContentSpanStart.$Signature.$ContentSpanEnd."<br/>\n".$ContentDivStart."<span class='mangled'>[symbol: <b>$Symbol</b>]</span><br/><br/>".$ContentDivEnd."\n");
+                        $SubReport = insertIDs($ContentSpanStart.$Signature.$ContentSpanEnd."<br/>\n".$ContentDivStart."<span class='mngl'>$Symbol</span><br/><br/>".$ContentDivEnd."\n");
                     }
                     else {
                         $SubReport = "<span class='iname'>".$Signature."</span><br/>\n";
@@ -9202,7 +9223,7 @@ sub createABIFile($$)
     my $ArExt = $In::Opt{"Ar"};
     my $Archive = ($DumpPath=~s/\Q.$ArExt\E\Z//g);
     
-    if(not $Archive and not $In::Opt{"StdOut"})
+    if($Archive and not $In::Opt{"StdOut"})
     { # check archive utilities
         if($In::Opt{"OS"} eq "windows")
         { # using zip
@@ -9719,6 +9740,10 @@ sub compareInit()
         else {
             $In::Desc{1}{"Version"} = $In::ABI{1}{"LibraryVersion"};
         }
+        
+        if(not defined $In::Desc{1}{"Version"}) {
+            $In::Desc{1}{"Version"} = "X";
+        }
     }
     else
     {
@@ -9740,6 +9765,10 @@ sub compareInit()
         }
         else {
             $In::Desc{2}{"Version"} = $In::ABI{2}{"LibraryVersion"};
+        }
+        
+        if(not defined $In::Desc{2}{"Version"}) {
+            $In::Desc{2}{"Version"} = "Y";
         }
     }
     else

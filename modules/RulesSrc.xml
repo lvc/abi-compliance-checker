@@ -84,7 +84,7 @@
         V-table
     </kind>
     <change>
-        Pure_Virtual method @target has been removed from this class.
+        Pure virtual method @target has been removed from this class.
     </change>
     <effect>
         Recompilation of a client program may be broken.
