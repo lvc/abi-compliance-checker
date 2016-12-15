@@ -1144,6 +1144,11 @@ sub getSignature($$$)
     {
         my $ShortName = $CompSign{$LVer}{$Symbol}{"ShortName"};
         
+        if(not $Mngl and defined $CompSign{$LVer}{$Symbol}{"Alias"})
+        { # alias symbol
+            $ShortName = $MnglName;
+        }
+        
         if($Html) {
             $ShortName = specChars($ShortName);
         }
@@ -1192,8 +1197,10 @@ sub getSignature($$$)
                 {
                     if(index($PTName, $Typedef)!=-1)
                     {
-                        if(my $Base = $In::ABI{$LVer}{"TypedefBase"}{$Typedef}) {
-                            $PTName=~s/\b\Q$Typedef\E\b/$Base/g;
+                        if($PTName=~/\b\Q$Typedef\E\b/)
+                        {
+                            $PTName = uncoverTypedefs($PTName, $LVer);
+                            last;
                         }
                     }
                 }
@@ -4203,10 +4210,15 @@ sub detectChangedTypedefs()
         if(not $BName1 or isAnon($BName1)) {
             next;
         }
+        
         my $BName2 = $In::ABI{2}{"TypedefBase"}{$Typedef};
         if(not $BName2 or isAnon($BName2)) {
             next;
         }
+        
+        $BName1 = uncoverTypedefs($BName1, 1);
+        $BName2 = uncoverTypedefs($BName2, 2);
+        
         if($BName1 ne $BName2) {
             $ChangedTypedef{$Typedef} = 1;
         }
@@ -5427,6 +5439,9 @@ sub mergeParameters($$$$$$)
             my $Old_Regs = getRegs(1, $Symbol, $ParamPos1);
             my $New_Regs = getRegs(2, $PSymbol, $ParamPos2);
             
+            my $Old_Offset = $CompSign{1}{$Symbol}{"Param"}{$ParamPos1}{"offset"};
+            my $New_Offset = $CompSign{2}{$PSymbol}{"Param"}{$ParamPos2}{"offset"};
+            
             if($Old_Regs ne "unknown"
             and $New_Regs ne "unknown")
             {
@@ -5441,14 +5456,14 @@ sub mergeParameters($$$$$$)
                             "New_Value"=>$New_Regs  );
                     }
                 }
-                elsif($Old_Regs and not $New_Regs)
+                elsif($Old_Regs and not $New_Regs and $New_Offset ne "")
                 {
                     %{$CompatProblems{$Level}{$Symbol}{"Parameter_From_Register"}{$ParamLoc}}=(
                         "Target"=>$PName1,
                         "Param_Pos"=>adjustParamPos($ParamPos1, $Symbol, 1),
                         "Old_Value"=>$Old_Regs  );
                 }
-                elsif(not $Old_Regs and $New_Regs)
+                elsif(not $Old_Regs and $Old_Offset ne "" and $New_Regs)
                 {
                     %{$CompatProblems{$Level}{$Symbol}{"Parameter_To_Register"}{$ParamLoc}}=(
                         "Target"=>$PName1,
@@ -5457,8 +5472,8 @@ sub mergeParameters($$$$$$)
                 }
             }
             
-            if((my $Old_Offset = $CompSign{1}{$Symbol}{"Param"}{$ParamPos1}{"offset"}) ne ""
-            and (my $New_Offset = $CompSign{2}{$PSymbol}{"Param"}{$ParamPos2}{"offset"}) ne "")
+            if($Old_Offset ne ""
+            and $New_Offset ne "")
             {
                 if($Old_Offset ne $New_Offset)
                 {
@@ -7010,7 +7025,7 @@ sub getReportChangedConstants($$)
                 }
                 if($Report)
                 {
-                    $Report = $ContentDivStart."<table class='ptable'>\n<tr>\n<th width='2%'></th>\n<th width='47%'>Change</th>\n<th>Effect</th>\n</tr>\n".$Report."</table>\n<br/>\n$ContentDivEnd\n";
+                    $Report = $ContentDivStart."<table class='ptable'>\n<tr>\n<th class='pn'></th>\n<th class='chg'>Change</th>\n<th>Effect</th>\n</tr>\n".$Report."</table>\n<br/>\n$ContentDivEnd\n";
                     $Report = $ContentSpanStart."<span class='ext'>[+]</span> ".$Constant.$ContentSpanEnd."<br/>\n".$Report;
                     $Report = insertIDs($Report);
                 }
@@ -7573,7 +7588,7 @@ sub getReportSymbolProblems($$)
                                 $INTERFACE_PROBLEMS .= "<span class='mngl pleft'>$Symbol</span><br/>\n";
                             }
                             
-                            $INTERFACE_PROBLEMS .= "<table class='ptable'>\n<tr>\n<th width='2%'></th>\n<th width='47%'>Change</th>\n<th>Effect</th>\n</tr>\n$SYMBOL_REPORT</table>\n<br/>\n";
+                            $INTERFACE_PROBLEMS .= "<table class='ptable'>\n<tr>\n<th class='pn'></th>\n<th class='chg'>Change</th>\n<th>Effect</th>\n</tr>\n$SYMBOL_REPORT</table>\n<br/>\n";
                             $INTERFACE_PROBLEMS .= $ContentDivEnd;
                         }
                     }
@@ -7751,7 +7766,7 @@ sub getReportTypeProblems($$)
                         }
                         $TYPE_PROBLEMS .= $ContentSpanEnd;
                         $TYPE_PROBLEMS .= "<br/>\n".$ContentDivStart."<table class='ptable'><tr>\n";
-                        $TYPE_PROBLEMS .= "<th width='2%'></th><th width='47%'>Change</th>\n";
+                        $TYPE_PROBLEMS .= "<th class='pn'></th>\n<th class='chg'>Change</th>\n";
                         $TYPE_PROBLEMS .= "<th>Effect</th></tr>".$TYPE_REPORT."</table>\n";
                         $TYPE_PROBLEMS .= $ShowVTables.$Affected."<br/><br/>".$ContentDivEnd."\n";
                     }

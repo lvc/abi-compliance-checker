@@ -124,6 +124,12 @@ table.ptable td {
     max-width:28em;
     word-wrap:break-word;
 }
+table.ptable th.pn {
+    width:2%;
+}
+table.ptable th.chg {
+    width:47%;
+}
 table.vtable {
     border-collapse:collapse;
     border:1px outset black;
@@ -206,7 +212,6 @@ span.nowrap {
     white-space:nowrap;
 }
 span.value {
-    white-space:nowrap;
     font-weight:bold;
 }
 .passed {
