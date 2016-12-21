@@ -3049,13 +3049,17 @@ sub mergeTypes($$$)
     
     if(not $Type1_Pure{"Size"}
     or not $Type2_Pure{"Size"})
-    { # including a case when "class Class { ... };" changed to "class Class;"
-        if(not defined $Type1_Pure{"Memb"} or not defined $Type2_Pure{"Memb"}
-        or index($Type1_Pure{"Name"}, "<")==-1 or index($Type2_Pure{"Name"}, "<")==-1)
-        { # NOTE: template instances have no size
-            return {};
+    {
+        if($Type1_Pure{"Type"}=~/Class|Struct|Union/)
+        { # including a case when "class Class { ... };" changed to "class Class;"
+            if(not defined $Type1_Pure{"Memb"} or not defined $Type2_Pure{"Memb"}
+            or index($Type1_Pure{"Name"}, "<")==-1 or index($Type2_Pure{"Name"}, "<")==-1)
+            { # NOTE: template instances have no size
+                return {};
+            }
         }
     }
+    
     if(isRecurType($Type1_Pure{"Tid"}, $Type2_Pure{"Tid"}, \@RecurTypes))
     { # skip recursive declarations
         return {};

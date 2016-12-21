@@ -51,6 +51,7 @@ sub createDesc($$)
         }
         elsif(isHeaderFile($Path))
         { # header file
+            $In::Opt{"CheckHeadersOnly"} = 1;
             return "
                 <version>
                     ".$In::Desc{$LVer}{"TargetVersion"}."
