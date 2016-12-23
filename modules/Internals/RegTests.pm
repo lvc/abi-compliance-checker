@@ -5172,10 +5172,10 @@ sub runTests($$$$$$$$)
     
     if(($LibName eq "libsample_c" and $NProblems>70)
     or ($LibName eq "libsample_cpp" and $NProblems>150)) {
-        printMsg("INFO", "Result: SUCCESS ($NProblems problems found)\n");
+        printMsg("INFO", "Test result: SUCCESS ($NProblems problems found)\n");
     }
     else {
-        printMsg("ERROR", "Result: FAILED ($NProblems problems found)\n");
+        printMsg("ERROR", "Test result: FAILED ($NProblems problems found)\n");
     }
 }
 

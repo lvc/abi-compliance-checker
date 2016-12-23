@@ -661,7 +661,11 @@ sub getVarInfo($)
             }
         }
     }
-    if(not $SInfo->{"MnglName"}) {
+    if(not $SInfo->{"MnglName"})
+    {
+        if($SInfo->{"Class"}) {
+            return;
+        }
         $SInfo->{"MnglName"} = $ShortName;
     }
     if(my $Symbol = $SInfo->{"MnglName"})
@@ -1688,7 +1692,7 @@ sub setAnonTypedef_All()
 
 sub setTemplateParams_All()
 {
-    foreach (keys(%{$LibInfo{$V}{"info"}}))
+    foreach (sort {$a<=>$b} keys(%{$LibInfo{$V}{"info"}}))
     {
         if($LibInfo{$V}{"info_type"}{$_} eq "template_decl") {
             setTemplateParams($_);

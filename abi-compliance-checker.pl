@@ -481,12 +481,12 @@ TEST OPTIONS:
 
 REPORT OPTIONS:
   -binary|-bin|-abi
-      Show \"Binary\" compatibility problems only.
+      Show binary compatibility problems only.
       Generate report to:
         compat_reports/LIB_NAME/V1_to_V2/abi_compat_report.html
 
   -source|-src|-api
-      Show \"Source\" compatibility problems only.
+      Show source compatibility problems only.
       Generate report to:
         compat_reports/LIB_NAME/V1_to_V2/src_compat_report.html
 
@@ -501,12 +501,12 @@ REPORT PATH OPTIONS:
           compat_reports/LIB_NAME/V1_to_V2/compat_report.html
 
   -bin-report-path PATH
-      Path to \"Binary\" compatibility report.
+      Path to binary compatibility report.
       Default: 
           compat_reports/LIB_NAME/V1_to_V2/abi_compat_report.html
 
   -src-report-path PATH
-      Path to \"Source\" compatibility report.
+      Path to source compatibility report.
       Default: 
           compat_reports/LIB_NAME/V1_to_V2/src_compat_report.html
 
@@ -862,12 +862,14 @@ my %CompatRules;
 my %IncompleteRules;
 my %UnknownRules;
 my %VTableChanged_M;
-my %ExtendedSymbols;
 my %ReturnedClass;
 my %ParamClass;
 my %SourceAlternative;
 my %SourceAlternative_B;
 my %SourceReplacement;
+
+# Extra
+my %ExtendedSymbols;
 
 #Report
 my %TypeChanges;
@@ -1155,7 +1157,9 @@ sub getSignature($$$)
         
         $Signature .= $ShortName;
         
-        if($Mngl)
+        my $ClassId = $CompSign{$LVer}{$Symbol}{"Class"};
+        
+        if($Mngl or $ClassId)
         {
             if($CompSign{$LVer}{$Symbol}{"Destructor"}) {
                 $Signature = "~".$Signature;
@@ -1163,7 +1167,7 @@ sub getSignature($$$)
             
             if($ShowClass)
             {
-                if(my $ClassId = $CompSign{$LVer}{$Symbol}{"Class"})
+                if($ClassId)
                 {
                     my $Class = $TypeInfo{$LVer}{$ClassId}{"Name"};
                     $Class=~s/\bstruct //g;
@@ -1615,6 +1619,7 @@ sub addExtension($)
             my $TName = $TypeInfo{$LVer}{$Tid}{"Name"};
             $TName=~s/\A(struct|union|class|enum) //;
             my $Symbol = "external_func_".$TName;
+            $Symbol=~s/\W+/_/g;
             
             %{$CompSign{$LVer}{$Symbol}} = (
                 "Header" => "extended.h",
@@ -1628,6 +1633,7 @@ sub addExtension($)
             $CheckedSymbols{"Source"}{$Symbol} = 1;
         }
     }
+    
     $ExtendedSymbols{"external_func_0"} = 1;
     $CheckedSymbols{"Binary"}{"external_func_0"} = 1;
     $CheckedSymbols{"Source"}{"external_func_0"} = 1;
@@ -6604,6 +6610,12 @@ sub getSummary($)
         $TotalTypes = keys(%{$TName_Tid{1}});
     }
     
+    my $TotalSymbols = keys(%{$CheckedSymbols{$Level}});
+    
+    if($In::Opt{"ExtendedCheck"}) {
+        $TotalSymbols -= keys(%ExtendedSymbols);
+    }
+    
     my ($Arch1, $Arch2) = ($In::ABI{1}{"Arch"}, $In::ABI{2}{"Arch"});
     my ($GccV1, $GccV2) = ($In::ABI{1}{"GccVersion"}, $In::ABI{2}{"GccVersion"});
     my ($ClangV1, $ClangV2) = ($In::ABI{1}{"ClangVersion"}, $In::ABI{2}{"ClangVersion"});
@@ -6663,7 +6675,7 @@ sub getSummary($)
         }
         $TestResults .= "  </libs>\n";
         
-        $TestResults .= "  <symbols>".(keys(%{$CheckedSymbols{$Level}}) - keys(%ExtendedSymbols))."</symbols>\n";
+        $TestResults .= "  <symbols>".$TotalSymbols."</symbols>\n";
         $TestResults .= "  <types>".$TotalTypes."</types>\n";
         
         $TestResults .= "  <verdict>".$RESULT{$Level}{"Verdict"}."</verdict>\n";
@@ -6802,7 +6814,7 @@ sub getSummary($)
             $TestResults .= "<tr><th>Total ".getObjTitle()."</th><td>".($In::Opt{"CheckHeadersOnly"}?"0&#160;(not&#160;analyzed)":$Libs_Link)."</td></tr>\n";
         }
         
-        $TestResults .= "<tr><th>Total Symbols / Types</th><td>".(keys(%{$CheckedSymbols{$Level}}) - keys(%ExtendedSymbols))." / ".$TotalTypes."</td></tr>\n";
+        $TestResults .= "<tr><th>Total Symbols / Types</th><td>".$TotalSymbols." / ".$TotalTypes."</td></tr>\n";
         
         my $META_DATA = "verdict:".$RESULT{$Level}{"Verdict"}.";";
         if($In::Opt{"JoinReport"}) {
@@ -8129,6 +8141,10 @@ sub getAffectDesc($$$$)
 {
     my ($Level, $Symbol, $Kind, $Loc) = @_;
     
+    if($ExtendedSymbols{$Symbol}) {
+        return "This is a symbol from an external library that may use subject library and change the ABI after recompiling.";
+    }
+    
     my $PAttr = $CompatProblems{$Level}{$Symbol}{$Kind}{$Loc};
     
     $Loc=~s/\A(.*)\-\>(.+?)\Z/$1/; # without the latest affected field
@@ -8240,9 +8256,6 @@ sub getAffectDesc($$$$)
                 }
             }
         }
-    }
-    if($ExtendedSymbols{$Symbol}) {
-        push(@Sentence, " This is a symbol from an external library that may use subject library and change the ABI after recompiling.");
     }
     
     my $Sent = join(" ", @Sentence);
@@ -9063,7 +9076,7 @@ sub getReportPath($)
 sub printStatMsg($)
 {
     my $Level = $_[0];
-    printMsg("INFO", "Total \"$Level\" compatibility problems: ".$RESULT{$Level}{"Problems"}.", warnings: ".$RESULT{$Level}{"Warnings"});
+    printMsg("INFO", "Total ".lc($Level)." compatibility problems: ".$RESULT{$Level}{"Problems"}.", warnings: ".$RESULT{$Level}{"Warnings"});
 }
 
 sub listAffected($)
@@ -9096,14 +9109,19 @@ sub printReport()
     if($In::Opt{"JoinReport"} or $In::Opt{"DoubleReport"})
     {
         if($RESULT{"Binary"}{"Problems"}
-        or $RESULT{"Source"}{"Problems"}) {
-            printMsg("INFO", "Result: INCOMPATIBLE (Binary: ".$RESULT{"Binary"}{"Affected"}."\%, Source: ".$RESULT{"Source"}{"Affected"}."\%)");
+        or $RESULT{"Source"}{"Problems"})
+        {
+            printMsg("INFO", "Binary compatibility: ".(100-$RESULT{"Binary"}{"Affected"})."\%");
+            printMsg("INFO", "Source compatibility: ".(100-$RESULT{"Source"}{"Affected"})."\%");
         }
-        else {
-            printMsg("INFO", "Result: COMPATIBLE");
+        else
+        {
+            printMsg("INFO", "Binary compatibility: 100\%");
+            printMsg("INFO", "Source compatibility: 100\%");
         }
         printStatMsg("Binary");
         printStatMsg("Source");
+        
         if($In::Opt{"ListAffected"})
         { # --list-affected
             listAffected("Binary");
@@ -9113,12 +9131,13 @@ sub printReport()
     elsif($In::Opt{"BinOnly"})
     {
         if($RESULT{"Binary"}{"Problems"}) {
-            printMsg("INFO", "Result: INCOMPATIBLE (".$RESULT{"Binary"}{"Affected"}."\%)");
+            printMsg("INFO", "Binary compatibility: ".(100-$RESULT{"Binary"}{"Affected"})."\%");
         }
         else {
-            printMsg("INFO", "Result: COMPATIBLE");
+            printMsg("INFO", "Binary compatibility: 100\%");
         }
         printStatMsg("Binary");
+        
         if($In::Opt{"ListAffected"})
         { # --list-affected
             listAffected("Binary");
@@ -9127,17 +9146,19 @@ sub printReport()
     elsif($In::Opt{"SrcOnly"})
     {
         if($RESULT{"Source"}{"Problems"}) {
-            printMsg("INFO", "Result: INCOMPATIBLE (".$RESULT{"Source"}{"Affected"}."\%)");
+            printMsg("INFO", "Source compatibility: ".(100-$RESULT{"Source"}{"Affected"})."\%");
         }
         else {
-            printMsg("INFO", "Result: COMPATIBLE");
+            printMsg("INFO", "Source compatibility: 100\%");
         }
         printStatMsg("Source");
+        
         if($In::Opt{"ListAffected"})
         { # --list-affected
             listAffected("Source");
         }
     }
+    
     if($In::Opt{"StdOut"})
     {
         if($In::Opt{"JoinReport"} or not $In::Opt{"DoubleReport"})
@@ -9151,20 +9172,22 @@ sub printReport()
     }
     else
     {
-        if($In::Opt{"JoinReport"}) {
-            printMsg("INFO", "See detailed report:\n  ".pathFmt(getReportPath("Join")));
+        if($In::Opt{"JoinReport"})
+        { # default
+            printMsg("INFO", "Report: ".pathFmt(getReportPath("Join")));
         }
         elsif($In::Opt{"DoubleReport"})
-        { # default
-            printMsg("INFO", "See detailed reports:\n  ".pathFmt(getReportPath("Binary"))."\n  ".pathFmt(getReportPath("Source")));
+        {
+            printMsg("INFO", "Report (BC): ".pathFmt(getReportPath("Binary")));
+            printMsg("INFO", "Report (SC): ".pathFmt(getReportPath("Source")));
         }
         elsif($In::Opt{"BinOnly"})
         { # --binary
-            printMsg("INFO", "See detailed report:\n  ".pathFmt(getReportPath("Binary")));
+            printMsg("INFO", "Report: ".pathFmt(getReportPath("Binary")));
         }
         elsif($In::Opt{"SrcOnly"})
         { # --source
-            printMsg("INFO", "See detailed report:\n  ".pathFmt(getReportPath("Source")));
+            printMsg("INFO", "Report: ".pathFmt(getReportPath("Source")));
         }
     }
 }
@@ -9531,10 +9554,12 @@ sub compareABIDumps($$)
     unlink($DumpPath1);
     unlink($DumpPath2);
     
-    my $pid = fork();
-    if($pid)
+    my $Pid = fork();
+    if($Pid)
     { # dump on two CPU cores
         my @PARAMS = ("-dump", $In::Desc{1}{"Path"}, "-l", $In::Opt{"TargetLib"});
+        @PARAMS = (@PARAMS, "-vnum", $V1);
+        
         if($In::Desc{1}{"RelativeDirectory"}) {
             @PARAMS = (@PARAMS, "-relpath", $In::Desc{1}{"RelativeDirectory"});
         }
@@ -9558,9 +9583,6 @@ sub compareABIDumps($$)
         }
         if($In::Opt{"UserLang"}) {
             @PARAMS = (@PARAMS, "-lang", $In::Opt{"UserLang"});
-        }
-        if($In::Desc{1}{"TargetVersion"}) {
-            @PARAMS = (@PARAMS, "-vnum", $In::Desc{1}{"TargetVersion"});
         }
         if($In::Opt{"BinOnly"}) {
             @PARAMS = (@PARAMS, "-binary");
@@ -9593,6 +9615,8 @@ sub compareABIDumps($$)
     else
     { # child
         my @PARAMS = ("-dump", $In::Desc{2}{"Path"}, "-l", $In::Opt{"TargetLib"});
+        @PARAMS = (@PARAMS, "-vnum", $V2);
+        
         if($In::Desc{2}{"RelativeDirectory"}) {
             @PARAMS = (@PARAMS, "-relpath", $In::Desc{2}{"RelativeDirectory"});
         }
@@ -9616,9 +9640,6 @@ sub compareABIDumps($$)
         }
         if($In::Opt{"UserLang"}) {
             @PARAMS = (@PARAMS, "-lang", $In::Opt{"UserLang"});
-        }
-        if($In::Desc{2}{"TargetVersion"}) {
-            @PARAMS = (@PARAMS, "-vnum", $In::Desc{2}{"TargetVersion"});
         }
         if($In::Opt{"BinOnly"}) {
             @PARAMS = (@PARAMS, "-binary");
@@ -9651,7 +9672,7 @@ sub compareABIDumps($$)
             exit(0);
         }
     }
-    waitpid($pid, 0);
+    waitpid($Pid, 0);
     
     my @CMP_PARAMS = ("-l", $In::Opt{"TargetLib"});
     @CMP_PARAMS = (@CMP_PARAMS, "-d1", $DumpPath1);

@@ -106,12 +106,20 @@ sub initLogging($)
         mkpath($LogDir);
     }
     $LOG_PATH{$LVer} = join_P(getAbsPath($LogDir), $LogFile);
-    if($In::Opt{"Debug"})
-    { # debug directory
-        $DEBUG_DIR{$LVer} = "debug/".$In::Opt{"TargetLib"}."/".$In::Desc{$LVer}{"Version"};
-        mkdir($DEBUG_DIR{$LVer});
+    if($In::Opt{"Debug"}) {
+        initDebugging($LVer);
     }
+    
     resetLogging($LVer);
+    resetDebugging($LVer);
+}
+
+sub initDebugging($)
+{
+    my $LVer = $_[0];
+    
+    # debug directory
+    $DEBUG_DIR{$LVer} = "debug/".$In::Opt{"TargetLib"}."/".$In::Desc{$LVer}{"Version"};
 }
 
 sub getDebugDir($) {
@@ -136,9 +144,20 @@ sub resetLogging($)
     if($In::Opt{"LogMode"}!~/a|n/)
     { # remove old log
         unlink($LOG_PATH{$LVer});
-        if($In::Opt{"Debug"}) {
+    }
+}
+
+sub resetDebugging($)
+{
+    my $LVer = $_[0];
+    if($In::Opt{"Debug"})
+    {
+        if(-d $DEBUG_DIR{$LVer})
+        {
             rmtree($DEBUG_DIR{$LVer});
         }
+        
+        mkpath($DEBUG_DIR{$LVer});
     }
 }
 

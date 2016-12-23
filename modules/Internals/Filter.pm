@@ -144,6 +144,7 @@ sub symbolFilter($$$$)
         { # non-target symbols
             return 0;
         }
+        
         if($Level eq "Binary")
         {
             if($SInfo->{"InLine"}
@@ -575,7 +576,7 @@ sub pickType($$)
         return 0;
     }
     
-    return 0;
+    return 1;
 }
 
 sub isTargetType($$)
