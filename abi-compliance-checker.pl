@@ -5,7 +5,7 @@
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-# Copyright (C) 2012-2016 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2012-2017 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -72,8 +72,9 @@ push(@INC, dirname($MODULES_DIR));
 my %LoadedModules = ();
 loadModule("Basic");
 loadModule("Input");
-loadModule("Utils");
+loadModule("Path");
 loadModule("Logging");
+loadModule("Utils");
 loadModule("TypeAttr");
 loadModule("Filter");
 loadModule("SysFiles");
@@ -95,7 +96,7 @@ my %HomePage = (
 
 my $ShortUsage = "ABI Compliance Checker (ABICC) $TOOL_VERSION
 A tool for checking backward compatibility of a C/C++ library API
-Copyright (C) 2016 Andrey Ponomarenko's ABI Laboratory
+Copyright (C) 2017 Andrey Ponomarenko's ABI Laboratory
 License: GNU LGPL or GNU GPL
 
 Usage: $CmdName [options]
@@ -938,7 +939,9 @@ sub getModules()
             return $DIR."/modules";
         }
     }
-    exitStatus("Module_Error", "can't find modules");
+    
+    print STDERR "ERROR: can't find modules (Did you installed the tool by 'make install' command?)\n";
+    exit(9); # Module_Error
 }
 
 sub loadModule($)
@@ -1431,6 +1434,20 @@ sub prepareSymbols($)
             $MnglName = $ShortName;
         }
         
+        # symbol and its symlink have same signatures
+        if(my $SVer = $In::ABI{$LVer}{"SymbolVersion"}{$MnglName}) {
+            $CompSign{$LVer}{$SVer} = $SymbolInfo{$LVer}{$InfoId};
+        }
+        
+        if(my $Alias = $SymbolInfo{$LVer}{$InfoId}{"Alias"})
+        {
+            $CompSign{$LVer}{$Alias} = $SymbolInfo{$LVer}{$InfoId};
+            
+            if(my $SAVer = $In::ABI{$LVer}{"SymbolVersion"}{$Alias}) {
+                $CompSign{$LVer}{$SAVer} = $SymbolInfo{$LVer}{$InfoId};
+            }
+        }
+        
         if(defined $CompSign{$LVer}{$MnglName})
         { # NOTE: duplicated entries in the ABI Dump
             if(defined $SymbolInfo{$LVer}{$InfoId}{"Param"})
@@ -1453,20 +1470,6 @@ sub prepareSymbols($)
             }
             else {
                 $SymbolInfo{$LVer}{$InfoId}{"Unmangled"} = getSignature($MnglName, $LVer, "Class|Name|Qual");
-            }
-        }
-        
-        # symbol and its symlink have same signatures
-        if(my $SVer = $In::ABI{$LVer}{"SymbolVersion"}{$MnglName}) {
-            $CompSign{$LVer}{$SVer} = $SymbolInfo{$LVer}{$InfoId};
-        }
-        
-        if(my $Alias = $CompSign{$LVer}{$MnglName}{"Alias"})
-        {
-            $CompSign{$LVer}{$Alias} = $SymbolInfo{$LVer}{$InfoId};
-            
-            if(my $SAVer = $In::ABI{$LVer}{"SymbolVersion"}{$Alias}) {
-                $CompSign{$LVer}{$SAVer} = $SymbolInfo{$LVer}{$InfoId};
             }
         }
     }
@@ -1767,8 +1770,14 @@ sub setVirtFuncPositions($)
             }
             foreach my $VirtFunc (@Funcs)
             {
-                if($UsedDump{$LVer}{"DWARF"}) {
-                    $VirtualTable{$LVer}{$ClassName}{$VirtFunc} = $CompSign{$LVer}{$VirtFunc}{"VirtPos"};
+                if($UsedDump{$LVer}{"DWARF"})
+                {
+                    if(defined $CompSign{$LVer}{$VirtFunc}{"VirtPos"}) {
+                        $VirtualTable{$LVer}{$ClassName}{$VirtFunc} = $CompSign{$LVer}{$VirtFunc}{"VirtPos"};
+                    }
+                    else {
+                        $VirtualTable{$LVer}{$ClassName}{$VirtFunc} = 1;
+                    }
                 }
                 else {
                     $VirtualTable{$LVer}{$ClassName}{$VirtFunc} = $Num++;
@@ -2954,15 +2963,17 @@ sub nonComparable($$)
     $N1=~s/\A(struct|union|enum) //;
     $N2=~s/\A(struct|union|enum) //;
     
-    if($N1 ne $N2
+    if($N1 ne $N2 and $N2!~/\A\Q$N1\E_v\d+\Z/
     and not isAnon($N1)
     and not isAnon($N2))
     { # different names
+      # NOTE: compare versioned types (type vs type_v30)
         if($T1->{"Type"} ne "Pointer"
         or $T2->{"Type"} ne "Pointer")
         { # compare base types
             return 1;
         }
+        
         if($N1!~/\Avoid\s*\*/
         and $N2=~/\Avoid\s*\*/)
         {
@@ -8756,7 +8767,7 @@ sub mergeConstants($)
             { # expressions
                 next;
             }
-            if(convert_integer($Old_Value) eq convert_integer($New_Value))
+            if(convertInteger($Old_Value) eq convertInteger($New_Value))
             { # 0x0001 and 0x1, 0x1 and 1 equal constants
                 next;
             }
@@ -8825,7 +8836,7 @@ sub mergeConstants($)
     }
 }
 
-sub convert_integer($)
+sub convertInteger($)
 {
     my $Value = $_[0];
     if($Value=~/\A0x[a-f0-9]+\Z/)
@@ -9189,6 +9200,140 @@ sub printReport()
         { # --source
             printMsg("INFO", "Report: ".pathFmt(getReportPath("Source")));
         }
+    }
+}
+
+sub unpackDump($)
+{
+    my $Path = $_[0];
+    
+    $Path = getAbsPath($Path);
+    my ($Dir, $FileName) = sepPath($Path);
+    
+    my $TmpDir = $In::Opt{"Tmp"};
+    my $UnpackDir = $TmpDir."/unpack";
+    rmtree($UnpackDir);
+    mkpath($UnpackDir);
+    
+    if($FileName=~s/\Q.zip\E\Z//g)
+    { # *.zip
+        my $UnzipCmd = getCmdPath("unzip");
+        if(not $UnzipCmd) {
+            exitStatus("Not_Found", "can't find \"unzip\" command");
+        }
+        chdir($UnpackDir);
+        system("$UnzipCmd \"$Path\" >\"$TmpDir/null\"");
+        if($?) {
+            exitStatus("Error", "can't extract \'$Path\' ($?): $!");
+        }
+        chdir($In::Opt{"OrigDir"});
+        my @Contents = cmdFind($UnpackDir, "f");
+        if(not @Contents) {
+            exitStatus("Error", "can't extract \'$Path\'");
+        }
+        return $Contents[0];
+    }
+    elsif($FileName=~s/\Q.tar.gz\E(\.\w+|)\Z//g)
+    { # *.tar.gz
+      # *.tar.gz.amd64 (dh & cdbs)
+        if($In::Opt{"OS"} eq "windows")
+        { # -xvzf option is not implemented in tar.exe (2003)
+          # use "gzip.exe -k -d -f" + "tar.exe -xvf" instead
+            my $TarCmd = getCmdPath("tar");
+            if(not $TarCmd) {
+                exitStatus("Not_Found", "can't find \"tar\" command");
+            }
+            my $GzipCmd = getCmdPath("gzip");
+            if(not $GzipCmd) {
+                exitStatus("Not_Found", "can't find \"gzip\" command");
+            }
+            chdir($UnpackDir);
+            system("$GzipCmd -k -d -f \"$Path\""); # keep input files (-k)
+            if($?) {
+                exitStatus("Error", "can't extract \'$Path\'");
+            }
+            system("$TarCmd -xvf \"$Dir\\$FileName.tar\" >\"$TmpDir/null\"");
+            if($?) {
+                exitStatus("Error", "can't extract \'$Path\' ($?): $!");
+            }
+            chdir($In::Opt{"OrigDir"});
+            unlink($Dir."/".$FileName.".tar");
+            my @Contents = cmdFind($UnpackDir, "f");
+            if(not @Contents) {
+                exitStatus("Error", "can't extract \'$Path\'");
+            }
+            return $Contents[0];
+        }
+        else
+        { # Unix, Mac
+            my $TarCmd = getCmdPath("tar");
+            if(not $TarCmd) {
+                exitStatus("Not_Found", "can't find \"tar\" command");
+            }
+            chdir($UnpackDir);
+            system("$TarCmd -xvzf \"$Path\" >\"$TmpDir/null\"");
+            if($?) {
+                exitStatus("Error", "can't extract \'$Path\' ($?): $!");
+            }
+            chdir($In::Opt{"OrigDir"});
+            my @Contents = cmdFind($UnpackDir, "f");
+            if(not @Contents) {
+                exitStatus("Error", "can't extract \'$Path\'");
+            }
+            return $Contents[0];
+        }
+    }
+}
+
+sub createArchive($$)
+{
+    my ($Path, $To) = @_;
+    if(not $To) {
+        $To = ".";
+    }
+    
+    my ($From, $Name) = sepPath($Path);
+    if($In::Opt{"OS"} eq "windows")
+    { # *.zip
+        my $ZipCmd = getCmdPath("zip");
+        if(not $ZipCmd) {
+            exitStatus("Not_Found", "can't find \"zip\"");
+        }
+        my $Pkg = $To."/".$Name.".zip";
+        unlink($Pkg);
+        chdir($To);
+        system("$ZipCmd -j \"$Name.zip\" \"$Path\" >\"".$In::Opt{"Tmp"}."/null\"");
+        if($?)
+        { # cannot allocate memory (or other problems with "zip")
+            unlink($Path);
+            exitStatus("Error", "can't pack the ABI dump: ".$!);
+        }
+        chdir($In::Opt{"OrigDir"});
+        unlink($Path);
+        return $Pkg;
+    }
+    else
+    { # *.tar.gz
+        my $TarCmd = getCmdPath("tar");
+        if(not $TarCmd) {
+            exitStatus("Not_Found", "can't find \"tar\"");
+        }
+        my $GzipCmd = getCmdPath("gzip");
+        if(not $GzipCmd) {
+            exitStatus("Not_Found", "can't find \"gzip\"");
+        }
+        my $Pkg = abs_path($To)."/".$Name.".tar.gz";
+        unlink($Pkg);
+        chdir($From);
+        system($TarCmd, "-czf", $Pkg, $Name);
+        if($?)
+        { # cannot allocate memory (or other problems with "tar")
+            unlink($Path);
+            exitStatus("Error", "can't pack the ABI dump: ".$!);
+        }
+        chdir($In::Opt{"OrigDir"});
+        unlink($Path);
+        return $To."/".$Name.".tar.gz";
     }
 }
 
@@ -10094,7 +10239,7 @@ sub scenario()
     }
     if($In::Opt{"ShowVersion"})
     {
-        printMsg("INFO", "ABI Compliance Checker (ABICC) $TOOL_VERSION\nCopyright (C) 2016 Andrey Ponomarenko's ABI Laboratory\nLicense: LGPL or GPL <http://www.gnu.org/licenses/>\nThis program is free software: you can redistribute it and/or modify it.\n\nWritten by Andrey Ponomarenko.");
+        printMsg("INFO", "ABI Compliance Checker (ABICC) $TOOL_VERSION\nCopyright (C) 2017 Andrey Ponomarenko's ABI Laboratory\nLicense: LGPL or GPL <http://www.gnu.org/licenses/>\nThis program is free software: you can redistribute it and/or modify it.\n\nWritten by Andrey Ponomarenko.");
         exit(0);
     }
     if($In::Opt{"DumpVersion"})

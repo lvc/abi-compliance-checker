@@ -1,7 +1,7 @@
 ###########################################################################
 # A module with basic functions
 #
-# Copyright (C) 2015-2016 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2015-2017 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -19,7 +19,6 @@
 # If not, see <http://www.gnu.org/licenses/>.
 ###########################################################################
 use strict;
-use Cwd qw(realpath);
 
 my %Cache;
 
@@ -191,15 +190,6 @@ sub getPrefixes_I($$)
     }
 }
 
-sub join_P($$)
-{
-    my $S = "/";
-    if($In::Opt{"OS"} eq "windows") {
-        $S = "\\";
-    }
-    return join($S, @_);
-}
-
 sub getCompileCmd($$$$)
 {
     my ($Path, $Opt, $Inc, $LVer) = @_;
@@ -349,140 +339,6 @@ sub platformSpecs($)
     return "";
 }
 
-sub unpackDump($)
-{
-    my $Path = $_[0];
-    
-    $Path = getAbsPath($Path);
-    my ($Dir, $FileName) = sepPath($Path);
-    
-    my $TmpDir = $In::Opt{"Tmp"};
-    my $UnpackDir = $TmpDir."/unpack";
-    rmtree($UnpackDir);
-    mkpath($UnpackDir);
-    
-    if($FileName=~s/\Q.zip\E\Z//g)
-    { # *.zip
-        my $UnzipCmd = getCmdPath("unzip");
-        if(not $UnzipCmd) {
-            exitStatus("Not_Found", "can't find \"unzip\" command");
-        }
-        chdir($UnpackDir);
-        system("$UnzipCmd \"$Path\" >\"$TmpDir/null\"");
-        if($?) {
-            exitStatus("Error", "can't extract \'$Path\' ($?): $!");
-        }
-        chdir($In::Opt{"OrigDir"});
-        my @Contents = cmdFind($UnpackDir, "f");
-        if(not @Contents) {
-            exitStatus("Error", "can't extract \'$Path\'");
-        }
-        return $Contents[0];
-    }
-    elsif($FileName=~s/\Q.tar.gz\E(\.\w+|)\Z//g)
-    { # *.tar.gz
-      # *.tar.gz.amd64 (dh & cdbs)
-        if($In::Opt{"OS"} eq "windows")
-        { # -xvzf option is not implemented in tar.exe (2003)
-          # use "gzip.exe -k -d -f" + "tar.exe -xvf" instead
-            my $TarCmd = getCmdPath("tar");
-            if(not $TarCmd) {
-                exitStatus("Not_Found", "can't find \"tar\" command");
-            }
-            my $GzipCmd = getCmdPath("gzip");
-            if(not $GzipCmd) {
-                exitStatus("Not_Found", "can't find \"gzip\" command");
-            }
-            chdir($UnpackDir);
-            system("$GzipCmd -k -d -f \"$Path\""); # keep input files (-k)
-            if($?) {
-                exitStatus("Error", "can't extract \'$Path\'");
-            }
-            system("$TarCmd -xvf \"$Dir\\$FileName.tar\" >\"$TmpDir/null\"");
-            if($?) {
-                exitStatus("Error", "can't extract \'$Path\' ($?): $!");
-            }
-            chdir($In::Opt{"OrigDir"});
-            unlink($Dir."/".$FileName.".tar");
-            my @Contents = cmdFind($UnpackDir, "f");
-            if(not @Contents) {
-                exitStatus("Error", "can't extract \'$Path\'");
-            }
-            return $Contents[0];
-        }
-        else
-        { # Unix, Mac
-            my $TarCmd = getCmdPath("tar");
-            if(not $TarCmd) {
-                exitStatus("Not_Found", "can't find \"tar\" command");
-            }
-            chdir($UnpackDir);
-            system("$TarCmd -xvzf \"$Path\" >\"$TmpDir/null\"");
-            if($?) {
-                exitStatus("Error", "can't extract \'$Path\' ($?): $!");
-            }
-            chdir($In::Opt{"OrigDir"});
-            my @Contents = cmdFind($UnpackDir, "f");
-            if(not @Contents) {
-                exitStatus("Error", "can't extract \'$Path\'");
-            }
-            return $Contents[0];
-        }
-    }
-}
-
-sub createArchive($$)
-{
-    my ($Path, $To) = @_;
-    if(not $To) {
-        $To = ".";
-    }
-    
-    my ($From, $Name) = sepPath($Path);
-    if($In::Opt{"OS"} eq "windows")
-    { # *.zip
-        my $ZipCmd = getCmdPath("zip");
-        if(not $ZipCmd) {
-            exitStatus("Not_Found", "can't find \"zip\"");
-        }
-        my $Pkg = $To."/".$Name.".zip";
-        unlink($Pkg);
-        chdir($To);
-        system("$ZipCmd -j \"$Name.zip\" \"$Path\" >\"".$In::Opt{"Tmp"}."/null\"");
-        if($?)
-        { # cannot allocate memory (or other problems with "zip")
-            unlink($Path);
-            exitStatus("Error", "can't pack the ABI dump: ".$!);
-        }
-        chdir($In::Opt{"OrigDir"});
-        unlink($Path);
-        return $Pkg;
-    }
-    else
-    { # *.tar.gz
-        my $TarCmd = getCmdPath("tar");
-        if(not $TarCmd) {
-            exitStatus("Not_Found", "can't find \"tar\"");
-        }
-        my $GzipCmd = getCmdPath("gzip");
-        if(not $GzipCmd) {
-            exitStatus("Not_Found", "can't find \"gzip\"");
-        }
-        my $Pkg = abs_path($To)."/".$Name.".tar.gz";
-        unlink($Pkg);
-        chdir($From);
-        system($TarCmd, "-czf", $Pkg, $Name);
-        if($?)
-        { # cannot allocate memory (or other problems with "tar")
-            unlink($Path);
-            exitStatus("Error", "can't pack the ABI dump: ".$!);
-        }
-        chdir($In::Opt{"OrigDir"});
-        unlink($Path);
-        return $To."/".$Name.".tar.gz";
-    }
-}
-
 sub uncoverTypedefs($$)
 {
     my ($TypeName, $LVer) = @_;
@@ -567,46 +423,6 @@ sub setTarget($)
     $In::Opt{"Ext"} = getLibExt($Target, $In::Opt{"UseStaticLibs"});
 }
 
-sub pathFmt(@)
-{
-    my $Path = shift(@_);
-    my $Fmt = $In::Opt{"OS"};
-    if(@_) {
-        $Fmt = shift(@_);
-    }
-    
-    $Path=~s/[\/\\]+\.?\Z//g;
-    if($Fmt eq "windows")
-    {
-        $Path=~s/\//\\/g;
-        $Path = lc($Path);
-    }
-    else
-    { # forward slash to pass into MinGW GCC
-        $Path=~s/\\/\//g;
-    }
-    
-    $Path=~s/[\/\\]+\Z//g;
-    
-    return $Path;
-}
-
-sub getAbsPath($)
-{ # abs_path() should NOT be called for absolute inputs
-  # because it can change them
-    my $Path = $_[0];
-    if(not isAbsPath($Path)) {
-        $Path = abs_path($Path);
-    }
-    return pathFmt($Path);
-}
-
-sub realpath_F($)
-{
-    my $Path = $_[0];
-    return pathFmt(realpath($Path));
-}
-
 sub filterFormat($)
 {
     my $FiltRef = $_[0];
@@ -618,22 +434,6 @@ sub filterFormat($)
                 $Filt = pathFmt($Filt);
             }
         }
-    }
-}
-
-sub classifyPath($)
-{
-    my $Path = $_[0];
-    if($Path=~/[\*\+\(\[\|]/)
-    { # pattern
-        return ($Path, "Pattern");
-    }
-    elsif($Path=~/[\/\\]/)
-    { # directory or relative path
-        return (pathFmt($Path), "Path");
-    }
-    else {
-        return ($Path, "Name");
     }
 }
 

@@ -1,7 +1,7 @@
 ###########################################################################
 # A module to find system files and automatically generate include paths
 #
-# Copyright (C) 2015-2016 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2015-2017 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -763,7 +763,7 @@ sub detectDefaultPaths($$$$)
             if($GccVer=~/\A4\.8(|\.[012])|6\.[12]\.0\Z/)
             { # GCC 4.8.[0-2]: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=57850
               # GCC 6.[1-2].0: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=78040
-                printMsg("ERROR", "Not working properly with GCC $GccVer. Please use other GCC version with the help of --gcc-path=PATH option. Not supported GCC versions: 4.8.0, 4.8.1, 4.8.2, 6.1.0, 6.2.0");
+                printMsg("WARNING", "May not work properly with GCC 4.8.[0-2], 6.[1-2].0. Please use other GCC version with the help of --gcc-path=PATH option.");
                 $In::Opt{"GccMissedMangling"} = 1;
             }
         }

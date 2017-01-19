@@ -1,7 +1,7 @@
 ###########################################################################
 # A module to create ABI dump from AST tree
 #
-# Copyright (C) 2015-2016 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2015-2017 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -566,19 +566,22 @@ sub readSymbols_Lib($$$$$$)
             my %Found = ();
             
             # by value
-            foreach my $Symbol (keys(%{$In::ABI{$LVer}{"Symbols"}{$Lib_Name}}))
+            foreach my $Symbol (sort keys(%{$In::ABI{$LVer}{"Symbols"}{$Lib_Name}}))
             {
-                next if(index($Symbol,"\@")==-1);
+                next if(index($Symbol, '@')==-1);
                 if(my $Value = $Interface_Value{$LVer}{$Symbol})
                 {
-                    foreach my $Symbol_SameValue (keys(%{$Value_Interface{$LVer}{$Value}}))
+                    foreach my $Symbol_SameValue (sort keys(%{$Value_Interface{$LVer}{$Value}}))
                     {
                         if($Symbol_SameValue ne $Symbol
-                        and index($Symbol_SameValue,"\@")==-1)
+                        and index($Symbol_SameValue, '@')==-1)
                         {
                             $In::ABI{$LVer}{"SymbolVersion"}{$Symbol_SameValue} = $Symbol;
                             $Found{$Symbol} = 1;
-                            last;
+                            
+                            if(index($Symbol, '@@')==-1) {
+                                last;
+                            }
                         }
                     }
                 }
@@ -588,7 +591,7 @@ sub readSymbols_Lib($$$$$$)
             foreach my $Symbol (keys(%{$In::ABI{$LVer}{"Symbols"}{$Lib_Name}}))
             {
                 next if(defined $Found{$Symbol});
-                next if(index($Symbol,"\@\@")==-1);
+                next if(index($Symbol, '@@')==-1);
                 
                 if($Symbol=~/\A([^\@]*)\@\@/
                 and not $In::ABI{$LVer}{"SymbolVersion"}{$1})
@@ -602,7 +605,7 @@ sub readSymbols_Lib($$$$$$)
             foreach my $Symbol (keys(%{$In::ABI{$LVer}{"Symbols"}{$Lib_Name}}))
             {
                 next if(defined $Found{$Symbol});
-                next if(index($Symbol,"\@")==-1);
+                next if(index($Symbol, '@')==-1);
                 
                 if($Symbol=~/\A([^\@]*)\@([^\@]*)/
                 and not $In::ABI{$LVer}{"SymbolVersion"}{$1})
