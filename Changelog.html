@@ -44,7 +44,7 @@
 <p/>
 <br/>
 
-<b>Version 2.0 Beta (November 14, 2016)</b><br/>
+<b>Version 2.0 (January 28, 2017)</b><br/>
 <b>Improvements</b>
 <ul>
     <li>
@@ -95,11 +95,17 @@
     <li>
         Improved support for Solaris
     </li>
+    <li>
+        Compare versioned data types
+    </li>
 </ul>
 <b>New Options</b>
 <ul>
     <li>
         Added -filter option: a path to XML descriptor with skip_* rules to filter analyzed symbols in the report
+    </li>
+    <li>
+        Added -keep-cxx option to check _ZS*, _ZNS* and _ZNKS* symbols
     </li>
 </ul>
 <b>Bug Fixes</b>
@@ -115,6 +121,60 @@
     </li>
     <li>
         Fixed source-compatibility reports
+    </li>
+    <li>
+        Fixed counter of checked data types
+    </li>
+    <li>
+        Fixed lists of affected symbols
+    </li>
+    <li>
+        Fixed analysis of standard C++ libraries
+    </li>
+    <li>
+        Fixed analysis of added and removed virtual methods
+    </li>
+    <li>
+        Fixed style of the report
+    </li>
+    <li>
+        Fixed analysis of alias symbols
+    </li>
+    <li>
+        Uncover changed typedefs properly
+    </li>
+    <li>
+        Fixed Parameter_From_Register and Parameter_To_Register rules
+    </li>
+    <li>
+        Fixed analysis of data types derived from template instances
+    </li>
+    <li>
+        Enable -headers-only option automatically if header file is used as input library descriptor
+    </li>
+    <li>
+        Fixed analysis of template instances
+    </li>
+    <li>
+        Fixed analysis of static data
+    </li>
+    <li>
+        Fixed error message if modules are not installed
+    </li>
+    <li>
+        Fixed analysis of versioned symbols
+    </li>
+    <li>
+        Fixed -ext option
+    </li>
+    <li>
+        Fixed -use-dumps option
+    </li>
+    <li>
+        Fixed -debug option
+    </li>
+    <li>
+        Fixed console output
     </li>
 </ul>
 <b>Other</b>
