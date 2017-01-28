@@ -1,5 +1,5 @@
-ABICC 2.0 Beta
-==============
+ABICC 2.0
+=========
 
 NAME:
   ABI Compliance Checker (ABICC) - a tool for checking backward binary and source-level compatibility of a C/C++ software library.
