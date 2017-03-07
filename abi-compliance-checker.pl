@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 2.0
+# ABI Compliance Checker (ABICC) 2.1
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -58,7 +58,7 @@ use File::Basename qw(dirname);
 use Cwd qw(abs_path cwd);
 use Data::Dumper;
 
-my $TOOL_VERSION = "2.0";
+my $TOOL_VERSION = "2.1";
 my $XML_REPORT_VERSION = "1.2";
 my $ABI_DUMP_VERSION = "3.4";
 my $ABI_DUMP_VERSION_MIN = "3.2";
@@ -3894,13 +3894,54 @@ sub detectRemoved($)
     }
 }
 
+sub checkVtable($$$)
+{
+    my ($Level, $Symbol, $V) = @_;
+    
+    # skip v-tables for templates, that should not be imported by applications
+    if(my $CName = $VTableClass{$V}{$Symbol})
+    {
+        if(index($CName, "<")!=-1) {
+            return 0;
+        }
+        
+        if(not keys(%{$ClassMethods{$Level}{$V}{$CName}}))
+        { # do not show vtables for "private" classes
+          # use case: vtable for QDragManager (Qt 4.5.3 to 4.6.0) became HIDDEN symbol
+            return 0;
+        }
+    }
+    
+    if($In::Desc{$V}{"SkipSymbols"}{$Symbol})
+    { # user defined symbols to ignore
+        return 0;
+    }
+    
+    return 1;
+}
+
 sub mergeLibs($)
 {
     my $Level = $_[0];
     foreach my $Symbol (sort keys(%{$AddedInt{$Level}}))
     { # checking added symbols
         next if(not $CompSign{2}{$Symbol}{"Header"} and not $CompSign{2}{$Symbol}{"Source"});
-        next if(not symbolFilter($Symbol, $CompSign{2}{$Symbol}, "Affected + InlineVirt", $Level, 2));
+        
+        if(index($Symbol, "_ZTV")==0)
+        {
+            if(not checkVtable($Level, $Symbol, 2)) {
+                next;
+            }
+        }
+        else {
+            next if(not symbolFilter($Symbol, $CompSign{2}{$Symbol}, "Affected + InlineVirt", $Level, 2));
+        }
+        
+        if($CompSign{2}{$Symbol}{"PureVirt"})
+        { # symbols for pure virtual methods cannot be called by clients
+            next;
+        }
+        
         %{$CompatProblems{$Level}{$Symbol}{"Added_Symbol"}{""}} = ();
     }
     foreach my $Symbol (sort keys(%{$RemovedInt{$Level}}))
@@ -3908,22 +3949,8 @@ sub mergeLibs($)
         next if(not $CompSign{1}{$Symbol}{"Header"} and not $CompSign{1}{$Symbol}{"Source"});
         
         if(index($Symbol, "_ZTV")==0)
-        { # skip v-tables for templates, that should not be imported by applications
-            if(my $CName = $VTableClass{1}{$Symbol})
-            {
-                if(index($CName, "<")!=-1) {
-                    next;
-                }
-                
-                if(not keys(%{$ClassMethods{$Level}{1}{$CName}}))
-                { # vtables for "private" classes
-                  # use case: vtable for QDragManager (Qt 4.5.3 to 4.6.0) became HIDDEN symbol
-                    next;
-                }
-            }
-            
-            if($In::Desc{1}{"SkipSymbols"}{$Symbol})
-            { # user defined symbols to ignore
+        {
+            if(not checkVtable($Level, $Symbol, 1)) {
                 next;
             }
         }

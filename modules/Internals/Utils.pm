@@ -81,7 +81,7 @@ sub cmdFind(@)
     if($In::Opt{"OS"} eq "windows")
     {
         $Path = getAbsPath($Path);
-        my $Cmd = "dir \"$Path\" /B /O";
+        my $Cmd = "cmd /C dir \"$Path\" /B /O";
         if($MaxDepth!=1) {
             $Cmd .= " /S";
         }
@@ -91,7 +91,7 @@ sub cmdFind(@)
         elsif($Type eq "f") {
             $Cmd .= " /A-D";
         }
-        my @Files = split(/\n/, `$Cmd 2>\"$TmpDir/null\"`);
+        my @Files = split(/\n/, qx/$Cmd/);
         if($Name)
         {
             if(not $UseRegex)
