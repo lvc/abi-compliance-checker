@@ -338,6 +338,10 @@ sub createTUDump($)
         if(my $NSAdd = getNSAdditions($LVer, $TUnit_NameSpaces{$LVer}))
         { # GCC on all supported platforms does not include namespaces to the dump by default
             appendFile($HeaderPath, "\n  // add namespaces\n".$NSAdd);
+            
+            if($HeaderPath ne $TmpHeaderPath) {
+                appendFile($TmpHeaderPath, "\n  // add namespaces\n".$NSAdd);
+            }
         }
         # some GCC versions don't include class methods to the TU dump by default
         my ($AddClass, $ClassNum) = ("", 0);
@@ -374,8 +378,13 @@ sub createTUDump($)
             }
             $AddClass .= "  $CName* tmp_add_class_".($ClassNum++).";\n";
         }
-        if($AddClass) {
+        if($AddClass)
+        {
             appendFile($HeaderPath, "\n  // add classes\n".$AddClass);
+            
+            if($HeaderPath ne $TmpHeaderPath) {
+                appendFile($TmpHeaderPath, "\n  // add classes\n".$AddClass);
+            }
         }
     }
     writeLog($LVer, "Temporary header file \'$TmpHeaderPath\' with the following content will be compiled to create GCC translation unit dump:\n".readFile($TmpHeaderPath)."\n");
