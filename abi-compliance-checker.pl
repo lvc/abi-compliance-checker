@@ -3064,9 +3064,9 @@ sub mergeTypes($$$)
         }
     }
     
-    if(not $Type1_Pure{"Size"}
-    or not $Type2_Pure{"Size"})
-    {
+    if($Type1_Pure{"Size"} eq ""
+    or $Type2_Pure{"Size"} eq "")
+    { # NOTE: size of struct may be 0 bytes
         if($Type1_Pure{"Type"}=~/Class|Struct|Union/)
         { # including a case when "class Class { ... };" changed to "class Class;"
             if(not defined $Type1_Pure{"Memb"} or not defined $Type2_Pure{"Memb"}
@@ -3530,10 +3530,12 @@ sub mergeTypes($$$)
                 if(my $BSize2 = $Type2_Pure{"Memb"}{$MemberPair_Pos}{"bitfield"}) {
                     $SizeV2 = $BSize2;
                 }
+                
                 my $MemberType1_Name = $TypeInfo{1}{$MemberType1_Id}{"Name"};
                 my $MemberType2_Name = $TypeInfo{2}{$MemberType2_Id}{"Name"};
+                
                 if($Level eq "Binary"
-                and $SizeV1 and $SizeV2
+                and $SizeV1 ne "" and $SizeV2 ne ""
                 and $SizeV1 ne $SizeV2)
                 {
                     if($MemberType1_Name eq $MemberType2_Name or (isAnon($MemberType1_Name) and isAnon($MemberType2_Name))

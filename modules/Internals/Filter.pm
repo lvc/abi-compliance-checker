@@ -148,8 +148,8 @@ sub symbolFilter($$$$)
         if($Level eq "Binary")
         {
             if($SInfo->{"InLine"}
-            or isInLineInst($SInfo, $LVer))
-            {
+            or (not $SInfo->{"Static"} and isInLineInst($SInfo, $LVer)))
+            { # example: _ZN6Givaro6ZpzDomINS_7IntegerEE3EndEv is not exported (inlined)
                 if($ClassId and $SInfo->{"Virt"})
                 { # inline virtual methods
                     if($Type=~/InlineVirt/) {
@@ -653,7 +653,8 @@ sub selfTypedef($$)
 sub isOpaque($)
 {
     my $T = $_[0];
-    if(not defined $T->{"Memb"})
+    if(not defined $T->{"Memb"}
+    and not defined $T->{"Size"})
     {
         return 1;
     }
