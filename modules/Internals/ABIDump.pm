@@ -390,8 +390,17 @@ sub readSymbols_Lib($$$$$$)
         while(<LIB>)
         {
             my $Symbol = undef;
-            if(not $In::Opt{"UseStaticLibs"})
+            if($In::Opt{"UseStaticLibs"})
             {
+                if(/\A\s{10,}(\d+\s+|)([_\w\?\@]+)(\s*\Z|\s+)/i)
+                {
+                    # 16 IID_ISecurityInformation
+                    # ??_7TestBaseClass@api@@6B@ (const api::TestBaseClass::`vftable')
+                    $Symbol = $2;
+                }
+            }
+            else
+            { # Dll
                 # 1197 4AC 0000A620 SetThreadStackGuarantee
                 # 1198 4AD          SetThreadToken (forwarded to ...)
                 # 3368 _o2i_ECPublicKey
@@ -400,14 +409,6 @@ sub readSymbols_Lib($$$$$$)
                 or /\A\s*\d+\s+[a-f\d]+\s+([\w\?\@]+)\s*\(\s*forwarded\s+/
                 or /\A\s*\d+\s+_([\w\?\@]+)\s*(?:=.+)?\Z/)
                 { # dynamic, static and forwarded symbols
-                    $Symbol = $1;
-                }
-            }
-            else
-            { # static
-                if(/\A\s{10,}\d*\s+([\w\?\@]+)\s*\Z/i)
-                {
-                    # 16 IID_ISecurityInformation
                     $Symbol = $1;
                 }
             }
