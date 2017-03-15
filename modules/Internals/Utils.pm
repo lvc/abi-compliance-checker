@@ -361,8 +361,11 @@ sub uncoverTypedefs($$)
         foreach my $Word (keys(%Words))
         {
             my $BaseType_Name = $In::ABI{$LVer}{"TypedefBase"}{$Word};
+            
             next if(not $BaseType_Name);
+            next if($BaseType_Name=~/\b$Word\b/);
             next if($TypeName_New=~/\b(struct|union|enum)\s\Q$Word\E\b/);
+            
             if($BaseType_Name=~/\([\*]+\)/)
             { # FuncPtr
                 if($TypeName_New=~/\Q$Word\E(.*)\Z/)
