@@ -608,10 +608,12 @@ FILTER SYMBOLS OPTIONS:
       The list of types that should not be checked.
 
   -skip-internal-symbols PATTERN
-      Do not check symbols matched by the pattern.
+      Do not check symbols matched by the regular expression.
 
   -skip-internal-types PATTERN
-      Do not check types matched by the pattern.
+      Do not check types matched by the regular expression.
+      It's matched against full qualified type names (e.g. 'struct xyz::Name<T>').
+      It has to match any part of type name.
 
   -keep-cxx
       Check _ZS*, _ZNS* and _ZNKS* symbols.
