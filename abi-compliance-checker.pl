@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 ###########################################################################
 # ABI Compliance Checker (ABICC) 2.1
 # A tool for checking backward compatibility of a C/C++ library API
