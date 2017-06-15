@@ -2312,7 +2312,7 @@ sub addTargetHeaders($)
             my $Dir = getDirname($RecInc);
             
             if(familiarDirs($RegDir, $Dir) 
-            or $RecursiveIncludes{$LVer}{$RegHeader}{$RecInc}!=1)
+            or $RecursiveIncludes{$LVer}{$RegHeader}{$RecInc}<1)
             { # in the same directory or included by #include "..."
                 $In::Desc{$LVer}{"TargetHeader"}{getFilename($RecInc)} = 1;
             }
