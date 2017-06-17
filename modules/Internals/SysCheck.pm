@@ -505,7 +505,7 @@ sub cmpSystems($$)
                 
                 $Diff = "<table width='100%' cellpadding='0' cellspacing='0'><tr><td>$Diff</td></tr></table>";
                 
-                $Diff = composeHTML_Head($Title, $Keywords, $Description, $Styles, "")."\n<body>\n$Diff\n</body>\n</html>\n";
+                $Diff = composeHTML_Head($Title, $Keywords, $Description, $Styles, "", 1)."\n<body>\n$Diff\n</body>\n</html>\n";
                 
                 my $Output = $SYS_REPORT_PATH."/headers_diff/$LName";
                 writeFile($Output."/diff.html", $Diff);
@@ -900,7 +900,7 @@ sub cmpSystems($$)
     my $Description = "API compatibility report between $SystemName1 and $SystemName2 on ".showArch($ArchName);
     my $Styles = readModule("Styles", "CmpSystems.css");
     
-    $SYS_REPORT = composeHTML_Head($Title, $Keywords, $Description, $Styles, "")."\n<body>\n<div>".$SYS_REPORT."</div>\n";
+    $SYS_REPORT = composeHTML_Head($Title, $Keywords, $Description, $Styles, "", 1)."\n<body>\n<div>".$SYS_REPORT."</div>\n";
     $SYS_REPORT .= "<br/><br/>\n";
     $SYS_REPORT .= getReportFooter();
     $SYS_REPORT .= "</body></html>\n";

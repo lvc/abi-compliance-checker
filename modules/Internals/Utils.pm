@@ -247,7 +247,7 @@ sub platformSpecs($)
     
     if($In::Opt{"Target"} eq "symbian")
     { # options for GCCE compiler
-        my %Symbian_Opts = map {$_=>1} (
+        my @Symbian_Opts = (
             "-D__GCCE__",
             "-DUNICODE",
             "-fexceptions",
@@ -268,13 +268,13 @@ sub platformSpecs($)
             "-DEKA2",
             "-DSYMBIAN_ENABLE_SPLIT_HEADERS"
         );
-        return join(" ", keys(%Symbian_Opts));
+        return join(" ", @Symbian_Opts);
     }
     elsif($In::Opt{"OS"} eq "windows"
     and $In::Opt{"GccTarget"}=~/mingw/i)
     { # add options to MinGW compiler
       # to simulate the MSVC compiler
-        my %MinGW_Opts = map {$_=>1} (
+        my @MinGW_Opts = (
             "-D__unaligned=\" \"",
             "-D__nullptr=\"nullptr\"",
             "-D_WIN32",
@@ -319,24 +319,24 @@ sub platformSpecs($)
         
         if($In::ABI{$LVer}{"Arch"} eq "x86")
         {
-            $MinGW_Opts{"-D_X86_=300"}=1;
-            $MinGW_Opts{"-D_M_IX86=300"}=1;
+            push(@MinGW_Opts, "-D_X86_=300");
+            push(@MinGW_Opts, "-D_M_IX86=300");
         }
         elsif($In::ABI{$LVer}{"Arch"} eq "x86_64")
         {
-            $MinGW_Opts{"-D_AMD64_=300"}=1;
-            $MinGW_Opts{"-D_M_AMD64=300"}=1;
-            $MinGW_Opts{"-D_M_X64=300"}=1;
+            push(@MinGW_Opts, "-D_AMD64_=300");
+            push(@MinGW_Opts, "-D_M_AMD64=300");
+            push(@MinGW_Opts, "-D_M_X64=300");
         }
         elsif($In::ABI{$LVer}{"Arch"} eq "ia64")
         {
-            $MinGW_Opts{"-D_IA64_=300"}=1;
-            $MinGW_Opts{"-D_M_IA64=300"}=1;
+            push(@MinGW_Opts, "-D_IA64_=300");
+            push(@MinGW_Opts, "-D_M_IA64=300");
         }
         
-        return join(" ", sort keys(%MinGW_Opts));
+        return join(" ", @MinGW_Opts);
     }
-    return "";
+    return undef;
 }
 
 sub uncoverTypedefs($$)

@@ -6658,6 +6658,9 @@ sub getSummary($)
         $TotalSymbols -= keys(%ExtendedSymbols);
     }
     
+    my $AnyChanged = ($Added or $Removed or $I_Problems_High or $I_Problems_Medium or $I_Problems_Low or $T_Problems_High or
+    $C_Problems_Low or $T_Problems_Medium or $T_Problems_Low or $I_Other or $T_Other or $C_Other);
+    
     my ($Arch1, $Arch2) = ($In::ABI{1}{"Arch"}, $In::ABI{2}{"Arch"});
     my ($GccV1, $GccV2) = ($In::ABI{1}{"GccVersion"}, $In::ABI{2}{"GccVersion"});
     my ($ClangV1, $ClangV2) = ($In::ABI{1}{"ClangVersion"}, $In::ABI{2}{"ClangVersion"});
@@ -6748,7 +6751,7 @@ sub getSummary($)
         
         $Problem_Summary = "<problem_summary>\n".$Problem_Summary."</problem_summary>\n\n";
         
-        return ($TestInfo.$TestResults.$Problem_Summary, "");
+        return ($TestInfo.$TestResults.$Problem_Summary, "", $AnyChanged);
     }
     else
     { # HTML
@@ -6981,7 +6984,7 @@ sub getSummary($)
         $META_DATA .= "tool_version:$TOOL_VERSION";
         $Problem_Summary .= "</table>\n";
         
-        return ($TestInfo.$TestResults.$Problem_Summary, $META_DATA);
+        return ($TestInfo.$TestResults.$Problem_Summary, $META_DATA, $AnyChanged);
     }
 }
 
@@ -8371,7 +8374,7 @@ sub getReport($)
         else
         {
             my $Report = "<report kind=\"".lc($Level)."\" version=\"$XML_REPORT_VERSION\">\n\n";
-            my ($Summary, $MetaData) = getSummary($Level);
+            my ($Summary, $MetaData, $AnyChanged) = getSummary($Level);
             $Report .= $Summary."\n";
             $Report .= getReportProblems_All($Level);
             $Report .= "</report>\n";
@@ -8389,9 +8392,9 @@ sub getReport($)
             my $Title = $In::Opt{"TargetTitle"}.": ".$In::Desc{1}{"Version"}." to ".$In::Desc{2}{"Version"}." compatibility report";
             my $Keywords = $In::Opt{"TargetTitle"}.", compatibility, API, ABI, report";
             my $Des = "API/ABI compatibility report for the ".$In::Opt{"TargetTitle"}." ".$In::Opt{"TargetComponent"}." between ".$In::Desc{1}{"Version"}." and ".$In::Desc{2}{"Version"}." versions";
-            my ($BSummary, $BMetaData) = getSummary("Binary");
-            my ($SSummary, $SMetaData) = getSummary("Source");
-            my $Report = "<!-\- $BMetaData -\->\n<!-\- $SMetaData -\->\n".composeHTML_Head($Title, $Keywords, $Des, $CssStyles, $JScripts)."<body><a name='Source'></a><a name='Binary'></a><a name='Top'></a>";
+            my ($BSummary, $BMetaData, $BAnyChanged) = getSummary("Binary");
+            my ($SSummary, $SMetaData, $SAnyChanged) = getSummary("Source");
+            my $Report = "<!-\- $BMetaData -\->\n<!-\- $SMetaData -\->\n".composeHTML_Head($Title, $Keywords, $Des, $CssStyles, $JScripts, ($BAnyChanged or $SAnyChanged))."<body><a name='Source'></a><a name='Binary'></a><a name='Top'></a>";
             $Report .= getReportTitle("Join")."
             <br/>
             <div class='tabset'>
@@ -8406,7 +8409,7 @@ sub getReport($)
         }
         else
         {
-            my ($Summary, $MetaData) = getSummary($Level);
+            my ($Summary, $MetaData, $AnyChanged) = getSummary($Level);
             my $Title = $In::Opt{"TargetTitle"}.": ".$In::Desc{1}{"Version"}." to ".$In::Desc{2}{"Version"}." ".lc($Level)." compatibility report";
             my $Keywords = $In::Opt{"TargetTitle"}.", ".lc($Level)." compatibility, API, report";
             my $Des = "$Level compatibility report for the ".$In::Opt{"TargetTitle"}." ".$In::Opt{"TargetComponent"}." between ".$In::Desc{1}{"Version"}." and ".$In::Desc{2}{"Version"}." versions";
@@ -8416,7 +8419,7 @@ sub getReport($)
                     $Des .= " on ".showArch($In::ABI{1}{"Arch"});
                 }
             }
-            my $Report = "<!-\- $MetaData -\->\n".composeHTML_Head($Title, $Keywords, $Des, $CssStyles, $JScripts)."\n<body>\n<div><a name='Top'></a>\n";
+            my $Report = "<!-\- $MetaData -\->\n".composeHTML_Head($Title, $Keywords, $Des, $CssStyles, $JScripts, $AnyChanged)."\n<body>\n<div><a name='Top'></a>\n";
             $Report .= getReportTitle($Level)."\n".$Summary."\n";
             $Report .= getReportProblems_All($Level);
             $Report .= getSourceInfo();
@@ -8519,9 +8522,9 @@ sub getReportProblems($$)
     return $Report;
 }
 
-sub composeHTML_Head($$$$$)
+sub composeHTML_Head($$$$$$)
 {
-    my ($Title, $Keywords, $Des, $Styles, $Scripts) = @_;
+    my ($Title, $Keywords, $Des, $Styles, $Scripts, $AnyChanged) = @_;
     
     my $Head = "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n";
     $Head .= "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n";
@@ -8529,6 +8532,11 @@ sub composeHTML_Head($$$$$)
     $Head .= "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />\n";
     $Head .= "<meta name=\"keywords\" content=\"$Keywords\" />\n";
     $Head .= "<meta name=\"description\" content=\"$Des\" />\n";
+    
+    if(not $AnyChanged) {
+        $Head .= "<meta name=\"robots\" content=\"noindex\" />\n";
+    }
+    
     $Head .= "<title>$Title</title>\n";
     $Head .= "<style type=\"text/css\">\n$Styles</style>\n";
     $Head .= "<script type=\"text/javascript\" language=\"JavaScript\">\n<!--\n$Scripts\n-->\n</script>\n";
@@ -8986,7 +8994,7 @@ sub createSymbolsList($$$$$)
     my $Title = "$LName: public symbols";
     my $Keywords = "$LName, API, symbols";
     my $Des = "List of symbols in $LName ($LVersion) on ".showArch($ArchName);
-    $SYMBOLS_LIST = composeHTML_Head($Title, $Keywords, $Des, $CssStyles, $JScripts)."
+    $SYMBOLS_LIST = composeHTML_Head($Title, $Keywords, $Des, $CssStyles, $JScripts, 1)."
     <body><div>\n$SYMBOLS_LIST</div>
     <br/><br/>\n".getReportFooter()."
     </body></html>";
