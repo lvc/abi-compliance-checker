@@ -1337,9 +1337,9 @@ sub callingConvention_P_Real($$)
         $Conv{"Method"} = "stack";
         
         if(defined $SInfo->{"Param"}
-        and defined $SInfo->{"Param"}{0})
+        and defined $SInfo->{"Param"}{$Pos})
         {
-            if(not defined $SInfo->{"Param"}{0}{"offset"})
+            if(not defined $SInfo->{"Param"}{$Pos}{"offset"})
             {
                 $Conv{"Method"} = "unknown";
             }

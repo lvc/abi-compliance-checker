@@ -760,10 +760,11 @@ sub detectDefaultPaths($$$$)
             printMsg("INFO", "Using GCC $GccVer ($Target, target: ".getArch_GCC(1).")");
             
             # check GCC version
-            if($GccVer=~/\A4\.8(|\.[012])|6\.[12]\.0\Z/)
+            if($GccVer=~/\A4\.8(|\.[012])|6\..*|7\..*\Z/)
             { # GCC 4.8.[0-2]: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=57850
               # GCC 6.[1-2].0: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=78040
-                printMsg("WARNING", "May not work properly with GCC 4.8.[0-2], 6.[1-2].0. Please use other GCC version with the help of --gcc-path=PATH option.");
+              # GCC 7.1: still the same issue ...
+                printMsg("WARNING", "May not work properly with GCC 4.8.[0-2], 6.* and higher due to bug #78040 in GCC. Please try other GCC versions with the help of --gcc-path=PATH option or try creating ABI dumps by ABI Dumper tool instead.");
                 $In::Opt{"GccMissedMangling"} = 1;
             }
         }

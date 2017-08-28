@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ###########################################################################
-# ABI Compliance Checker (ABICC) 2.1
+# ABI Compliance Checker (ABICC) 2.2
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -58,10 +58,11 @@ use File::Basename qw(dirname);
 use Cwd qw(abs_path cwd);
 use Data::Dumper;
 
-my $TOOL_VERSION = "2.1";
+my $TOOL_VERSION = "2.2";
+my $ABI_DUMP_VERSION = "3.5";
+my $ABI_DUMP_VERSION_MIN = "3.5";
+
 my $XML_REPORT_VERSION = "1.2";
-my $ABI_DUMP_VERSION = "3.4";
-my $ABI_DUMP_VERSION_MIN = "3.2";
 my $XML_ABI_DUMP_VERSION = "1.2";
 
 # Internal modules
@@ -1213,6 +1214,8 @@ sub getSignature($$$)
                         }
                     }
                 }
+                
+                $PTName=~s/\(kind=\d+\)//g;
                 
                 if($Html) {
                     $PTName = specChars($PTName);
@@ -4000,6 +4003,13 @@ sub detectAdded_H($)
             next;
         }
         
+        if(not $CompSign{2}{$Symbol}{"Virt"}
+        and not $CompSign{2}{$Symbol}{"PureVirt"}
+        and $CompSign{2}{$Symbol}{"InLine"})
+        { # sunch symbols are not properly detected
+            next;
+        }
+        
         if(not defined $CompSign{1}{$Symbol}
         or not $CompSign{1}{$Symbol}{"MnglName"})
         {
@@ -4058,6 +4068,13 @@ sub detectRemoved_H($)
         }
         
         if($ExtendedSymbols{$Symbol}) {
+            next;
+        }
+        
+        if(not $CompSign{1}{$Symbol}{"Virt"}
+        and not $CompSign{1}{$Symbol}{"PureVirt"}
+        and $CompSign{1}{$Symbol}{"InLine"})
+        { # sunch symbols are not properly detected
             next;
         }
         
@@ -5700,11 +5717,14 @@ sub mergeParameters($$$$$$)
                 %Conv1 = callingConvention_P_Model($CompSign{1}{$Symbol}, $ParamPos1, 1);
                 %Conv2 = callingConvention_P_Model($CompSign{2}{$PSymbol}, $ParamPos2, 2);
             }
+            
+            my $ArrayType = ($Type1{"Type"} eq "Array" and $Type2{"Type"} eq "Array"); # Fortran
+            
             if($Conv1{"Method"} eq $Conv2{"Method"})
             {
                 if($Conv1{"Method"} eq "stack")
                 {
-                    if($Old_Size ne $New_Size) { # FIXME: isMemPadded, getOffset
+                    if($Old_Size ne $New_Size and not $ArrayType) { # FIXME: isMemPadded, getOffset
                         $NewProblemType = "Parameter_Type_And_Stack";
                     }
                 }
@@ -6073,6 +6093,8 @@ sub detectTypeChange($$$$)
     { # type change
         if($Type1{"Name"}!~/anon\-/ and $Type2{"Name"}!~/anon\-/)
         {
+            my $ArrayType = ($Type1{"Type"} eq "Array" and $Type2{"Type"} eq "Array"); # Fortran
+            
             if($Prefix eq "Return"
             and $Type1_Pure{"Name"} eq "void")
             {
@@ -6091,7 +6113,8 @@ sub detectTypeChange($$$$)
             {
                 if($Level eq "Binary"
                 and $Type1{"Size"} and $Type2{"Size"}
-                and $Type1{"Size"} ne $Type2{"Size"})
+                and $Type1{"Size"} ne $Type2{"Size"}
+                and not $ArrayType)
                 {
                     %{$LocalProblems{$Prefix."_Type_And_Size"}}=(
                         "Old_Value"=>$Type1{"Name"},
@@ -9344,7 +9367,7 @@ sub createArchive($$)
         system("$ZipCmd -j \"$Name.zip\" \"$Path\" >\"".$In::Opt{"Tmp"}."/null\"");
         if($?)
         { # cannot allocate memory (or other problems with "zip")
-            unlink($Path);
+            chdir($In::Opt{"OrigDir"});
             exitStatus("Error", "can't pack the ABI dump: ".$!);
         }
         chdir($In::Opt{"OrigDir"});
@@ -9362,15 +9385,14 @@ sub createArchive($$)
             exitStatus("Not_Found", "can't find \"gzip\"");
         }
         my $Pkg = abs_path($To)."/".$Name.".tar.gz";
-        unlink($Pkg);
-        chdir($From);
-        system($TarCmd, "-czf", $Pkg, $Name);
+        if(-e $Pkg) {
+            unlink($Pkg);
+        }
+        system($TarCmd, "-C", $From, "-czf", $Pkg, $Name);
         if($?)
         { # cannot allocate memory (or other problems with "tar")
-            unlink($Path);
             exitStatus("Error", "can't pack the ABI dump: ".$!);
         }
-        chdir($In::Opt{"OrigDir"});
         unlink($Path);
         return $To."/".$Name.".tar.gz";
     }
@@ -10597,8 +10619,13 @@ sub scenario()
             if($CompSign{1}{$Symbol}{"PureVirt"}) {
                 next;
             }
-            if(not $CompSign{1}{$Symbol}{"Header"}) {
-                next;
+            
+            if(not $CompSign{1}{$Symbol}{"Header"})
+            {
+                if(index($CompSign{1}{$Symbol}{"Source"}, ".f")==-1)
+                { # Fortran
+                    next;
+                }
             }
             
             $Count += symbolFilter($Symbol, $CompSign{1}{$Symbol}, "Affected + InlineVirt", "Binary", 1);

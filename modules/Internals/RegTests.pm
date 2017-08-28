@@ -3104,6 +3104,17 @@ sub testC()
         $EXTERN = "extern "; # add "extern" for CL compiler
     }
     
+    # Array size
+    $HEADER1 .= "
+        $DECL_SPEC int arraySize(int p[10]);";
+    $SOURCE1 .= "
+        int arraySize(int p[10]) { return 0; }";
+    
+    $HEADER2 .= "
+        $DECL_SPEC int arraySize(int p[15]);";
+    $SOURCE2 .= "
+        int arraySize(int p[15]) { return 0; }";
+    
     # Struct to union
     $HEADER1 .= "
         typedef struct StructToUnion {
