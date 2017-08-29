@@ -8,8 +8,8 @@ All rights reserved.
 RELEASE INFORMATION
 
 Project:           ABI Compliance Checker (ABICC)
-Version:           2.1
-Date:              June 17, 2017
+Version:           2.2
+Date:              August 29, 2017
 
 
 This file explains how to install and setup environment
@@ -33,7 +33,7 @@ Content:
    2. GNU Binutils (c++filt, readelf, objdump)
    3. Perl 5
    4. Ctags
-   5. ABI Dumper (0.99.15 or newer)
+   5. ABI Dumper (1.1 or newer)
 
 
 

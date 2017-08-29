@@ -22,7 +22,7 @@ REQUIRES:
   GCC C++
   GNU Binutils
   Ctags
-  ABI Dumper (0.99.15 or newer)
+  ABI Dumper (1.1 or newer)
 
 PLATFORMS:
   Linux

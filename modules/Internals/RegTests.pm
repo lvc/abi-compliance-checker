@@ -4785,6 +4785,7 @@ sub testC()
         $DECL_SPEC int testCppKeywords3(int operator);
         $DECL_SPEC int operator(int class, int this);
         $DECL_SPEC int delete(int virtual, int* this);
+        $DECL_SPEC int testCppKeywords4(int* param, int export);
         struct CppKeywords {
             int bool: 8;
             //int*this;
@@ -4800,7 +4801,12 @@ sub testC()
             };
         #endif";
     $SOURCE2 .= "
-        $DECL_SPEC int testCppKeywords1(int class, int virtual) { return 0; }";
+        $DECL_SPEC int testCppKeywords1(int class, int virtual) { return 0; }
+        $DECL_SPEC int testCppKeywords2(int operator, int other) { return 0; }
+        $DECL_SPEC int testCppKeywords3(int operator) { return 0; }
+        $DECL_SPEC int operator(int class, int this) { return 0; }
+        $DECL_SPEC int delete(int virtual, int* this) { return 0; }
+        $DECL_SPEC int testCppKeywords4(int* param, int export) { return 0; }";
     
     # Regression
     $HEADER1 .= "

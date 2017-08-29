@@ -63,14 +63,12 @@ sub createABIDump($)
     $In::ABI{$LVer}{"LibraryVersion"} = $In::Desc{$LVer}{"Version"};
     $In::ABI{$LVer}{"LibraryName"} = $In::Opt{"TargetLib"};
     
-    if(not $In::ABI{$LVer}{"Language"})
-    {
-        if($In::Opt{"UserLang"}) {
-            $In::ABI{$LVer}{"Language"} = $In::Opt{"UserLang"};
-        }
-        else {
-            $In::ABI{$LVer}{"Language"} = "C";
-        }
+    if(not $In::ABI{$LVer}{"Language"}) {
+        $In::ABI{$LVer}{"Language"} = "C";
+    }
+    
+    if($In::Opt{"UserLang"}) {
+        $In::ABI{$LVer}{"Language"} = $In::Opt{"UserLang"};
     }
     
     $In::ABI{$LVer}{"GccVersion"} = $In::Opt{"GccVer"};

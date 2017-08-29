@@ -20,7 +20,7 @@
 #    - GNU Binutils (readelf, c++filt, objdump)
 #    - Perl 5
 #    - Ctags
-#    - ABI Dumper >= 0.99.15
+#    - ABI Dumper >= 1.1
 #
 #  Mac OS X
 #    - Xcode (g++, c++filt, otool, nm)

@@ -661,8 +661,6 @@ sub preChange($$$)
         my $RegExp_O = join("|", keys(%CppKeywords_O));
         
         my $Detected = undef;
-        my $Sentence_O = undef;
-        my $Sentence_N = undef;
         my $Regex = undef;
         
         $Regex = qr/(\A|\n[^\#\/\n][^\n]*?|\n)(\*\s*|\s+|\@|\,|\()($RegExp_C|$RegExp_F)(\s*([\,\)\;\.\[]|\-\>|\:\s*\d))/;
@@ -673,8 +671,7 @@ sub preChange($$$)
           # unsigned private: 8;
           # DO NOT MATCH:
           # #pragma GCC visibility push(default)
-            $Sentence_O = "$1$2$3$4";
-            $Sentence_N = "$1$2c99_$3$4";
+            my $Sentence_O = "$1$2$3$4";
             
             if($Sentence_O=~/\s+decltype\(/)
             { # C++
@@ -683,7 +680,7 @@ sub preChange($$$)
             }
             else
             {
-                $Content=~s/$Regex/$Sentence_N/g;
+                $Content=~s/$Regex/$1$2c99_$3$4/g;
                 $In::Desc{$LVer}{"CppMode"} = 1;
                 if(not defined $Detected) {
                     $Detected = $Sentence_O;
