@@ -10411,7 +10411,7 @@ sub scenario()
             
             my $SDesc = readFile($In::Opt{"DumpSystem"});
             if(my $RelDir = $In::Desc{1}{"RelativeDirectory"}) {
-                $SDesc=~s/{RELPATH}/$RelDir/g;
+                $SDesc=~s/\{RELPATH\}/$RelDir/g;
             }
             
             readSysDesc($SDesc);

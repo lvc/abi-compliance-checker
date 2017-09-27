@@ -108,10 +108,10 @@ sub readDesc($$)
     if(not $DescRef->{"Version"}) {
         exitStatus("Error", "version in the XML descriptor is not specified (section \"version\")");
     }
-    if($Content=~/{RELPATH}/)
+    if($Content=~/\{RELPATH\}/)
     {
         if(my $RelDir = $DescRef->{"RelativeDirectory"}) {
-            $Content =~ s/{RELPATH}/$RelDir/g;
+            $Content =~ s/\{RELPATH\}/$RelDir/g;
         }
         else {
             exitStatus("Error", "you have not specified -relpath* option, but the XML descriptor contains {RELPATH} macro");
