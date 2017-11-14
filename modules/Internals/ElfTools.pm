@@ -172,7 +172,8 @@ sub getArch_Object($)
             exitStatus("Not_Found", "can't find \"objdump\"");
         }
         
-        my $Cmd = $ObjdumpCmd." -f \"$Path\"";
+        my $TmpDir = $In::Opt{"Tmp"};
+        my $Cmd = $ObjdumpCmd." -f \"$Path\" 2>$TmpDir/null";
         
         my $Locale = $In::Opt{"Locale"};
         if($In::Opt{"OS"} eq "windows") {
