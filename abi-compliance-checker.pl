@@ -5,7 +5,7 @@
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-# Copyright (C) 2012-2017 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2012-2018 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -182,6 +182,7 @@ GetOptions(
   "skip-internal-symbols|skip-internal=s" => \$In::Opt{"SkipInternalSymbols"},
   "skip-internal-types=s" => \$In::Opt{"SkipInternalTypes"},
   "keep-cxx!" => \$In::Opt{"KeepCxx"},
+  "keep-reserved!" => \$In::Opt{"KeepReserved"},
 # Filter header files
   "skip-headers=s" => \$In::Opt{"SkipHeadersPath"},
   "headers-list=s" => \$In::Opt{"TargetHeadersPath"},
@@ -618,6 +619,9 @@ FILTER SYMBOLS OPTIONS:
 
   -keep-cxx
       Check _ZS*, _ZNS* and _ZNKS* symbols.
+
+  -keep-reserved
+      Report changes in reserved fields.
 
 FILTER HEADERS OPTIONS:
   -skip-headers PATH
@@ -8553,6 +8557,7 @@ sub composeHTML_Head($$$$$$)
     $Head .= "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n";
     $Head .= "<head>\n";
     $Head .= "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />\n";
+    $Head .= "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />\n";
     $Head .= "<meta name=\"keywords\" content=\"$Keywords\" />\n";
     $Head .= "<meta name=\"description\" content=\"$Des\" />\n";
     

@@ -1,7 +1,7 @@
 ###########################################################################
 # A module to filter symbols
 #
-# Copyright (C) 2015-2016 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2015-2018 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -679,6 +679,11 @@ sub isPrivateABI($$)
 sub isReserved($)
 { # reserved fields == private
     my $MName = $_[0];
+    
+    if($In::Opt{"KeepReserved"}) {
+        return 0;
+    }
+    
     if($MName=~/reserved|padding|f_spare/i) {
         return 1;
     }
