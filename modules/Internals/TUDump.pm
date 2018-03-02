@@ -389,7 +389,17 @@ sub createTUDump($)
     }
     writeLog($LVer, "Temporary header file \'$TmpHeaderPath\' with the following content will be compiled to create GCC translation unit dump:\n".readFile($TmpHeaderPath)."\n");
     # create TU dump
-    my $TUdump = "-fdump-translation-unit -fkeep-inline-functions -c";
+    my $GCC_8 = checkGcc("8"); # support for GCC 8 and new options
+    my $TUdump;
+    if ($GCC_8)
+    {
+        # -fdump-lang-raw instead of -fdump-translation-unit
+        $TUdump = "-fdump-lang-raw";
+    }
+    else {
+        $TUdump = "-fdump-translation-unit";
+    }
+    $TUdump .= " -fkeep-inline-functions -c";
     if($In::Opt{"UserLang"} eq "C") {
         $TUdump .= " -U__cplusplus -D_Bool=\"bool\"";
     }
@@ -458,8 +468,16 @@ sub createTUDump($)
     
     unlink($TmpHeaderPath);
     unlink($HeaderPath);
-    
-    if(my @TUs = cmdFind($TmpDir,"f","*.tu",1)) {
+
+    my $dumpExt;
+    if ($GCC_8)
+    {
+        $dumpExt = "*.raw";
+    }
+    else {
+        $dumpExt = "*.tu";
+    }
+    if(my @TUs = cmdFind($TmpDir,"f",$dumpExt,1)) {
         return $TUs[0];
     }
     else
