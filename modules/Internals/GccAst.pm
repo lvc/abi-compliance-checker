@@ -1071,7 +1071,7 @@ sub getSymbolInfo($)
     }
     if($SInfo->{"MnglName"}=~/\A(_Z|\?)/)
     {
-        if(my $Unmangled = getUnmangled($SInfo->{"MnglName"}))
+        if(my $Unmangled = getUnmangled($SInfo->{"MnglName"}, $V))
         {
             if($Unmangled=~/\.\_\d/)
             {
