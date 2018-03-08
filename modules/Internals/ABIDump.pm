@@ -118,7 +118,7 @@ sub createABIDump($)
     {
         if(my $MnglName = $In::ABI{$LVer}{"SymbolInfo"}{$InfoId}{"MnglName"})
         {
-            if(my $Unmangled = getUnmangled($MnglName)) {
+            if(my $Unmangled = getUnmangled($MnglName, $LVer)) {
                 $In::ABI{$LVer}{"SymbolInfo"}{$InfoId}{"Unmangled"} = $Unmangled;
             }
         }

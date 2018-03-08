@@ -694,10 +694,10 @@ sub canonifyName($$)
     return $Name;
 }
 
-sub getUnmangled($)
+sub getUnmangled($$)
 {
-    if(defined $TrName{$_[0]}) {
-        return $TrName{$_[0]};
+    if(defined $TrName{$_[1]}{$_[0]}) {
+        return $TrName{$_[1]}{$_[0]};
     }
     
     return undef;
@@ -732,7 +732,7 @@ sub translateSymbols(@)
         if(index($Symbol, "_Z")==0)
         {
             push(@ZNames, $Symbol);
-            if($TrName{$Symbol})
+            if($TrName{$LVer}{$Symbol})
             { # already unmangled
                 next;
             }
@@ -758,9 +758,9 @@ sub translateSymbols(@)
             {
                 foreach my $M (keys(%{$Versioned{$MnglName}}))
                 {
-                    $TrName{$M} = canonifyName($Unmangled, "S");
-                    if(not $GccMangledName{$LVer}{$TrName{$M}}) {
-                        $GccMangledName{$LVer}{$TrName{$M}} = $M;
+                    $TrName{$LVer}{$M} = canonifyName($Unmangled, "S");
+                    if(not $GccMangledName{$LVer}{$TrName{$LVer}{$M}}) {
+                        $GccMangledName{$LVer}{$TrName{$LVer}{$M}} = $M;
                     }
                 }
             }
@@ -769,7 +769,7 @@ sub translateSymbols(@)
         foreach my $Symbol (@ZNames)
         {
             if(index($Symbol, "_ZTV")==0
-            and $TrName{$Symbol}=~/vtable for (.+)/)
+            and $TrName{$LVer}{$Symbol}=~/vtable for (.+)/)
             { # bind class name and v-table symbol
                 $In::ABI{$LVer}{"ClassVTable"}{$1} = $Symbol;
             }
@@ -782,12 +782,12 @@ sub translateSymbols(@)
         {
             if(my $Unmangled = pop(@UnmangledNames))
             {
-                $TrName{$MnglName} = formatName($Unmangled, "S");
-                $MangledName{$LVer}{$TrName{$MnglName}} = $MnglName;
+                $TrName{$LVer}{$MnglName} = formatName($Unmangled, "S");
+                $MangledName{$LVer}{$TrName{$LVer}{$MnglName}} = $MnglName;
             }
         }
     }
-    return \%TrName;
+    return \%{$TrName{$LVer}};
 }
 
 sub unmangleArray(@)
@@ -913,7 +913,7 @@ sub debugMangling($)
     {
         my $InfoId = $Mangled{$Mngl};
         
-        my $U1 = getUnmangled($Mngl);
+        my $U1 = getUnmangled($Mngl, $LVer);
         my $U2 = modelUnmangled($InfoId, "GCC", $LVer);
         my $U3 = mangleSymbol($InfoId, "GCC", $LVer);
         
