@@ -762,7 +762,7 @@ sub detectDefaultPaths($$$$)
             printMsg("INFO", "Using GCC $GccVer ($Target, target: ".getArch_GCC(1).")");
             
             # check GCC version
-            if($GccVer=~/\A(4\.8(|\.[012])|[67]\..*)\Z/ or cmpVersions($GccVer, "8")>=0)
+            if($GccVer=~/\A(4\.8(|\.[012])|[67](\..*)?)\Z/ or cmpVersions($GccVer, "8")>=0)
             { # GCC 4.8.[0-2]: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=57850
               # GCC 6.[1-2].0: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=78040
               # GCC 7.1: still the same issue ...
