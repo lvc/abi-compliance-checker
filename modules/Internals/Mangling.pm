@@ -1,22 +1,24 @@
 ###########################################################################
 # A module to mangle C++ symbols
 #
-# Copyright (C) 2015-2016 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2015-2018 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License or the GNU Lesser
-# General Public License as published by the Free Software Foundation.
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2.1 of the License, or (at your option) any later version.
 #
-# This program is distributed in the hope that it will be useful,
+# This library is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
-# and the GNU Lesser General Public License along with this program.
-# If not, see <http://www.gnu.org/licenses/>.
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+# MA  02110-1301 USA
 ###########################################################################
 use strict;
 
@@ -694,10 +696,10 @@ sub canonifyName($$)
     return $Name;
 }
 
-sub getUnmangled($)
+sub getUnmangled($$)
 {
-    if(defined $TrName{$_[0]}) {
-        return $TrName{$_[0]};
+    if(defined $TrName{$_[1]}{$_[0]}) {
+        return $TrName{$_[1]}{$_[0]};
     }
     
     return undef;
@@ -732,7 +734,7 @@ sub translateSymbols(@)
         if(index($Symbol, "_Z")==0)
         {
             push(@ZNames, $Symbol);
-            if($TrName{$Symbol})
+            if($TrName{$LVer}{$Symbol})
             { # already unmangled
                 next;
             }
@@ -758,9 +760,9 @@ sub translateSymbols(@)
             {
                 foreach my $M (keys(%{$Versioned{$MnglName}}))
                 {
-                    $TrName{$M} = canonifyName($Unmangled, "S");
-                    if(not $GccMangledName{$LVer}{$TrName{$M}}) {
-                        $GccMangledName{$LVer}{$TrName{$M}} = $M;
+                    $TrName{$LVer}{$M} = canonifyName($Unmangled, "S");
+                    if(not $GccMangledName{$LVer}{$TrName{$LVer}{$M}}) {
+                        $GccMangledName{$LVer}{$TrName{$LVer}{$M}} = $M;
                     }
                 }
             }
@@ -769,7 +771,7 @@ sub translateSymbols(@)
         foreach my $Symbol (@ZNames)
         {
             if(index($Symbol, "_ZTV")==0
-            and $TrName{$Symbol}=~/vtable for (.+)/)
+            and $TrName{$LVer}{$Symbol}=~/vtable for (.+)/)
             { # bind class name and v-table symbol
                 $In::ABI{$LVer}{"ClassVTable"}{$1} = $Symbol;
             }
@@ -782,12 +784,12 @@ sub translateSymbols(@)
         {
             if(my $Unmangled = pop(@UnmangledNames))
             {
-                $TrName{$MnglName} = formatName($Unmangled, "S");
-                $MangledName{$LVer}{$TrName{$MnglName}} = $MnglName;
+                $TrName{$LVer}{$MnglName} = formatName($Unmangled, "S");
+                $MangledName{$LVer}{$TrName{$LVer}{$MnglName}} = $MnglName;
             }
         }
     }
-    return \%TrName;
+    return \%{$TrName{$LVer}};
 }
 
 sub unmangleArray(@)
@@ -913,7 +915,7 @@ sub debugMangling($)
     {
         my $InfoId = $Mangled{$Mngl};
         
-        my $U1 = getUnmangled($Mngl);
+        my $U1 = getUnmangled($Mngl, $LVer);
         my $U2 = modelUnmangled($InfoId, "GCC", $LVer);
         my $U3 = mangleSymbol($InfoId, "GCC", $LVer);
         

@@ -1,11 +1,11 @@
 #!/usr/bin/perl
-###########################################################################
-# ABI Compliance Checker (ABICC) 2.2
+########################################################################
+# ABI Compliance Checker (ABICC) 2.3
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-# Copyright (C) 2012-2017 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2012-2018 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -16,7 +16,7 @@
 # REQUIREMENTS
 # ============
 #  Linux
-#    - G++ (3.0-4.7, 4.8.3, 4.9 or newer)
+#    - G++ (3.0 or newer)
 #    - GNU Binutils (readelf, c++filt, objdump)
 #    - Perl 5
 #    - Ctags
@@ -27,7 +27,7 @@
 #    - Ctags
 #
 #  MS Windows
-#    - MinGW (3.0-4.7, 4.8.3, 4.9 or newer)
+#    - MinGW (3.0 or newer)
 #    - MS Visual C++ (dumpbin, undname, cl)
 #    - Active Perl 5 (5.8 or newer)
 #    - Sigcheck v2.52 or newer
@@ -36,19 +36,21 @@
 #    - Add tool locations to the PATH environment variable
 #    - Run vcvars64.bat (C:\Microsoft Visual Studio 9.0\VC\bin\)
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License or the GNU Lesser
-# General Public License as published by the Free Software Foundation.
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2.1 of the License, or (at your option) any later version.
 #
-# This program is distributed in the hope that it will be useful,
+# This library is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
-# and the GNU Lesser General Public License along with this program.
-# If not, see <http://www.gnu.org/licenses/>.
-###########################################################################
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+# MA  02110-1301 USA
+########################################################################
 use Getopt::Long;
 Getopt::Long::Configure ("posix_default", "no_ignore_case");
 use File::Path qw(mkpath rmtree);
@@ -58,7 +60,7 @@ use File::Basename qw(dirname);
 use Cwd qw(abs_path cwd);
 use Data::Dumper;
 
-my $TOOL_VERSION = "2.2";
+my $TOOL_VERSION = "2.3";
 my $ABI_DUMP_VERSION = "3.5";
 my $ABI_DUMP_VERSION_MIN = "3.5";
 
@@ -97,8 +99,8 @@ my %HomePage = (
 
 my $ShortUsage = "ABI Compliance Checker (ABICC) $TOOL_VERSION
 A tool for checking backward compatibility of a C/C++ library API
-Copyright (C) 2017 Andrey Ponomarenko's ABI Laboratory
-License: GNU LGPL or GNU GPL
+Copyright (C) 2018 Andrey Ponomarenko's ABI Laboratory
+License: GNU LGPL 2.1
 
 Usage: $CmdName [options]
 Example: $CmdName -l NAME -old ABI-0.dump -new ABI-1.dump
@@ -182,6 +184,7 @@ GetOptions(
   "skip-internal-symbols|skip-internal=s" => \$In::Opt{"SkipInternalSymbols"},
   "skip-internal-types=s" => \$In::Opt{"SkipInternalTypes"},
   "keep-cxx!" => \$In::Opt{"KeepCxx"},
+  "keep-reserved!" => \$In::Opt{"KeepReserved"},
 # Filter header files
   "skip-headers=s" => \$In::Opt{"SkipHeadersPath"},
   "headers-list=s" => \$In::Opt{"TargetHeadersPath"},
@@ -260,7 +263,7 @@ DESCRIPTION:
   the application to a new library version.
 
   This tool is free software: you can redistribute it and/or modify it
-  under the terms of the GNU LGPL or GNU GPL.
+  under the terms of the GNU LGPL 2.1.
 
 USAGE #1 (WITH ABI DUMPER):
 
@@ -618,6 +621,9 @@ FILTER SYMBOLS OPTIONS:
 
   -keep-cxx
       Check _ZS*, _ZNS* and _ZNKS* symbols.
+
+  -keep-reserved
+      Report changes in reserved fields.
 
 FILTER HEADERS OPTIONS:
   -skip-headers PATH
@@ -8553,6 +8559,7 @@ sub composeHTML_Head($$$$$$)
     $Head .= "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n";
     $Head .= "<head>\n";
     $Head .= "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />\n";
+    $Head .= "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />\n";
     $Head .= "<meta name=\"keywords\" content=\"$Keywords\" />\n";
     $Head .= "<meta name=\"description\" content=\"$Des\" />\n";
     
@@ -10300,7 +10307,7 @@ sub scenario()
     }
     if($In::Opt{"ShowVersion"})
     {
-        printMsg("INFO", "ABI Compliance Checker (ABICC) $TOOL_VERSION\nCopyright (C) 2017 Andrey Ponomarenko's ABI Laboratory\nLicense: LGPL or GPL <http://www.gnu.org/licenses/>\nThis program is free software: you can redistribute it and/or modify it.\n\nWritten by Andrey Ponomarenko.");
+        printMsg("INFO", "ABI Compliance Checker (ABICC) $TOOL_VERSION\nCopyright (C) 2018 Andrey Ponomarenko's ABI Laboratory\nLicense: GNU LGPL 2.1 <http://www.gnu.org/licenses/>\nThis program is free software: you can redistribute it and/or modify it.\n\nWritten by Andrey Ponomarenko.");
         exit(0);
     }
     if($In::Opt{"DumpVersion"})

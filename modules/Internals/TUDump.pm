@@ -1,22 +1,24 @@
 ###########################################################################
 # A module to create AST dump
 #
-# Copyright (C) 2015-2016 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2015-2018 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License or the GNU Lesser
-# General Public License as published by the Free Software Foundation.
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2.1 of the License, or (at your option) any later version.
 #
-# This program is distributed in the hope that it will be useful,
+# This library is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
-# and the GNU Lesser General Public License along with this program.
-# If not, see <http://www.gnu.org/licenses/>.
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+# MA  02110-1301 USA
 ###########################################################################
 use strict;
 
@@ -282,9 +284,17 @@ sub createTUDump($)
         $HeaderPath = $PrePath;
     }
     
+    my $GCC_8 = checkGcc("8"); # support for GCC 8 and new options
+    
     if($In::ABI{$LVer}{"Language"} eq "C++")
     { # add classes and namespaces to the dump
-        my $CHdump = "-fdump-class-hierarchy -c";
+        my $CHdump = "-fdump-class-hierarchy";
+        if($GCC_8)
+        { # -fdump-lang-class instead of -fdump-class-hierarchy
+            $CHdump = "-fdump-lang-class";
+        }
+        $CHdump .= " -c";
+        
         if($In::Desc{$LVer}{"CppMode"}==1
         or $MinGWMode{$LVer}==1) {
             $CHdump .= " -fpreprocessed";
@@ -388,8 +398,14 @@ sub createTUDump($)
         }
     }
     writeLog($LVer, "Temporary header file \'$TmpHeaderPath\' with the following content will be compiled to create GCC translation unit dump:\n".readFile($TmpHeaderPath)."\n");
+    
     # create TU dump
-    my $TUdump = "-fdump-translation-unit -fkeep-inline-functions -c";
+    my $TUdump = "-fdump-translation-unit";
+    if ($GCC_8)
+    { # -fdump-lang-raw instead of -fdump-translation-unit
+        $TUdump = "-fdump-lang-raw";
+    }
+    $TUdump .= " -fkeep-inline-functions -c";
     if($In::Opt{"UserLang"} eq "C") {
         $TUdump .= " -U__cplusplus -D_Bool=\"bool\"";
     }
@@ -458,8 +474,15 @@ sub createTUDump($)
     
     unlink($TmpHeaderPath);
     unlink($HeaderPath);
-    
-    if(my @TUs = cmdFind($TmpDir,"f","*.tu",1)) {
+
+    my $dumpExt;
+    if ($GCC_8) {
+        $dumpExt = "*.raw";
+    }
+    else {
+        $dumpExt = "*.tu";
+    }
+    if(my @TUs = cmdFind($TmpDir,"f",$dumpExt,1)) {
         return $TUs[0];
     }
     else
