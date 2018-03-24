@@ -32,7 +32,7 @@ Install
 ###### Requires
 
 * Perl 5
-* GCC C++
+* GCC C++ (3.0 or newer)
 * GNU Binutils
 * Ctags
 * ABI Dumper (1.1 or newer)

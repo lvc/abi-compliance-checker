@@ -1,7 +1,7 @@
 ###########################################################################
 # A module to create AST dump
 #
-# Copyright (C) 2015-2016 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2015-2018 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -282,9 +282,17 @@ sub createTUDump($)
         $HeaderPath = $PrePath;
     }
     
+    my $GCC_8 = checkGcc("8"); # support for GCC 8 and new options
+    
     if($In::ABI{$LVer}{"Language"} eq "C++")
     { # add classes and namespaces to the dump
-        my $CHdump = "-fdump-class-hierarchy -c";
+        my $CHdump = "-fdump-class-hierarchy";
+        if($GCC_8)
+        { # -fdump-lang-class instead of -fdump-class-hierarchy
+            $CHdump = "-fdump-lang-class";
+        }
+        $CHdump .= " -c";
+        
         if($In::Desc{$LVer}{"CppMode"}==1
         or $MinGWMode{$LVer}==1) {
             $CHdump .= " -fpreprocessed";
@@ -388,16 +396,12 @@ sub createTUDump($)
         }
     }
     writeLog($LVer, "Temporary header file \'$TmpHeaderPath\' with the following content will be compiled to create GCC translation unit dump:\n".readFile($TmpHeaderPath)."\n");
+    
     # create TU dump
-    my $GCC_8 = checkGcc("8"); # support for GCC 8 and new options
-    my $TUdump;
+    my $TUdump = "-fdump-translation-unit";
     if ($GCC_8)
-    {
-        # -fdump-lang-raw instead of -fdump-translation-unit
+    { # -fdump-lang-raw instead of -fdump-translation-unit
         $TUdump = "-fdump-lang-raw";
-    }
-    else {
-        $TUdump = "-fdump-translation-unit";
     }
     $TUdump .= " -fkeep-inline-functions -c";
     if($In::Opt{"UserLang"} eq "C") {
@@ -470,8 +474,7 @@ sub createTUDump($)
     unlink($HeaderPath);
 
     my $dumpExt;
-    if ($GCC_8)
-    {
+    if ($GCC_8) {
         $dumpExt = "*.raw";
     }
     else {

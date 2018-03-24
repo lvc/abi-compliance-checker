@@ -1,7 +1,7 @@
 ###########################################################################
 # A module to find system files and automatically generate include paths
 #
-# Copyright (C) 2015-2017 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2015-2018 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -31,7 +31,7 @@ my %BinUtils = map {$_=>1} (
 );
 
 # Header file extensions as described by gcc
-my $HEADER_EXT = "h|hh|hp|hxx|hpp|h\\+\\+";
+my $HEADER_EXT = "h|hh|hp|hxx|hpp|h\\+\\+|tcc|txx|x|inl|inc|ads|isph";
 
 my %GlibcHeader = map {$_=>1} (
     "aliases.h",
@@ -760,11 +760,13 @@ sub detectDefaultPaths($$$$)
             printMsg("INFO", "Using GCC $GccVer ($Target, target: ".getArch_GCC(1).")");
             
             # check GCC version
-            if($GccVer=~/\A4\.8(|\.[012])|6\..*|7\..*\Z/)
+            if($GccVer=~/\A(4\.8(|\.[012])|[67]\..*)\Z/ or cmpVersions($GccVer, "8")>=0)
             { # GCC 4.8.[0-2]: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=57850
               # GCC 6.[1-2].0: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=78040
               # GCC 7.1: still the same issue ...
-                printMsg("WARNING", "May not work properly with GCC 4.8.[0-2], 6.* and higher due to bug #78040 in GCC. Please try other GCC versions with the help of --gcc-path=PATH option or try creating ABI dumps by ABI Dumper tool instead.");
+              # GCC 8: still the same issue ...
+              # ABICC 2.3: enable this for all future GCC versions
+                printMsg("WARNING", "May not work properly with GCC 4.8.[0-2], 6.* and higher due to bug #78040 in GCC. Please try other GCC versions with the help of --gcc-path=PATH option or create ABI dumps by ABI Dumper tool instead to avoid using GCC. Test selected GCC version first by -test option.");
                 $In::Opt{"GccMissedMangling"} = 1;
             }
         }

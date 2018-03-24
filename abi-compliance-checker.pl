@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 ########################################################################
-# ABI Compliance Checker (ABICC) 2.2
+# ABI Compliance Checker (ABICC) 2.3
 # A tool for checking backward compatibility of a C/C++ library API
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
@@ -16,7 +16,7 @@
 # REQUIREMENTS
 # ============
 #  Linux
-#    - G++ (3.0-4.7, 4.8.3, 4.9 or newer)
+#    - G++ (3.0 or newer)
 #    - GNU Binutils (readelf, c++filt, objdump)
 #    - Perl 5
 #    - Ctags
@@ -27,7 +27,7 @@
 #    - Ctags
 #
 #  MS Windows
-#    - MinGW (3.0-4.7, 4.8.3, 4.9 or newer)
+#    - MinGW (3.0 or newer)
 #    - MS Visual C++ (dumpbin, undname, cl)
 #    - Active Perl 5 (5.8 or newer)
 #    - Sigcheck v2.52 or newer
@@ -60,7 +60,7 @@ use File::Basename qw(dirname);
 use Cwd qw(abs_path cwd);
 use Data::Dumper;
 
-my $TOOL_VERSION = "2.2";
+my $TOOL_VERSION = "2.3";
 my $ABI_DUMP_VERSION = "3.5";
 my $ABI_DUMP_VERSION_MIN = "3.5";
 
