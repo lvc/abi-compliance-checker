@@ -1,15 +1,15 @@
 
 Copyright (C) 2009-2011 Institute for System Programming, RAS
 Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-Copyright (C) 2012-2017 Andrey Ponomarenko's ABI Laboratory
+Copyright (C) 2012-2018 Andrey Ponomarenko's ABI Laboratory
 All rights reserved.
 
 
 RELEASE INFORMATION
 
 Project:           ABI Compliance Checker (ABICC)
-Version:           2.2
-Date:              August 30, 2017
+Version:           2.3
+Date:              May 15, 2018
 
 
 This file explains how to install and setup environment

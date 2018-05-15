@@ -44,6 +44,42 @@
 <p/>
 <br/>
 
+<b>Version 2.3 (May 15, 2018)</b><br/>
+<b>Improvements</b>
+<ul>
+    <li>
+        Support for GCC 8
+    </li>
+    <li>
+        Use -fdump-lang-class instead of -fdump-class-hierarchy
+    </li>
+    <li>
+        Enable internal mangling of C++ funcs for all future GCC versions
+    </li>
+    <li>
+        Added -keep-reserved option to report changes in reserved fields
+    </li>
+    <li>
+        Fixed license to LGPL 2.1
+    </li>
+</ul>
+<b>Bug Fixes</b>
+<ul>
+    <li>
+        Fix detection of GCC 7 compiled with --with-gcc-major-version-only
+    </li>
+    <li>
+        Redirect stderr of ‘objdump -f’ to null
+    </li>
+    <li>
+        Escape braces in regex for compatibility with future Perl 5 versions
+    </li>
+    <li>
+        Fixed internal mangling
+    </li>
+</ul>
+<br/>
+
 <b>Version 2.2 (August 30, 2017)</b><br/>
 <b>Improvements</b>
 <ul>
