@@ -152,6 +152,7 @@ GetOptions(
   "s|strict!" => \$In::Opt{"StrictCompat"},
   "binary|bin|abi!" => \$In::Opt{"BinOnly"},
   "source|src|api!" => \$In::Opt{"SrcOnly"},
+  "warn-newsym!" => \$In::Opt{"WarnNewSym"},
 # Report path
   "report-path=s" => \$In::Opt{"OutputReportPath"},
   "bin-report-path=s" => \$In::Opt{"BinReportPath"},
@@ -498,6 +499,10 @@ REPORT OPTIONS:
   -s|-strict
       Treat all compatibility warnings as problems. Add a number of \"Low\"
       severity problems to the return value of the tool.
+
+  -warn-newsym
+      Treat new symbols as problems, because that breaks semantic versioning.
+      For more info please visit https://semver.org/
 
 REPORT PATH OPTIONS:
   -report-path PATH
@@ -6640,6 +6645,9 @@ sub getSummary($)
     }
     else {
         $RESULT{$Level}{"Warnings"} += $T_Problems_Low + $I_Problems_Low;
+    }
+    if($In::Opt{"WarnNewSym"}) {
+        $RESULT{$Level}{"Problems"} += $Added;
     }
     
     foreach my $Constant (keys(%{$CompatProblems_Constants{$Level}}))
