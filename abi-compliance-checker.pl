@@ -9529,6 +9529,10 @@ sub createABIFile($$)
         open(DUMP, ">", $DPath) || die ("can't open file \'$DPath\': $!\n");
         print DUMP $ABI_DUMP;
         close(DUMP);
+
+        # Ensure contents of archive have deterministic contents
+        chmod(0644, $DPath);
+        utime(0, 0, $DPath);
         
         if(not -s $DPath) {
             exitStatus("Error", "can't create ABI dump because something is going wrong with the Data::Dumper module");
