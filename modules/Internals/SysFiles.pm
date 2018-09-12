@@ -2316,7 +2316,7 @@ sub addTargetHeaders($)
         {
             my $Dir = getDirname($RecInc);
             
-            if(familiarDirs($RegDir, $Dir) 
+            if(($In::Opt{"DumpSystem"} and familiarDirs($RegDir, $Dir))
             or $RecursiveIncludes{$LVer}{$RegHeader}{$RecInc}<1)
             { # in the same directory or included by #include "..."
                 $In::Desc{$LVer}{"TargetHeader"}{getFilename($RecInc)} = 1;
