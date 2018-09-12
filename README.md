@@ -52,14 +52,14 @@ Usage
 
 2. Create ABI dumps for both library versions using the ABI Dumper (https://github.com/lvc/abi-dumper) tool:
 
-        abi-dumper OLD.so -o ABI-0.dump -lver 0
-        abi-dumper NEW.so -o ABI-1.dump -lver 1
+        abi-dumper OLD.so -o ABI-1.dump -lver 1
+        abi-dumper NEW.so -o ABI-2.dump -lver 2
 
 3. You can filter public ABI with the help of additional `-public-headers` option of the ABI Dumper tool
 
 4. Compare ABI dumps to create report:
 
-        abi-compliance-checker -l NAME -old ABI-0.dump -new ABI-1.dump
+        abi-compliance-checker -l NAME -old ABI-1.dump -new ABI-2.dump
 
 ###### Compile headers
 
