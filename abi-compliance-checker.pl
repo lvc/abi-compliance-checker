@@ -447,7 +447,7 @@ EXTRA OPTIONS:
       Alias for: --report-format=xml or --dump-format=xml
 
   -app|-application PATH
-      This option allows to specify the application that should be checked
+      This option allows one to specify the application that should be checked
       for portability to the new library version.
 
   -headers-only
@@ -477,7 +477,7 @@ TEST OPTIONS:
   -test
       Run internal tests. Create two binary incompatible versions of a sample
       library and run the tool to check them for compatibility. This option
-      allows to check if the tool works correctly in the current environment.
+      allows one to check if the tool works correctly in the current environment.
 
   -test-dump
       Test ability to create, read and compare ABI dumps.
@@ -603,11 +603,11 @@ ABI DUMP OPTIONS:
 
 FILTER SYMBOLS OPTIONS:
   -symbols-list PATH
-      This option allows to specify a file with a list of symbols (mangled
+      This option allows one to specify a file with a list of symbols (mangled
       names in C++) that should be checked. Other symbols will not be checked.
 
   -types-list PATH
-      This option allows to specify a file with a list of types that should
+      This option allows one to specify a file with a list of types that should
       be checked. Other types will not be checked.
 
   -skip-symbols PATH
