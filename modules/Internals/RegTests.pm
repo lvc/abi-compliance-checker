@@ -4954,7 +4954,7 @@ sub runTests($$$$$$$$)
             $BuildCmd = $GccPath." -shared -x c++ $ObjName.$SrcE -lstdc++ -o $ObjName.$LExt -g -Og";
             $BuildCmd_Test = $GccPath." -x c++ test.$SrcE -lstdc++ -Wl,$ObjName.$LExt -o test";
         }
-        if(getArch_GCC(1)=~/\A(arm|x86_64)\Z/i)
+        if(getArch_GCC(1)=~/\A(arm|aarch64|x86_64)\Z/i)
         { # relocation R_ARM_MOVW_ABS_NC against `a local symbol' can not be used when making a shared object; recompile with -fPIC
             $BuildCmd .= " -fPIC -DPIC";
             $BuildCmd_Test .= " -fPIC -DPIC";
