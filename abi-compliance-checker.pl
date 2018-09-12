@@ -9608,7 +9608,7 @@ sub readABIDump($$)
         }
     }
     
-    if(cmpVersions($ABIVer, $ABI_DUMP_VERSION_MIN)<0) {
+    if(cmpVersions($ABIVer, $ABI_DUMP_VERSION_MIN)<0 and not $In::Opt{"CountSymbols"}) {
         exitStatus("Dump_Version", "the version of the ABI dump is too old and unsupported anymore, please regenerate it");
     }
     
