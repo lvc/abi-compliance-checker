@@ -1,7 +1,7 @@
 ###########################################################################
 # A module to find system files and automatically generate include paths
 #
-# Copyright (C) 2015-2018 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2015-2019 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -768,7 +768,7 @@ sub detectDefaultPaths($$$$)
               # GCC 7.1: still the same issue ...
               # GCC 8: still the same issue ...
               # ABICC 2.3: enable this for all future GCC versions
-                printMsg("WARNING", "May not work properly with GCC 4.8.[0-2], 6.* and higher due to bug #78040 in GCC. Please try other GCC versions with the help of --gcc-path=PATH option or create ABI dumps by ABI Dumper tool instead to avoid using GCC. Test selected GCC version first by -test option.");
+                printMsg("WARNING", "May not work properly with GCC 4.8.[0-2], 6.* and higher due to bug #78040 in GCC. Please try other GCC versions with the help of --gcc-path=PATH option or create ABI dumps by ABI Dumper tool instead to avoid using GCC. Test selected GCC version first by -test and -gcc-path options.");
                 $In::Opt{"GccMissedMangling"} = 1;
             }
         }

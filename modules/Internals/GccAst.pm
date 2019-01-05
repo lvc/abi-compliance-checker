@@ -1,7 +1,7 @@
 ###########################################################################
 # A module to parse GCC AST
 #
-# Copyright (C) 2015-2018 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2015-2019 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -2495,6 +2495,30 @@ sub detectLang($)
 {
     my $TypeId = $_[0];
     my $Info = $LibInfo{$V}{"info"}{$TypeId};
+    
+    if(checkGcc("8"))
+    {
+        if(getTreeAttr_VFld($TypeId)) {
+            return 1;
+        }
+        
+        if(my $Chain = getTreeAttr_Flds($TypeId))
+        {
+            while(1)
+            {
+                if($LibInfo{$V}{"info_type"}{$Chain} eq "function_decl") {
+                    return 1;
+                }
+                
+                $Chain = getTreeAttr_Chain($Chain);
+                
+                if(not $Chain) {
+                    last;
+                }
+            }
+        }
+    }
+    
     if(checkGcc("4"))
     { # GCC 4 fncs-node points to only non-artificial methods
         return ($Info=~/(fncs)[ ]*:[ ]*@(\d+) /);
@@ -2510,6 +2534,7 @@ sub detectLang($)
             $Fncs = getTreeAttr_Chan($Fncs);
         }
     }
+    
     return 0;
 }
 
@@ -3149,6 +3174,17 @@ sub getTreeAttr_Flds($)
     if($_[0] and my $Info = $LibInfo{$V}{"info"}{$_[0]})
     {
         if($Info=~/flds[ ]*:[ ]*@(\d+) /) {
+            return $1;
+        }
+    }
+    return "";
+}
+
+sub getTreeAttr_VFld($)
+{
+    if($_[0] and my $Info = $LibInfo{$V}{"info"}{$_[0]})
+    {
+        if($Info=~/vfld[ ]*:[ ]*@(\d+) /) {
             return $1;
         }
     }

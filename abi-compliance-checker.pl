@@ -5,7 +5,7 @@
 #
 # Copyright (C) 2009-2011 Institute for System Programming, RAS
 # Copyright (C) 2011-2012 Nokia Corporation and/or its subsidiary(-ies)
-# Copyright (C) 2012-2018 Andrey Ponomarenko's ABI Laboratory
+# Copyright (C) 2012-2019 Andrey Ponomarenko's ABI Laboratory
 #
 # Written by Andrey Ponomarenko
 #
@@ -99,7 +99,7 @@ my %HomePage = (
 
 my $ShortUsage = "ABI Compliance Checker (ABICC) $TOOL_VERSION
 A tool for checking backward compatibility of a C/C++ library API
-Copyright (C) 2018 Andrey Ponomarenko's ABI Laboratory
+Copyright (C) 2019 Andrey Ponomarenko's ABI Laboratory
 License: GNU LGPL 2.1
 
 Usage: $CmdName [options]
@@ -10319,7 +10319,7 @@ sub scenario()
     }
     if($In::Opt{"ShowVersion"})
     {
-        printMsg("INFO", "ABI Compliance Checker (ABICC) $TOOL_VERSION\nCopyright (C) 2018 Andrey Ponomarenko's ABI Laboratory\nLicense: GNU LGPL 2.1 <http://www.gnu.org/licenses/>\nThis program is free software: you can redistribute it and/or modify it.\n\nWritten by Andrey Ponomarenko.");
+        printMsg("INFO", "ABI Compliance Checker (ABICC) $TOOL_VERSION\nCopyright (C) 2019 Andrey Ponomarenko's ABI Laboratory\nLicense: GNU LGPL 2.1 <http://www.gnu.org/licenses/>\nThis program is free software: you can redistribute it and/or modify it.\n\nWritten by Andrey Ponomarenko.");
         exit(0);
     }
     if($In::Opt{"DumpVersion"})
