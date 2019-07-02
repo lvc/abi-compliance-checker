@@ -1822,13 +1822,13 @@ sub getHeaderDeps($$)
             if($Prefix)
             {
                 if($In::Opt{"OS"} eq "windows")
-                { # case insensitive seach on windows
+                { # case insensitive search on windows
                     if(not $Dep=~s/[\/\\]+\Q$Prefix\E\Z//ig) {
                         next;
                     }
                 }
                 elsif($In::Opt{"OS"} eq "macos")
-                { # seach in frameworks
+                { # search in frameworks
                     if(not $Dep=~s/[\/\\]+\Q$Prefix\E\Z//g)
                     {
                         if($HeaderPath=~/(.+\.framework)\/Headers\/([^\/]+)/)
