@@ -690,7 +690,7 @@ OTHER OPTIONS:
 
   -arch ARCH
       Set library architecture (x86, x86_64, ia64, arm, ppc32, ppc64, s390,
-      ect.). The option is useful if the tool cannot detect correct architecture
+      etc.). The option is useful if the tool cannot detect correct architecture
       of the input objects.
 
   -mingw-compatible
@@ -1234,7 +1234,7 @@ sub getSignature($$$)
                 
                 my $PName = $CompSign{$LVer}{$Symbol}{"Param"}{$PPos}{"name"};
                 if($Mngl and ($PName eq "this" or $PName eq "__in_chrg" or $PName eq "__vtt_parm"))
-                { # do NOT show first hidded "this"-parameter
+                { # do NOT show first hidden "this"-parameter
                     next;
                 }
                 
@@ -9730,7 +9730,7 @@ sub prepareCompare($)
             foreach my $SubId (keys(%{$TInfo->{"Base"}}))
             {
                 if($SubId eq $TypeId)
-                { # Fix erroneus ABI dump
+                { # Fix erroneous ABI dump
                     delete($TypeInfo{$LVer}{$TypeId}{"Base"}{$SubId});
                     next;
                 }
