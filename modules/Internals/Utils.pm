@@ -312,7 +312,7 @@ sub platformSpecs($)
             "-DSHSTDAPI_(x)=x",
             "-D_MSC_EXTENSIONS",
             "-DSECURITY_WIN32",
-            "-D_MSC_VER=1500",
+            "-D_MSC_VER=1920",
             "-D_USE_DECLSPECS_FOR_SAL",
             "-D__noop=\" \"",
             "-DDECLSPEC_DEPRECATED=\" \"",
