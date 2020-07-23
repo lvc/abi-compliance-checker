@@ -214,7 +214,7 @@ sub xmlSpecChars($)
         return $Str;
     }
     
-    $Str=~s/\&([^#]|\Z)/&amp;$1/g;
+    $Str=~s/\&(?!#([0-9]+|x[0-9a-fA-F]+);)/&amp;/g;
     $Str=~s/</&lt;/g;
     $Str=~s/>/&gt;/g;
     
