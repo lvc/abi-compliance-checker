@@ -862,7 +862,7 @@ sub unmangleArray(@)
             }
             else
             {
-                my $Strings = join(" ", @_);
+                my $Strings = "'" . join("' '", @_) . "'";
                 my $Res = `$CppFiltCmd $NoStrip $Strings`;
                 if($?==139)
                 { # segmentation fault
