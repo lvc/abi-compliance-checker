@@ -45,6 +45,7 @@ my %C_Structure = map {$_=>1} (
     "stat64",
     "_stat64",
     "_stati64",
+    "statx",
     "if_nameindex",
     "usb_device",
     "sigaltstack",
