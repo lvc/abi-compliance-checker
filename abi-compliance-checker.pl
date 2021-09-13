@@ -135,7 +135,8 @@ GetOptions(
   "gcc-path|cross-gcc=s" => \$In::Opt{"CrossGcc"},
   "gcc-prefix|cross-prefix=s" => \$In::Opt{"CrossPrefix"},
   "gcc-options=s" => \$In::Opt{"GccOptions"},
-  "count-symbols=s" => \$In::Opt{"CountSymbols"},
+  "count-symbols=s" => \$In::Opt{"CountPubSymbols"},
+  "count-all-symbols=s" => \$In::Opt{"CountAllSymbols"},
   "use-dumps!" => \$In::Opt{"UseDumps"},
   "xml!" => \$In::Opt{"UseXML"},
   "app|application=s" => \$In::Opt{"AppPath"},
@@ -9608,7 +9609,7 @@ sub readABIDump($$)
         }
     }
     
-    if(cmpVersions($ABIVer, $ABI_DUMP_VERSION_MIN)<0 and not $In::Opt{"CountSymbols"}) {
+    if(cmpVersions($ABIVer, $ABI_DUMP_VERSION_MIN)<0 and not $In::Opt{"CountPubSymbols"}) {
         exitStatus("Dump_Version", "the version of the ABI dump is too old and unsupported anymore, please regenerate it");
     }
     
@@ -10180,6 +10181,10 @@ sub scenario()
         $In::Opt{"TargetComponent"} = "library";
     }
     
+    if($In::Opt{"CountAllSymbols"}) {
+        $In::Opt{"CountPubSymbols"} = $In::Opt{"CountAllSymbols"};
+    }
+    
     foreach (keys(%{$In::Desc{0}}))
     { # common options
         $In::Desc{1}{$_} = $In::Desc{0}{$_};
@@ -10492,7 +10497,7 @@ sub scenario()
         exit(0);
     }
     
-    if(not $In::Opt{"CountSymbols"})
+    if(not $In::Opt{"CountPubSymbols"})
     {
         if(not $In::Opt{"TargetLib"}) {
             exitStatus("Error", "library name is not selected (-l option)");
@@ -10604,7 +10609,7 @@ sub scenario()
         }
     }
     
-    if(my $Path = $In::Opt{"CountSymbols"})
+    if(my $Path = $In::Opt{"CountPubSymbols"})
     {
         if(not -e $Path) {
             exitStatus("Access_Error", "can't access \'$Path\'");
@@ -10639,7 +10644,7 @@ sub scenario()
                 next;
             }
             
-            if(not $CompSign{1}{$Symbol}{"Header"})
+            if(not $CompSign{1}{$Symbol}{"Header"} and not $In::Opt{"CountAllSymbols"})
             {
                 if(index($CompSign{1}{$Symbol}{"Source"}, ".f")==-1)
                 { # Fortran
