@@ -60,6 +60,9 @@ use File::Basename qw(dirname);
 use Cwd qw(abs_path cwd);
 use Data::Dumper;
 
+# stupid pipe tricks
+use IO::Handle;
+
 my $TOOL_VERSION = "2.3";
 my $ABI_DUMP_VERSION = "3.5";
 my $ABI_DUMP_VERSION_MIN = "3.5";
@@ -9349,9 +9352,9 @@ sub unpackDump($)
                 exitStatus("Not_Found", "can't find \"tar\" command");
             }
             chdir($UnpackDir);
-            system("$TarCmd -xvzf \"$Path\" >\"$TmpDir/null\"");
-            if($?) {
-                exitStatus("Error", "can't extract \'$Path\' ($?): $!");
+            my @res = child_exec("$TarCmd -xvzf \"$Path\" >\"$TmpDir/null\"");
+            if($res[0]) {
+                exitStatus("Error", "can't extract \'$Path\' ($res[0]): $res[1]");
             }
             chdir($In::Opt{"OrigDir"});
             my @Contents = cmdFind($UnpackDir, "f");
@@ -9380,11 +9383,11 @@ sub createArchive($$)
         my $Pkg = $To."/".$Name.".zip";
         unlink($Pkg);
         chdir($To);
-        system("$ZipCmd -j \"$Name.zip\" \"$Path\" >\"".$In::Opt{"Tmp"}."/null\"");
-        if($?)
+        my @res = child_exec("$ZipCmd -j \"$Name.zip\" \"$Path\" >\"".$In::Opt{"Tmp"}."/null\"");
+        if($res[0])
         { # cannot allocate memory (or other problems with "zip")
             chdir($In::Opt{"OrigDir"});
-            exitStatus("Error", "can't pack the ABI dump: ".$!);
+            exitStatus("Error", "can't pack the ABI dump: ".$res[1]);
         }
         chdir($In::Opt{"OrigDir"});
         unlink($Path);
@@ -9404,10 +9407,10 @@ sub createArchive($$)
         if(-e $Pkg) {
             unlink($Pkg);
         }
-        system($TarCmd, "-C", $From, "-czf", $Pkg, $Name);
-        if($?)
+        @res = child_exec($TarCmd, "-C", $From, "-czf", $Pkg, $Name);
+        if($res[0])
         { # cannot allocate memory (or other problems with "tar")
-            exitStatus("Error", "can't pack the ABI dump: ".$!);
+            exitStatus("Error", "can't pack the ABI dump: ".$res[1]);
         }
         unlink($Path);
         return $To."/".$Name.".tar.gz";
@@ -10152,6 +10155,37 @@ sub initAliases($)
     initAliases_TypeAttr($LVer);
 }
 
+sub child_exec(@)
+{
+    # known failure to handle values that need shell escaping.
+    print CHILD_WTR join(' ',@_) . "\n";
+    chomp($line = <CHILD_RDR>);
+    my @results = split(/ /,$line, 2);
+    return (int($results[0]),$results[1]);
+}
+
+sub reap_child(@)
+{
+    my ($handle, $pid) = @_;
+    print $handle "exit\n";
+    close $handle;
+    waitpid($pid,0);
+}
+
+sub exec_helper(@)
+{
+    my ($reader, $writer) = @_;
+    while(1) {
+        chomp($line = <$reader>);
+	next if (!$line);
+        if ($line eq 'exit') {
+            exit(0);
+        }
+        system($line);
+        print $writer "$? $!\n";
+    }
+}
+
 sub scenario()
 {
     setTarget("default");
@@ -10408,6 +10442,22 @@ sub scenario()
         testTool();
         exit(0);
     }
+
+    # stupid pipe tricks
+    pipe(PARENT_RDR, CHILD_WTR);
+    pipe(CHILD_RDR, PARENT_WTR);
+    CHILD_WTR->autoflush(1);
+    PARENT_WTR->autoflush(1);
+    if ($helper_pid = fork()) {
+        close PARENT_RDR;
+        close PARENT_WTR;
+    } else {
+        die "cannot fork: $!" unless defined $helper_pid;
+        close CHILD_RDR;
+        close CHILD_WTR;
+        exec_helper(PARENT_RDR, PARENT_WTR);
+    }
+
     if($In::Opt{"DumpSystem"})
     { # --dump-system
         if(not $In::Opt{"TargetSysInfo"})
@@ -10419,10 +10469,12 @@ sub scenario()
         }
         
         if(not $In::Opt{"TargetSysInfo"}) {
+            reap_child(CHILD_WTR, $helper_pid);
             exitStatus("Error", "-sysinfo option should be specified to dump system ABI");
         }
         
         if(not -d $In::Opt{"TargetSysInfo"}) {
+            reap_child(CHILD_WTR, $helper_pid);
             exitStatus("Access_Error", "can't access \'".$In::Opt{"TargetSysInfo"}."\'");
         }
         
@@ -10430,6 +10482,7 @@ sub scenario()
         if($In::Opt{"DumpSystem"}=~/\.(xml|desc)\Z/)
         { # system XML descriptor
             if(not -f $In::Opt{"DumpSystem"}) {
+                reap_child(CHILD_WTR, $helper_pid);
                 exitStatus("Access_Error", "can't access file \'".$In::Opt{"DumpSystem"}."\'");
             }
             
@@ -10447,12 +10500,15 @@ sub scenario()
             my $SystemRoot = $In::Opt{"SystemRoot"};
             
             if(not -e $SystemRoot."/usr/lib") {
+                reap_child(CHILD_WTR, $helper_pid);
                 exitStatus("Access_Error", "can't access '".$SystemRoot."/usr/lib'");
             }
             if(not -e $SystemRoot."/lib") {
+                reap_child(CHILD_WTR, $helper_pid);
                 exitStatus("Access_Error", "can't access '".$SystemRoot."/lib'");
             }
             if(not -e $SystemRoot."/usr/include") {
+                reap_child(CHILD_WTR, $helper_pid);
                 exitStatus("Access_Error", "can't access '".$SystemRoot."/usr/include'");
             }
             readSysDesc("
@@ -10470,6 +10526,7 @@ sub scenario()
                 </search_libs>");
         }
         else {
+            reap_child(CHILD_WTR, $helper_pid);
             exitStatus("Error", "-sysroot <dirpath> option should be specified, usually it's \"/\"");
         }
         detectDefaultPaths(undef, undef, "bin", "gcc"); # to check symbols
@@ -10479,6 +10536,7 @@ sub scenario()
             checkWin32Env();
         }
         dumpSystem();
+        reap_child(CHILD_WTR, $helper_pid);
         exit(0);
     }
     
@@ -10494,17 +10552,20 @@ sub scenario()
         }
         
         cmpSystems($In::Desc{1}{"Path"}, $In::Desc{2}{"Path"});
+        reap_child(CHILD_WTR, $helper_pid);
         exit(0);
     }
     
     if(not $In::Opt{"CountPubSymbols"})
     {
         if(not $In::Opt{"TargetLib"}) {
+            reap_child(CHILD_WTR, $helper_pid);
             exitStatus("Error", "library name is not selected (-l option)");
         }
         else
         { # validate library name
             if($In::Opt{"TargetLib"}=~/[\*\/\\]/) {
+                reap_child(CHILD_WTR, $helper_pid);
                 exitStatus("Error", "\"\\\", \"\/\" and \"*\" symbols are not allowed in the library name");
             }
         }
@@ -10517,6 +10578,7 @@ sub scenario()
     if(my $SymbolsListPath = $In::Opt{"SymbolsListPath"})
     {
         if(not -f $SymbolsListPath) {
+            reap_child(CHILD_WTR, $helper_pid);
             exitStatus("Access_Error", "can't access file \'$SymbolsListPath\'");
         }
         foreach my $S (split(/\s*\n\s*/, readFile($SymbolsListPath)))
@@ -10528,6 +10590,7 @@ sub scenario()
     if(my $TypesListPath = $In::Opt{"TypesListPath"})
     {
         if(not -f $TypesListPath) {
+            reap_child(CHILD_WTR, $helper_pid);
             exitStatus("Access_Error", "can't access file \'$TypesListPath\'");
         }
         foreach my $Type (split(/\s*\n\s*/, readFile($TypesListPath)))
@@ -10539,6 +10602,7 @@ sub scenario()
     if(my $SymbolsListPath = $In::Opt{"SkipSymbolsListPath"})
     {
         if(not -f $SymbolsListPath) {
+            reap_child(CHILD_WTR, $helper_pid);
             exitStatus("Access_Error", "can't access file \'$SymbolsListPath\'");
         }
         foreach my $Interface (split(/\s*\n\s*/, readFile($SymbolsListPath)))
@@ -10550,6 +10614,7 @@ sub scenario()
     if(my $TypesListPath = $In::Opt{"SkipTypesListPath"})
     {
         if(not -f $TypesListPath) {
+            reap_child(CHILD_WTR, $helper_pid);
             exitStatus("Access_Error", "can't access file \'$TypesListPath\'");
         }
         foreach my $Type (split(/\s*\n\s*/, readFile($TypesListPath)))
@@ -10561,6 +10626,7 @@ sub scenario()
     if(my $HeadersList = $In::Opt{"SkipHeadersPath"})
     {
         if(not -f $HeadersList) {
+            reap_child(CHILD_WTR, $helper_pid);
             exitStatus("Access_Error", "can't access file \'$HeadersList\'");
         }
         foreach my $Path (split(/\s*\n\s*/, readFile($HeadersList)))
@@ -10573,6 +10639,7 @@ sub scenario()
     if(my $ParamNamesPath = $In::Opt{"ParamNamesPath"})
     {
         if(not -f $ParamNamesPath) {
+            reap_child(CHILD_WTR, $helper_pid);
             exitStatus("Access_Error", "can't access file \'$ParamNamesPath\'");
         }
         foreach my $Line (split(/\n/, readFile($ParamNamesPath)))
@@ -10600,6 +10667,7 @@ sub scenario()
     if(my $AppPath = $In::Opt{"AppPath"})
     {
         if(not -f $AppPath) {
+            reap_child(CHILD_WTR, $helper_pid);
             exitStatus("Access_Error", "can't access file \'$AppPath\'");
         }
         
@@ -10612,6 +10680,7 @@ sub scenario()
     if(my $Path = $In::Opt{"CountPubSymbols"})
     {
         if(not -e $Path) {
+            reap_child(CHILD_WTR, $helper_pid);
             exitStatus("Access_Error", "can't access \'$Path\'");
         }
         
@@ -10656,6 +10725,7 @@ sub scenario()
         }
         
         printMsg("INFO", $Count);
+        reap_child(CHILD_WTR, $helper_pid);
         exit(0);
     }
     
@@ -10664,9 +10734,11 @@ sub scenario()
         createABIFile(1, $In::Opt{"DumpABI"});
         
         if($In::Opt{"CompileError"}) {
+            reap_child(CHILD_WTR, $helper_pid);
             exit(getErrorCode("Compile_Error"));
         }
         
+        reap_child(CHILD_WTR, $helper_pid);
         exit(0);
     }
     
@@ -10683,6 +10755,7 @@ sub scenario()
     elsif($In::Opt{"SrcOnly"}) {
         compareAPIs("Source");
     }
+    reap_child(CHILD_WTR, $helper_pid);
     exitReport();
 }
 
