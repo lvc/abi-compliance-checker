@@ -2262,6 +2262,21 @@ sub mergeBases($)
             next;
         }
         my %Class_New = getType($ClassId_New, 2);
+
+        if($Class_Old{"Type"}!~/Class|Struct/)
+        { # was typedef
+            if($Level eq "Binary") {
+                next;
+            }
+            if($Level eq "Source")
+            {
+                %Class_Old = getPureType($ClassId_Old, 1);
+                if($Class_Old{"Type"}!~/Class|Struct/) {
+                    next;
+                }
+                $ClassId_Old = $Class_Old{"Tid"};
+            }
+        }
         if($Class_New{"Type"}!~/Class|Struct/)
         { # became typedef
             if($Level eq "Binary") {
