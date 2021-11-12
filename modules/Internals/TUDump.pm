@@ -696,21 +696,20 @@ sub preChange($$$)
           # DO NOT MATCH:
           # #pragma GCC visibility push(default)
             my $Sentence_O = "$1$2$3$4";
-            
-            if($Sentence_O=~/\s+decltype\(/)
-            { # C++
-              # decltype(nullptr)
-                last;
-            }
-            else
-            {
-                $Content=~s/$Regex/$1$2c99_$3$4/g;
-                $In::Desc{$LVer}{"CppMode"} = 1;
-                if(not defined $Detected) {
-                    $Detected = $Sentence_O;
-                }
+
+            # C++
+            # decltype(nullptr)
+            # -> use temporary masking
+            $Content=~s/((?<=\s)decltype\(|(?<=decltype\()nullptr)/revert\@c99_$1/g;
+
+            $Content=~s/$Regex/$1$2c99_$3$4/g;
+            $In::Desc{$LVer}{"CppMode"} = 1;
+            if(not defined $Detected) {
+                $Detected = $Sentence_O;
             }
         }
+        # remove temporary masking from above
+        $Content=~s/revert\@c99_//g;
         if($Content=~s/([^\w\s]|\w\s+)(?<!operator )(delete)(\s*\()/$1c99_$2$3/g)
         { # MATCH:
           # int delete(...);
