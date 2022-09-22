@@ -159,12 +159,15 @@ sub getArch_Object($)
         
         my $Cmd = $OtoolCmd." -hv -arch all \"$Path\"";
         my $Out = qx/$Cmd/;
-        
+
         if($Out=~/X86_64/i) {
             return "x86_64";
         }
         elsif($Out=~/X86/i) {
             return "x86";
+        }
+        elsif($Out=~/ARM64/i) {
+            return "arm";
         }
     }
     else
