@@ -6358,6 +6358,10 @@ sub getCheckedHeaders($)
         if(not isTargetHeader($Name, $LVer)) {
             next;
         }
+
+        if(index($Name,"<built-in>")!=-1) {
+            next;
+        }
         
         if(skipHeader($Name, $LVer)) {
             next;
