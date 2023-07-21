@@ -159,7 +159,7 @@ sub specChars($)
     if(not $Str) {
         return $Str;
     }
-    $Str=~s/\&([^#]|\Z)/&amp;$1/g;
+    $Str=~s/\&[^#]/&amp;$1/g;
     $Str=~s/</&lt;/g;
     $Str=~s/\-\>/&#45;&gt;/g; # &minus;
     $Str=~s/>/&gt;/g;
@@ -214,7 +214,7 @@ sub xmlSpecChars($)
         return $Str;
     }
     
-    $Str=~s/\&([^#]|\Z)/&amp;$1/g;
+    $Str=~s/\&[^#]/&amp;$1/g;
     $Str=~s/</&lt;/g;
     $Str=~s/>/&gt;/g;
     

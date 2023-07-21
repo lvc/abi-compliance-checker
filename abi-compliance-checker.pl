@@ -8146,6 +8146,10 @@ sub getAffectedSymbols($$$)
             my $Target = "";
             if($PName)
             {
+                $PName =~ s/</&lt;/g;
+                $PName =~ s/>/&gt;/g;
+                $PName =~ s/&/&amp;/g;
+
                 $Target .= " param=\"$PName\"";
                 $Des=~s/parameter $PName /parameter \@param /;
             }
