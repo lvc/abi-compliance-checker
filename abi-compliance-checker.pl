@@ -10358,7 +10358,7 @@ sub scenario()
     if($In::Opt{"SortDump"})
     {
         $Data::Dumper::Useperl = 1;
-        $Data::Dumper::Sortkeys = \&dump_sorting;
+        $Data::Dumper::Sortkeys = \&dumpSorting;
     }
     
     if(my $TargetLibsPath = $In::Opt{"TargetLibsPath"})
