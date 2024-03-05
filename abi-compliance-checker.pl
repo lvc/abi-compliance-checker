@@ -6358,6 +6358,10 @@ sub getCheckedHeaders($)
         if(not isTargetHeader($Name, $LVer)) {
             next;
         }
+
+        if(index($Name,"<built-in>")!=-1) {
+            next;
+        }
         
         if(skipHeader($Name, $LVer)) {
             next;
@@ -8142,6 +8146,10 @@ sub getAffectedSymbols($$$)
             my $Target = "";
             if($PName)
             {
+                $PName =~ s/</&lt;/g;
+                $PName =~ s/>/&gt;/g;
+                $PName =~ s/&/&amp;/g;
+
                 $Target .= " param=\"$PName\"";
                 $Des=~s/parameter $PName /parameter \@param /;
             }
@@ -10350,7 +10358,7 @@ sub scenario()
     if($In::Opt{"SortDump"})
     {
         $Data::Dumper::Useperl = 1;
-        $Data::Dumper::Sortkeys = \&dump_sorting;
+        $Data::Dumper::Sortkeys = \&dumpSorting;
     }
     
     if(my $TargetLibsPath = $In::Opt{"TargetLibsPath"})
